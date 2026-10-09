@@ -25,7 +25,8 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "node --watch-path=src --watch-path=public scripts/build.mjs --serve"
+    "dev": "node --watch-path=src --watch-path=public scripts/build.mjs --serve",
+    "test": "node --test"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

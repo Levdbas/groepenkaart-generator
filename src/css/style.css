@@ -138,6 +138,47 @@ input:focus-visible {
   gap: 1.5rem;
 }
 
+.installation-options {
+  max-width: 928px;
+  margin: 1.5rem auto;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.installation-options legend {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.installation-options p {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.installation-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+
+.installation-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.installation-checkboxes input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
 .empty-state {
   text-align: center;
   color: var(--muted);
@@ -240,6 +281,17 @@ input[type="text"] {
 }
 
 @media (max-width: 640px) {
+  .installation-options {
+    margin: 1rem;
+    padding: 0.75rem;
+    min-width: 0;
+  }
+
+  .installation-checkboxes {
+    flex-direction: column;
+    gap: 0;
+  }
+
   .app-header {
     padding: 1rem;
   }
@@ -390,6 +442,52 @@ input[type="text"] {
 
   .print-page:last-child {
     break-after: auto;
+  }
+
+  .print-warnings {
+    display: flex;
+    gap: 4mm;
+    margin-bottom: 5mm;
+    break-inside: avoid;
+    break-after: avoid;
+    color: #000;
+    font-family: Helvetica, Arial, sans-serif;
+  }
+
+  .print-warning {
+    flex: 0 0 42mm;
+    height: 42mm;
+    border: 1.2mm solid var(--red);
+    border-radius: 3mm;
+    padding: 2mm;
+    text-align: center;
+    break-inside: avoid;
+  }
+
+  .print-warning strong {
+    display: block;
+    font-size: 7.4pt;
+    line-height: 4mm;
+    white-space: nowrap;
+  }
+
+  .print-warning strong:first-child {
+    font-size: 8pt;
+  }
+
+  .print-warning p {
+    margin: 2mm 0 1mm;
+    min-height: 9mm;
+    font-size: 6.8pt;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .print-warning svg {
+    display: block;
+    width: 24mm;
+    height: 12mm;
+    margin: 0 auto;
   }
 
   .print-page h1 {

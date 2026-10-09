@@ -3,12 +3,26 @@
 
    const STORAGE_KEY = 'groepenkaart:v1';
    const MIN_ROWS = 15;
+   const warnings = window.GroepenkaartWarnings;
 
    let state = load();
 
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
    const printEl = document.getElementById('print-area');
+   const warningInputs = warnings.definitions.map(function (warning) {
+      const checkbox = el('input', { type: 'checkbox', value: warning.id });
+      checkbox.addEventListener('change', function () {
+         state.warnings = warningInputs.filter(function (node) { return node.checked; })
+            .map(function (node) { return node.value; });
+         save();
+         renderPrint();
+      });
+      document.getElementById('installation-options').appendChild(el('label', null, [
+         checkbox, el('span', { text: warning.label })
+      ]));
+      return checkbox;
+   });
 
    function uid() {
       if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -26,7 +40,7 @@
       } catch (e) {
          console.warn('Opgeslagen gegevens konden niet worden geladen', e);
       }
-      return { boxes: [] };
+      return { boxes: [], warnings: [] };
    }
 
    function save() {
@@ -49,6 +63,7 @@
          throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
       }
       return {
+         warnings: warnings.normalize(data.warnings),
          boxes: data.boxes.map(function (box) {
             if (!box || typeof box !== 'object') throw new Error('Ongeldige kast in bestand.');
             const groups = Array.isArray(box.groups) ? box.groups : [];
@@ -189,7 +204,7 @@
 
    function renderPrint() {
       const date = 'Afgedrukt op ' + window.GroepenkaartPdf.today();
-      printEl.replaceChildren.apply(printEl, state.boxes.map(function (box) {
+      printEl.replaceChildren.apply(printEl, state.boxes.map(function (box, index) {
          const rows = box.groups.map(function (g) {
             return el('tr', null, [
                el('td', { text: g.number }),
@@ -202,6 +217,7 @@
          }
          return el('article', { className: 'print-page' }, [
             el('h1', { text: 'Groepenindeling' }),
+            index === 0 ? renderWarnings() : null,
             el('p', { className: 'print-date', text: date }),
             el('h2', { text: boxTitle(box) }),
             el('table', null, [
@@ -216,7 +232,22 @@
       }));
    }
 
+   function renderWarnings() {
+      const selected = warnings.selected(state.warnings);
+      if (!selected.length) return null;
+      return el('div', { className: 'print-warnings' }, selected.map(function (warning) {
+         return el('div', { className: 'print-warning' }, [
+            el('strong', { text: 'LET OP!' }),
+            el('strong', { text: warning.heading[0] }),
+            el('strong', { text: warning.heading[1] }),
+            el('p', { text: warnings.message }),
+            warnings.svg(warning.icon)
+         ]);
+      }));
+   }
+
    function render() {
+      warningInputs.forEach(function (node) { node.checked = state.warnings.includes(node.value); });
       boxesEl.replaceChildren.apply(boxesEl, state.boxes.map(renderBox));
       emptyEl.hidden = state.boxes.length > 0;
       renderPrint();
@@ -224,6 +255,7 @@
 
    function exportJson() {
       const data = {
+         warnings: state.warnings.slice(),
          boxes: state.boxes.map(function (b) {
             return {
                number: b.number,
@@ -248,7 +280,7 @@
       reader.onload = function () {
          try {
             const data = normalize(JSON.parse(reader.result));
-            if (state.boxes.length && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
+            if ((state.boxes.length || state.warnings.length) && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
             state = data;
             update();
          } catch (e) {
@@ -278,7 +310,7 @@
          alert('Voeg eerst een kast toe.');
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings)) {
          window.print();
       }
    });
@@ -299,8 +331,8 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (state.boxes.length && confirm('Weet je zeker dat je alle kasten en groepen wilt wissen?')) {
-         state = { boxes: [] };
+      if ((state.boxes.length || state.warnings.length) && confirm('Weet je zeker dat je alle kasten, groepen en installatiewaarschuwingen wilt wissen?')) {
+         state = { boxes: [], warnings: [] };
          update();
       }
    });
