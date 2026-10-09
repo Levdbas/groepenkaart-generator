@@ -1,0 +1,37 @@
+{
+  "name": "groepenkaart-generator",
+  "version": "1.0.0",
+  "description": "Maak je eigen groepenkaart voor de meterkast en download deze als PDF.",
+  "private": true,
+  "type": "module",
+  "homepage": "https://levdbas.github.io/groepenkaart-generator/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Levdbas/groepenkaart-generator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Levdbas/groepenkaart-generator/issues"
+  },
+  "keywords": [
+    "groepenkaart",
+    "groepenindeling",
+    "meterkast",
+    "pdf"
+  ],
+  "author": "Levdbas",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node --watch-path=src --watch-path=public scripts/build.mjs --serve"
+  },
+  "dependencies": {
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

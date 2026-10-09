@@ -40,7 +40,7 @@
     />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="{{app.css}}" />
   </head>
   <body>
     <header class="app-header no-print">
@@ -100,9 +100,7 @@
 
     <section id="print-area" class="print-area" aria-hidden="true"></section>
 
-    <script src="vendor/jspdf.umd.min.js" defer></script>
-    <script src="vendor/jspdf.plugin.autotable.min.js" defer></script>
-    <script src="js/pdf.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <script src="{{vendor.js}}" defer></script>
+    <script src="{{app.js}}" defer></script>
   </body>
 </html>

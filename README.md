@@ -1,6 +1,6 @@
 # Groepenkaart generator
 
-Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of verdeelkast te maken en als PDF te downloaden of af te drukken. De app draait volledig in de browser. Er is geen server, account of build-stap nodig, dus hij werkt direct op GitHub Pages.
+Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of verdeelkast te maken en als PDF te downloaden of af te drukken. De app draait volledig in de browser. Er is geen server of account nodig, dus hij werkt direct op GitHub Pages.
 
 **[➜ Open de Groepenkaart generator](https://levdbas.github.io/groepenkaart-generator/)**
 
@@ -16,7 +16,7 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 
 ## Gebruik
 
-1. Open de app (zie [Online zetten](#online-zetten-met-github-pages) of [Lokaal draaien](#lokaal-draaien)).
+1. Open de [web app](https://levdbas.github.io/groepenkaart-generator/) of [draai de app lokaal](#lokaal-draaien).
 2. Klik op **+ Kast toevoegen** en vul een kastnummer en een naam in, bijvoorbeeld `1` en `Meterkast begane grond`.
 3. Klik in de kast op **+ Groep toevoegen**. Het groepnummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`.
 4. Vul per groep de naam (bijvoorbeeld `Keuken`) en de omschrijving (bijvoorbeeld `Wandcontactdozen aanrecht, vaatwasser`) in.
@@ -53,41 +53,47 @@ Voorbeeld van een exportbestand:
 
 ## Lokaal draaien
 
-Open `index.html` direct in de browser, of start een simpele webserver in de projectmap:
+Voor ontwikkelen heb je [Node.js](https://nodejs.org/) 20.11 of nieuwer nodig.
 
 ```bash
-python3 -m http.server 8000
+npm install
+npm run dev
 ```
 
-Ga daarna naar <http://localhost:8000>.
+Ga daarna naar <http://localhost:8000>. Bij elke wijziging in `src/` of `public/` wordt de app opnieuw gebouwd; ververs de pagina om het resultaat te zien. Een andere poort kies je met `PORT=3000 npm run dev`.
 
-## Online zetten met GitHub Pages
+## Bouwen
 
-De workflow in [.github/workflows/pages.yml](.github/workflows/pages.yml) publiceert de site automatisch bij elke push naar `main`.
+```bash
+npm run build
+```
 
-Eenmalig instellen:
+Dit maakt de map `dist/` met daarin:
 
-1. Push de repository naar GitHub.
-2. Ga naar **Settings → Pages**.
-3. Kies bij **Source** voor **GitHub Actions**.
-4. Push naar `main`, of start de workflow handmatig via **Actions → Deploy naar GitHub Pages → Run workflow**.
+- `vendor.<hash>.js`: jsPDF en jsPDF-AutoTable uit `node_modules`, samengevoegd
+- `app.<hash>.js`: de eigen scripts uit `src/js/`, geminificeerd
+- `app.<hash>.css`: de opmaak uit `src/css/`, geminificeerd
+- `index.html` met de juiste bestandsnamen ingevuld
+- alles uit `public/` (favicons, deelafbeelding, `.nojekyll`)
 
-Na afloop staat de URL van de site in de samenvatting van de workflow, meestal `https://<gebruiker>.github.io/<repository>/`.
+De hash in de bestandsnaam is gebaseerd op de inhoud. Verandert een bestand, dan krijgt het een nieuwe naam en laadt de browser altijd de nieuwste versie. In `src/index.html` staan daarvoor placeholders (`{{app.css}}`, `{{vendor.js}}`, `{{app.js}}`) die de build vervangt.
+
+Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.yml](.github/workflows/pages.yml) `npm ci` en `npm run build` en publiceert `dist/` op GitHub Pages.
 
 ## Projectstructuur
 
 ```
 .
-├── index.html                    # Pagina en werkbalk
-├── css/style.css                 # Opmaak voor scherm en print
-├── js/app.js                     # Gegevens, invoer, opslag, import/export
-├── js/pdf.js                     # PDF genereren met jsPDF
-├── vendor/                       # jsPDF 2.5.2 en jsPDF-AutoTable 3.8.4 (MIT)
-├── .github/workflows/pages.yml   # Deploy naar GitHub Pages
-└── .nojekyll                     # Bestanden ongewijzigd serveren op Pages
+├── src/
+│   ├── index.html                # Pagina en werkbalk (met placeholders)
+│   ├── css/style.css             # Opmaak voor scherm en print
+│   ├── js/app.js                 # Gegevens, invoer, opslag, import/export
+│   └── js/pdf.js                 # PDF genereren met jsPDF
+├── public/                       # Wordt ongewijzigd naar dist/ gekopieerd
+├── scripts/build.mjs             # Build en dev-server
+├── .github/workflows/pages.yml   # Bouwen en deployen naar GitHub Pages
+└── package.json
 ```
-
-De PDF-bibliotheken staan lokaal in `vendor/`, zodat de app niet afhankelijk is van een externe CDN. Lukt het laden toch niet, dan opent **PDF downloaden** automatisch het printvenster.
 
 ## Bibliotheken
 
