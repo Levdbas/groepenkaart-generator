@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Groepenkaart generator</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="app-header no-print">
+      <h1>Groepenkaart generator</h1>
+      <p>Maak een groepenkaart voor je meterkast en download deze als PDF.</p>
+    </header>
+
+    <nav class="toolbar no-print" aria-label="Acties">
+      <button type="button" id="add-box" class="btn btn-primary">
+        + Kast toevoegen
+      </button>
+      <button type="button" id="download-pdf" class="btn">
+        PDF downloaden
+      </button>
+      <button type="button" id="print" class="btn">Afdrukken</button>
+      <span class="toolbar-spacer"></span>
+      <button type="button" id="export-json" class="btn">Exporteren</button>
+      <label class="btn" for="import-json">Importeren</label>
+      <input
+        type="file"
+        id="import-json"
+        accept="application/json,.json"
+        hidden
+      />
+      <button type="button" id="clear-all" class="btn btn-danger">
+        Alles wissen
+      </button>
+    </nav>
+
+    <main id="boxes" class="boxes no-print"></main>
+
+    <p id="empty-state" class="empty-state no-print" hidden>
+      Nog geen kasten. Klik op <strong>+ Kast toevoegen</strong> om te beginnen.
+    </p>
+
+    <section id="print-area" class="print-area" aria-hidden="true"></section>
+
+    <script src="vendor/jspdf.umd.min.js" defer></script>
+    <script src="vendor/jspdf.plugin.autotable.min.js" defer></script>
+    <script src="js/pdf.js" defer></script>
+    <script src="js/app.js" defer></script>
+  </body>
+</html>
