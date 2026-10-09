@@ -124,6 +124,7 @@ input:focus-visible {
 }
 
 .btn-icon {
+  flex: 0 0 auto;
   width: 2rem;
   height: 2rem;
   padding: 0;
@@ -186,7 +187,7 @@ input[type="text"] {
   border-radius: 4px;
 }
 
-.input-number {
+.box-header .input-number {
   width: 5rem;
 }
 
@@ -233,19 +234,101 @@ input[type="text"] {
 }
 
 @media (max-width: 640px) {
+  .app-header {
+    padding: 1rem;
+  }
+
+  .app-header > div {
+    min-width: 0;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .github-link {
+    flex: 0 0 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toolbar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.75rem 1rem;
+  }
+
+  .toolbar-spacer {
+    display: none;
+  }
+
+  .btn {
+    min-height: 44px;
+    padding: 0.5rem;
+  }
+
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .boxes {
+    margin: 1rem auto;
+    gap: 1rem;
+  }
+
+  .box {
+    min-width: 0;
+    padding: 0.75rem;
+  }
+
+  .box-header {
+    display: grid;
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .field {
+    min-width: 0;
+  }
+
+  .box-header .input-number {
+    width: 100%;
+  }
+
+  .box-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  input[type="text"] {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  .groups-table,
+  .groups-table tbody {
+    display: block;
+    width: 100%;
+  }
+
   .groups-table thead {
     display: none;
   }
 
   .groups-table tr {
     display: grid;
-    grid-template-columns: 4rem 1fr;
-    gap: 0.25rem;
-    padding: 0.5rem 0;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--border);
   }
 
   .groups-table td {
+    min-width: 0;
     border: 0;
     padding: 0;
   }
@@ -254,9 +337,16 @@ input[type="text"] {
     grid-column: 1 / -1;
   }
 
-  .groups-table .row-actions {
+  .groups-table .group-actions {
     grid-column: 1 / -1;
+  }
+
+  .row-actions {
     justify-content: flex-end;
+  }
+
+  .btn-add-group {
+    width: 100%;
   }
 }
 

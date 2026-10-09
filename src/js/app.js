@@ -126,10 +126,12 @@
          el('td', null, [input(group.number, 'Nr', 'Groepnummer', function (v) { group.number = v; }, 'input-number')]),
          el('td', null, [input(group.name, 'Naam', 'Groepnaam', function (v) { group.name = v; })]),
          el('td', null, [input(group.description, 'Omschrijving', 'Omschrijving', function (v) { group.description = v; })]),
-         el('td', { className: 'row-actions' }, [
-            iconButton('↑', 'Groep omhoog', function () { move(box.groups, index, -1); update(); }),
-            iconButton('↓', 'Groep omlaag', function () { move(box.groups, index, 1); update(); }),
-            iconButton('✕', 'Groep verwijderen', function () { box.groups.splice(index, 1); update(); }, 'btn-danger')
+         el('td', { className: 'group-actions' }, [
+            el('div', { className: 'row-actions' }, [
+               iconButton('↑', 'Groep omhoog', function () { move(box.groups, index, -1); update(); }),
+               iconButton('↓', 'Groep omlaag', function () { move(box.groups, index, 1); update(); }),
+               iconButton('✕', 'Groep verwijderen', function () { box.groups.splice(index, 1); update(); }, 'btn-danger')
+            ])
          ])
       ]);
    }
