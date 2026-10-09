@@ -11,7 +11,7 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 - Meerdere **kasten** toevoegen, elk met een nummer en een naam
 - Per kast **groepen** toevoegen met een nummer, naam en omschrijving
 - Kasten en groepen verplaatsen (↑ ↓) en verwijderen (✕)
-- **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), een EV-lader, thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als grote rode kaarten met pictogrammen onder de titel **Groepenindeling** op alleen de eerste pagina, zowel in de PDF als bij afdrukken.
+- **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), een EV-lader, thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als grote rode kaarten met pictogrammen onder de afdrukdatum op alleen de eerste pagina, zowel in de PDF als bij afdrukken.
 - **PDF downloaden**: één A4-pagina per kast, in de stijl van een standaard groepenkaart. Lege regels worden aangevuld tot 15 rijen, zodat je later nog met de hand kunt aanvullen.
 - **Afdrukken** via de printfunctie van de browser, met dezelfde opmaak
 - Automatisch **opslaan in de browser** (localStorage)

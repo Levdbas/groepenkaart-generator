@@ -98,7 +98,7 @@ test('PDF without warnings retains the original table position and 15 rows', () 
    assert.ok(!pageText(document, 1).includes('LET OP!'));
 });
 
-test('one and four warning cards fit below the title and above the standard table on A4', () => {
+test('one and four warning cards fit below the print date and above the standard table on A4', () => {
    for (const selected of [['pv'], ids]) {
       const harness = setup();
       harness.pdf.download([box()], 15, selected);
@@ -107,6 +107,7 @@ test('one and four warning cards fit below the title and above the standard tabl
       assert.equal(document.getNumberOfPages(), 1);
       assert.equal((text.match(/LET OP!/g) || []).length, selected.length);
       assert.ok(text.indexOf('LET OP!') > text.indexOf('Groepenindeling'));
+      assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
       assert.equal(document.lastAutoTable.settings.startY, 93);
       assert.ok(document.lastAutoTable.finalY < 282, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('GEVAARLIJKE DC-SPANNING'));

@@ -13,7 +13,7 @@
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
    }
 
-   function drawWarnings(doc, ids, margin) {
+   function drawWarnings(doc, ids, margin, top) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
       if (!selected.length) return 0;
@@ -21,7 +21,6 @@
       const width = 42;
       const height = 42;
       const gap = 4;
-      const top = 31;
       selected.forEach(function (warning, index) {
          const x = margin + index * (width + gap);
          const center = x + width / 2;
@@ -62,11 +61,11 @@
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(24);
          doc.text('Groepenindeling', margin, 25);
-         const offset = index === 0 ? drawWarnings(doc, warningIds || [], margin) : 0;
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(10);
          doc.setTextColor(91, 101, 115);
-         doc.text(date, margin, 31 + offset);
+         doc.text(date, margin, 31);
+         const offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 36) : 0;
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(13);
          doc.text(title(box), margin, 40 + offset);

@@ -215,8 +215,8 @@
          }
          return el('article', { className: 'print-page' }, [
             el('h1', { text: 'Groepenindeling' }),
-            index === 0 ? renderWarnings() : null,
             el('p', { className: 'print-date', text: date }),
+            index === 0 ? renderWarnings() : null,
             el('h2', { text: boxTitle(box) }),
             el('table', null, [
                el('thead', null, [el('tr', null, [
