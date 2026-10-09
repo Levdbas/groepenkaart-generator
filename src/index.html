@@ -98,6 +98,26 @@
       <div id="installation-options" class="installation-checkboxes"></div>
     </fieldset>
 
+    <fieldset class="installation-options rcbo-options no-print" aria-describedby="rcbo-help">
+      <legend>Aardlekautomaten</legend>
+      <p id="rcbo-help">
+        Koppel groepen aan een aardlekautomaat. Op de groepenkaart krijgt het
+        groepnummer de kleur en code van de gekoppelde aardlekautomaat.
+      </p>
+      <div class="installation-checkboxes">
+        <label>
+          <input type="checkbox" id="rcbo-enabled" />
+          <span>Groepen koppelen aan Aardlekautomaten</span>
+        </label>
+      </div>
+      <div id="rcbo-panel" class="rcbo-panel" hidden>
+        <ul id="rcbo-list" class="rcbo-list"></ul>
+        <button type="button" id="add-rcbo" class="btn btn-primary">
+          + Aardlekautomaat toevoegen
+        </button>
+      </div>
+    </fieldset>
+
     <main id="boxes" class="boxes no-print"></main>
 
     <p id="empty-state" class="empty-state no-print" hidden>

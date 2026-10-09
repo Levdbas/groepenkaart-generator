@@ -45,13 +45,47 @@
       return height + 5;
    }
 
+   // Draws a wrapping key of the RCBOs used on this page and returns the height it takes.
+   function drawRcboKey(doc, entries, margin, top) {
+      if (!entries.length) return 0;
+      const rcbo = window.GroepenkaartRcbo;
+      const right = doc.internal.pageSize.getWidth() - margin;
+      const lineHeight = 6;
+      const swatch = 4;
+      let x = margin;
+      let y = top;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 30, 30);
+      doc.text('Aardlekautomaten:', x, y + 3.2);
+      x += doc.getTextWidth('Aardlekautomaten:') + 3;
+      doc.setFont('helvetica', 'normal');
+      doc.setDrawColor(30, 30, 30);
+      doc.setLineWidth(0.2);
+      entries.forEach(function (entry) {
+         const text = rcbo.keyText(entry);
+         const width = swatch + 1.5 + doc.getTextWidth(text);
+         if (x > margin && x + width > right) {
+            x = margin;
+            y += lineHeight;
+         }
+         doc.setFillColor.apply(doc, rcbo.rgb(entry.rcbo.color));
+         doc.rect(x, y, swatch, swatch, 'FD');
+         doc.text(text, x + swatch + 1.5, y + 3.2);
+         x += width + 5;
+      });
+      return y - top + lineHeight + 1;
+   }
+
    // Returns false when jsPDF is unavailable so the caller can fall back to printing.
-   function download(boxes, minRows, warningIds) {
+   function download(boxes, minRows, warningIds, rcbos) {
       if (!window.jspdf || !window.jspdf.jsPDF) return false;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       if (typeof doc.autoTable !== 'function') return false;
 
+      const rcbo = window.GroepenkaartRcbo;
+      const lookup = rcbo.index(rcbos);
       const margin = 15;
       const date = 'Afgedrukt op ' + today();
 
@@ -70,12 +104,14 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(13);
          doc.text(title(box), margin, 40 + offset);
+         const keyHeight = drawRcboKey(doc, rcbo.used(rcbos, box.groups), margin, 43 + offset);
 
-         const body = box.groups.map(function (g) { return [g.number, g.name, g.description]; });
+         const entries = box.groups.map(function (g) { return lookup[g.rcboId]; });
+         const body = box.groups.map(function (g, i) { return [rcbo.cellText(g.number, entries[i]), g.name, g.description]; });
          for (let i = box.groups.length; i < minRows; i++) body.push(['', '', '']);
 
          doc.autoTable({
-            startY: 46 + offset,
+            startY: 46 + offset + keyHeight,
             margin: { left: margin, right: margin },
             head: [['Groep', 'Naam', 'Omschrijving']],
             body: body,
@@ -100,6 +136,13 @@
             columnStyles: {
                0: { cellWidth: 22, halign: 'center' },
                1: { cellWidth: 55 }
+            },
+            didParseCell: function (data) {
+               const entry = data.section === 'body' && data.column.index === 0 && entries[data.row.index];
+               if (!entry) return;
+               data.cell.styles.fillColor = rcbo.rgb(entry.rcbo.color);
+               data.cell.styles.textColor = rcbo.rgb(rcbo.textColor(entry.rcbo.color));
+               data.cell.styles.fontStyle = 'bold';
             }
          });
       });
