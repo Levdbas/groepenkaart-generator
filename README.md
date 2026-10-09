@@ -51,16 +51,27 @@ Voorbeeld van een exportbestand:
 }
 ```
 
-## Lokaal draaien
+## Lokaal draaien / development
 
-Voor ontwikkelen heb je [Node.js](https://nodejs.org/) 20.11 of nieuwer nodig.
+Je hebt [Node.js](https://nodejs.org/) 20.11 of nieuwer nodig. De app moet eerst gebouwd worden: `src/index.html` direct in de browser openen werkt niet, omdat de CSS- en JS-bestanden pas tijdens de build worden ingevuld.
 
-```bash
-npm install
-npm run dev
-```
+1. Haal de code op en installeer de dependencies:
 
-Ga daarna naar <http://localhost:8000>. Bij elke wijziging in `src/` of `public/` wordt de app opnieuw gebouwd; ververs de pagina om het resultaat te zien. Een andere poort kies je met `PORT=3000 npm run dev`.
+   ```bash
+   git clone https://github.com/Levdbas/groepenkaart-generator.git
+   cd groepenkaart-generator
+   npm install
+   ```
+
+2. Start de ontwikkelserver:
+
+   ```bash
+   npm run dev
+   ```
+
+   Dit bouwt de app naar `dist/` en start een webserver op <http://localhost:8000>. Bij elke wijziging in `src/` of `public/` wordt de app automatisch opnieuw gebouwd. Ververs daarna de pagina om het resultaat te zien. Een andere poort kies je met `PORT=3000 npm run dev`.
+
+3. Wil je alleen de bestanden bouwen, zonder server? Gebruik dan `npm run build` (zie [Bouwen](#bouwen)).
 
 ## Bouwen
 
