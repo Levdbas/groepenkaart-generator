@@ -13,7 +13,7 @@ const vendorFiles = [
    // Must come after jsPDF: it attaches autoTable to window.jspdf on load.
    'node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js',
 ];
-const appFiles = ['src/js/warnings.js', 'src/js/schema.js', 'src/js/pdf.js', 'src/js/app.js'];
+const appFiles = ['src/js/warnings.js', 'src/js/rcbo.js', 'src/js/schema.js', 'src/js/pdf.js', 'src/js/app.js'];
 
 const read = (file) => readFile(join(root, file), 'utf8');
 const hash = (content) => createHash('sha256').update(content).digest('hex').slice(0, 8);

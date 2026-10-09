@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
-const sources = await Promise.all(['warnings', 'pdf'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcbo', 'pdf'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 
 function setup() {
@@ -151,3 +151,60 @@ test('missing PDF dependencies still trigger the existing print fallback', () =>
    harness.window.jspdf = { jsPDF: function () { return {}; } };
    assert.equal(harness.pdf.download([box()], 15, ids), false);
 });
+
+const rcbos = [
+   { id: 'r1', number: 'A1', name: 'Keuken en badkamer', color: '#003f7d' },
+   { id: 'r2', number: '', name: '', color: '#fdd835' },
+   { id: 'r3', number: 'A3', name: 'Ongebruikt', color: '#43a047' }
+];
+function linkedBox(number = '1', links = ['r1', null, 'r2']) {
+   const result = box(number, links.length);
+   result.groups.forEach((group, index) => { group.rcboId = links[index]; });
+   return result;
+}
+
+test('linked groups get a colored group-number cell with the RCBO code and readable text', () => {
+   const harness = setup();
+   assert.equal(harness.pdf.download([linkedBox()], 15, [], rcbos), true);
+   const document = harness.document();
+   const cells = document.lastAutoTable.body.map((row) => row.cells[0]);
+   assert.equal(cells[0].text.join(' '), '1 · A1');
+   assert.deepEqual(Array.from(cells[0].styles.fillColor), [0, 63, 125]);
+   assert.deepEqual(Array.from(cells[0].styles.textColor), [255, 255, 255]);
+   assert.equal(cells[1].text.join(' '), '2');
+   assert.ok(!Array.isArray(cells[1].styles.fillColor), 'unlinked groups keep the default fill');
+   assert.equal(cells[2].text.join(' '), '3 · A2', 'empty RCBO codes fall back to their position');
+   assert.deepEqual(Array.from(cells[2].styles.textColor), [0, 0, 0]);
+   assert.ok(!Array.isArray(cells[3].styles.fillColor), 'padding rows stay unmarked');
+   const text = pageText(document, 1);
+   assert.ok(text.includes('Aardlekautomaten:'));
+   assert.ok(text.includes('(A1 \x96 Keuken en badkamer)'), 'en dash uses WinAnsi encoding');
+   assert.ok(!text.includes('Ongebruikt'), 'only RCBOs used on the page appear in the key');
+   assert.ok(document.lastAutoTable.settings.startY > 46);
+});
+
+test('the RCBO key is per page and the table still fits with warnings and a wrapped key', () => {
+   const many = Array.from({ length: 8 }, (_, i) => ({
+      id: `r${i}`, number: `A${i + 1}`, name: `Aardlekautomaat met lange naam ${i + 1}`, color: '#e53935'
+   }));
+   const harness = setup();
+   harness.pdf.download([linkedBox('1', many.map((r) => r.id).concat(Array(7).fill(null)))], 15, ids, many);
+   assert.equal(harness.document().getNumberOfPages(), 1);
+   assert.ok(harness.document().lastAutoTable.finalY < 282, '15 rows must fit with warnings and a wrapped key');
+   assert.ok(pageText(harness.document(), 1).includes('lange naam 8'));
+
+   harness.pdf.download([linkedBox('1', many.map((r) => r.id)), box('2')], 15, ids, many);
+   const document = harness.document();
+   assert.equal(document.getNumberOfPages(), 2);
+   assert.ok(!pageText(document, 2).includes('Aardlekautomaten:'));
+   assert.equal(document.lastAutoTable.settings.startY, 46);
+});
+
+test('without RCBOs the PDF output is unchanged', () => {
+   const harness = setup();
+   harness.pdf.download([box()], 15, [], []);
+   const document = harness.document();
+   assert.equal(document.lastAutoTable.settings.startY, 46);
+   assert.ok(!pageText(document, 1).includes('Aardlekautomaten'));
+});
+
