@@ -5,6 +5,7 @@
    const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
+   const rcboHelpers = window.GroepenkaartRcbo;
 
    let storageWritable = true;
    let loadedFromStorage = false;
@@ -13,6 +14,9 @@
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
    const printEl = document.getElementById('print-area');
+   const rcboEnabledEl = document.getElementById('rcbo-enabled');
+   const rcboPanelEl = document.getElementById('rcbo-panel');
+   const rcboListEl = document.getElementById('rcbo-list');
    const warningInputs = warnings.definitions.map(function (warning) {
       const checkbox = el('input', { type: 'checkbox', value: warning.id });
       checkbox.addEventListener('change', function () {
@@ -65,6 +69,10 @@
       return {
          schemaVersion: normalized.schemaVersion,
          warnings: normalized.warnings,
+         rcboEnabled: normalized.rcboEnabled,
+         rcbos: normalized.rcbos.map(function (rcbo) {
+            return { id: rcbo.id, number: rcbo.number, name: rcbo.name, color: rcbo.color };
+         }),
          boxes: normalized.boxes.map(function (box) {
             return {
                id: uid(),
@@ -75,7 +83,8 @@
                      id: uid(),
                      number: g.number,
                      name: g.name,
-                     description: g.description
+                     description: g.description,
+                     rcboId: g.rcboId
                   };
                })
             };
@@ -134,11 +143,41 @@
       return el('button', { type: 'button', className: 'btn btn-icon ' + (className || ''), title: title, 'aria-label': title, text: text, onclick: onClick });
    }
 
+   function rcboOptionText(rcbo, index) {
+      return rcbo.name.trim() ? rcboHelpers.label(rcbo, index) + ' – ' + rcbo.name.trim() : rcboHelpers.label(rcbo, index);
+   }
+
+   function swatchStyle(color) {
+      return color ? 'background-color: ' + color : '';
+   }
+
+   function rcboSelect(group) {
+      const linked = state.rcbos.find(function (r) { return r.id === group.rcboId; });
+      const swatch = el('span', { className: 'rcbo-swatch' + (linked ? '' : ' is-empty'), style: swatchStyle(linked && linked.color), 'aria-hidden': 'true' });
+      const select = el('select', { 'aria-label': 'Aardlekautomaat voor groep ' + group.number }, [
+         el('option', { value: '', text: 'Geen koppeling' })
+      ].concat(state.rcbos.map(function (rcbo, i) {
+         return el('option', { value: rcbo.id, text: rcboOptionText(rcbo, i) });
+      })));
+      select.value = group.rcboId || '';
+      // Updates in place instead of re-rendering, so keyboard focus stays on the select.
+      select.addEventListener('change', function () {
+         group.rcboId = select.value || null;
+         const rcbo = state.rcbos.find(function (r) { return r.id === group.rcboId; });
+         swatch.className = 'rcbo-swatch' + (rcbo ? '' : ' is-empty');
+         swatch.setAttribute('style', swatchStyle(rcbo && rcbo.color));
+         save();
+         renderPrint();
+      });
+      return el('div', { className: 'rcbo-select' }, [swatch, select]);
+   }
+
    function renderGroupRow(box, group, index) {
       return el('tr', null, [
          el('td', null, [input(group.number, 'Nr', 'Groepnummer', function (v) { group.number = v; }, 'input-number')]),
          el('td', null, [input(group.name, 'Naam', 'Groepnaam', function (v) { group.name = v; })]),
          el('td', null, [input(group.description, 'Omschrijving', 'Omschrijving', function (v) { group.description = v; })]),
+         state.rcboEnabled ? el('td', { className: 'group-rcbo' }, [rcboSelect(group)]) : null,
          el('td', { className: 'group-actions' }, [
             el('div', { className: 'row-actions' }, [
                iconButton('↑', 'Groep omhoog', function () { move(box.groups, index, -1); update(); }),
@@ -178,6 +217,7 @@
                el('th', { className: 'col-number', text: 'Groep' }),
                el('th', { className: 'col-name', text: 'Naam' }),
                el('th', { text: 'Omschrijving' }),
+               state.rcboEnabled ? el('th', { className: 'col-rcbo', text: 'Aardlekautomaat' }) : null,
                el('th', { className: 'col-actions' })
             ])]),
             el('tbody', null, rows)
@@ -187,13 +227,72 @@
             className: 'btn btn-primary btn-add-group',
             text: '+ Groep toevoegen',
             onclick: function () {
-               box.groups.push({ id: uid(), number: nextNumber(box.groups), name: '', description: '' });
+               box.groups.push({ id: uid(), number: nextNumber(box.groups), name: '', description: '', rcboId: null });
                update();
                const inputs = boxesEl.querySelectorAll('[data-id="' + box.id + '"] tbody tr:last-child input');
                if (inputs[1]) inputs[1].focus();
             }
          })
       ]);
+   }
+
+   function linkedGroupCount(rcbo) {
+      return state.boxes.reduce(function (total, box) {
+         return total + box.groups.filter(function (g) { return g.rcboId === rcbo.id; }).length;
+      }, 0);
+   }
+
+   // RCBO edits re-render the boxes (option labels and swatches) but not the RCBO list, so focus is kept.
+   function rcboChanged() {
+      save();
+      renderBoxes();
+      renderPrint();
+   }
+
+   function renderRcbo(rcbo, index) {
+      const color = el('input', { type: 'color', className: 'rcbo-color', 'aria-label': 'Kleur aardlekautomaat ' + rcboHelpers.label(rcbo, index), title: 'Kleur kiezen' });
+      color.value = rcbo.color;
+      color.addEventListener('input', function () {
+         if (!rcboHelpers.isColor(color.value)) return;
+         rcbo.color = color.value.toLowerCase();
+         rcboChanged();
+      });
+      return el('li', { className: 'rcbo-item', 'data-id': rcbo.id }, [
+         color,
+         rcboInput(rcbo.number, 'Bijv. A1', 'Code aardlekautomaat', function (v) { rcbo.number = v; }, 'input-number'),
+         rcboInput(rcbo.name, 'Omschrijving, bijv. Keuken en badkamer', 'Naam aardlekautomaat', function (v) { rcbo.name = v; }),
+         el('div', { className: 'row-actions' }, [
+            iconButton('↑', 'Aardlekautomaat omhoog', function () { move(state.rcbos, index, -1); update(); }),
+            iconButton('↓', 'Aardlekautomaat omlaag', function () { move(state.rcbos, index, 1); update(); }),
+            iconButton('✕', 'Aardlekautomaat verwijderen', function () {
+               const linked = linkedGroupCount(rcbo);
+               const message = 'Aardlekautomaat "' + rcboOptionText(rcbo, index) + '" verwijderen?' +
+                  (linked ? ' ' + linked + (linked === 1 ? ' gekoppelde groep wordt' : ' gekoppelde groepen worden') + ' ontkoppeld.' : '');
+               if (!confirm(message)) return;
+               state.boxes.forEach(function (box) {
+                  box.groups.forEach(function (g) { if (g.rcboId === rcbo.id) g.rcboId = null; });
+               });
+               state.rcbos.splice(index, 1);
+               update();
+            }, 'btn-danger')
+         ])
+      ]);
+   }
+
+   function rcboInput(value, placeholder, label, onInput, className) {
+      const node = el('input', { type: 'text', placeholder: placeholder, 'aria-label': label, className: className || '' });
+      node.value = value;
+      node.addEventListener('input', function () {
+         onInput(node.value);
+         rcboChanged();
+      });
+      return node;
+   }
+
+   function renderRcbos() {
+      rcboEnabledEl.checked = state.rcboEnabled;
+      rcboPanelEl.hidden = !state.rcboEnabled;
+      rcboListEl.replaceChildren.apply(rcboListEl, state.rcbos.map(renderRcbo));
    }
 
    function boxTitle(box) {
@@ -203,9 +302,15 @@
    function renderPrint() {
       const date = 'Afgedrukt op ' + window.GroepenkaartPdf.today();
       printEl.replaceChildren.apply(printEl, state.boxes.map(function (box, index) {
+         const lookup = rcboHelpers.index(state.rcbos);
          const rows = box.groups.map(function (g) {
+            const entry = lookup[g.rcboId];
             return el('tr', null, [
-               el('td', { text: g.number }),
+               el('td', entry ? {
+                  className: 'rcbo-cell',
+                  style: 'background-color: ' + entry.rcbo.color + '; color: ' + rcboHelpers.textColor(entry.rcbo.color),
+                  text: rcboHelpers.cellText(g.number, entry)
+               } : { text: g.number }),
                el('td', { text: g.name }),
                el('td', { text: g.description })
             ]);
@@ -218,6 +323,7 @@
             el('p', { className: 'print-date', text: date }),
             index === 0 ? renderWarnings() : null,
             el('h2', { text: boxTitle(box) }),
+            renderRcboKey(box),
             el('table', null, [
                el('thead', null, [el('tr', null, [
                   el('th', { className: 'col-number', text: 'Groep' }),
@@ -228,6 +334,19 @@
             ])
          ]);
       }));
+   }
+
+   function renderRcboKey(box) {
+      const used = rcboHelpers.used(state.rcbos, box.groups);
+      if (!used.length) return null;
+      return el('ul', { className: 'print-rcbo-key', 'aria-label': 'Aardlekautomaten' }, [
+         el('li', { className: 'print-rcbo-key-title', text: 'Aardlekautomaten:' })
+      ].concat(used.map(function (entry) {
+         return el('li', null, [
+            el('span', { className: 'print-rcbo-swatch', style: 'background-color: ' + entry.rcbo.color }),
+            el('span', { text: rcboHelpers.keyText(entry) })
+         ]);
+      })));
    }
 
    function renderWarnings() {
@@ -244,11 +363,20 @@
       }));
    }
 
+   function renderBoxes() {
+      boxesEl.replaceChildren.apply(boxesEl, state.boxes.map(renderBox));
+   }
+
    function render() {
       warningInputs.forEach(function (node) { node.checked = state.warnings.includes(node.value); });
-      boxesEl.replaceChildren.apply(boxesEl, state.boxes.map(renderBox));
+      renderRcbos();
+      renderBoxes();
       emptyEl.hidden = state.boxes.length > 0;
       renderPrint();
+   }
+
+   function hasData() {
+      return !storageWritable || state.boxes.length || state.warnings.length || state.rcboEnabled;
    }
 
    function exportJson() {
@@ -267,7 +395,7 @@
       reader.onload = function () {
          try {
             const data = normalize(JSON.parse(reader.result));
-            if ((!storageWritable || state.boxes.length || state.warnings.length) && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
+            if (hasData() && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
             state = data;
             storageWritable = true;
             update();
@@ -283,7 +411,7 @@
          id: uid(),
          number: nextNumber(state.boxes),
          name: '',
-         groups: [{ id: uid(), number: '1', name: '', description: '' }]
+         groups: [{ id: uid(), number: '1', name: '', description: '', rcboId: null }]
       });
       update();
       const last = boxesEl.lastElementChild;
@@ -298,7 +426,7 @@
          alert('Voeg eerst een kast toe.');
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings, state.rcbos)) {
          window.print();
       }
    });
@@ -318,8 +446,35 @@
       e.target.value = '';
    });
 
+   rcboEnabledEl.addEventListener('change', function () {
+      if (rcboEnabledEl.checked) {
+         state.rcboEnabled = true;
+         update();
+         return;
+      }
+      if (state.rcbos.length && !confirm('Alle aardlekautomaten en de koppelingen van groepen worden gewist. Doorgaan?')) {
+         rcboEnabledEl.checked = true;
+         return;
+      }
+      state.rcboEnabled = false;
+      state.rcbos = [];
+      state.boxes.forEach(function (box) {
+         box.groups.forEach(function (g) { g.rcboId = null; });
+      });
+      update();
+   });
+
+   document.getElementById('add-rcbo').addEventListener('click', function () {
+      const number = rcboHelpers.nextNumber(state.rcbos);
+      const rcbo = { id: uid(), number: number, name: '', color: rcboHelpers.defaultColor(number) };
+      state.rcbos.push(rcbo);
+      update();
+      const last = rcboListEl.lastElementChild;
+      if (last) last.querySelectorAll('input[type="text"]')[1].focus();
+   });
+
    document.getElementById('clear-all').addEventListener('click', function () {
-      if ((!storageWritable || state.boxes.length || state.warnings.length) && confirm('Weet je zeker dat je alle kasten, groepen en installatiewaarschuwingen wilt wissen?')) {
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, aardlekautomaten en installatiewaarschuwingen wilt wissen?')) {
          state = schema.empty();
          storageWritable = true;
          update();
