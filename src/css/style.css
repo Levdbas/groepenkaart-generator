@@ -144,6 +144,12 @@ input:focus-visible {
   margin: 3rem 1rem;
 }
 
+.add-box-action {
+  max-width: 960px;
+  margin: 0 auto 1.5rem;
+  padding: 0 1rem;
+}
+
 .box {
   background: #fff;
   border: 1px solid var(--border);
@@ -277,8 +283,15 @@ input[type="text"] {
 
   .boxes {
     margin: 1rem auto;
-    margin-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
     gap: 1rem;
+  }
+
+  .add-box-action {
+    margin-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .add-box-action .btn {
+    width: 100%;
   }
 
   .box {
