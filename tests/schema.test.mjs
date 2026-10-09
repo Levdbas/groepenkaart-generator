@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const sources = await Promise.all(['warnings', 'schema', 'app'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 const publishedSchema = JSON.parse(await readFile(
-   new URL('../public/schemas/groepenkaart-v1.schema.json', import.meta.url), 'utf8'));
+   new URL('../schemas/groepenkaart-v1.schema.json', import.meta.url), 'utf8'));
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const legacy = {
    warnings: ['pv', 'ev', 'battery', 'heat-pump'],
@@ -28,6 +28,11 @@ function setupSchema() {
 
 function setupApp(stored = null) {
    const { schema, context } = setupSchema();
+   assert.equal(schema.schemaUrl,
+      'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v1.schema.json');
+   assert.equal(publishedSchema.$id, schema.schemaUrl);
+   assert.equal(publishedSchema.properties.$schema.type, 'string');
+   assert.equal(publishedSchema.properties.$schema.format, 'uri');
    function node() {
       return {
          children: [], listeners: {}, checked: false,
@@ -171,7 +176,7 @@ test('browser storage migrates on load and exports the same portable versioned d
    const app = setupApp(JSON.stringify(legacy));
    const expected = { schemaVersion: 1, ...legacy };
    assert.deepEqual(JSON.parse(app.storage()), expected);
-   assert.deepEqual(await app.export(), expected);
+   assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...expected });
    assert.equal(app.nodes.get('boxes').children.length, 2);
    assert.deepEqual(app.messages, []);
 });
@@ -182,11 +187,24 @@ test('imports migrate legacy files and rejected imports leave current data untou
    const stored = app.storage();
    app.import({ schemaVersion: 2, boxes: [] });
    assert.equal(app.storage(), stored);
-   assert.deepEqual(await app.export(), { schemaVersion: 1, ...legacy });
+   assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, schemaVersion: 1, ...legacy });
    assert.match(app.messages[0], /Importeren mislukt.*nieuwere schemaversie/);
    app.confirm(false);
    app.import({ boxes: [] });
    assert.equal(app.storage(), stored);
+});
+
+test('exported files include the raw schema URL and can be imported again without storing metadata', async () => {
+   const app = setupApp(JSON.stringify(legacy));
+   const exported = await app.export();
+   assert.equal(exported.$schema, publishedSchema.$id);
+   const imported = setupApp();
+   imported.import(exported);
+   assert.deepEqual(JSON.parse(imported.storage()), { schemaVersion: 1, ...legacy });
+   assert.deepEqual(await imported.export(), exported);
+   assert.deepEqual(await setupApp().export(), {
+      $schema: publishedSchema.$id, schemaVersion: 1, warnings: [], boxes: []
+   });
 });
 
 test('failed storage loads cannot be overwritten by edits or cancelled imports', () => {

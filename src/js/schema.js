@@ -9,6 +9,7 @@
     */
 
    const currentVersion = 1;
+   const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
 
    function isObject(value) {
@@ -98,5 +99,5 @@
       };
    }
 
-   window.GroepenkaartSchema = { currentVersion: currentVersion, empty: empty, normalize: normalize };
+   window.GroepenkaartSchema = { currentVersion: currentVersion, schemaUrl: schemaUrl, empty: empty, normalize: normalize };
 })();

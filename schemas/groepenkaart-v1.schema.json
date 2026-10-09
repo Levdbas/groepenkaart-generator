@@ -1,12 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://levdbas.github.io/groepenkaart-generator/schemas/groepenkaart-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v1.schema.json",
   "title": "JSON schema for groepenkaart v1",
   "type": "object",
   "required": ["schemaVersion", "warnings", "boxes"],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of the JSON Schema used to validate this file."
+    },
     "schemaVersion": {
-      "description": "Version of theme.json to use.",
+      "description": "Version of the groepenkaart data format.",
       "type": "integer",
       "const": 1
     },

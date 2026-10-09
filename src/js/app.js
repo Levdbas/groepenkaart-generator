@@ -252,7 +252,7 @@
    }
 
    function exportJson() {
-      const data = schema.normalize(state);
+      const data = { $schema: schema.schemaUrl, ...schema.normalize(state) };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = el('a', { href: url, download: 'groepenkaart.json' });
