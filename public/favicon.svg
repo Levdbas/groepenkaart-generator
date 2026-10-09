@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#003f7d"/>
-  <rect x="13" y="11" width="38" height="42" rx="3" fill="#fff"/>
-  <rect x="13" y="11" width="38" height="9" rx="3" fill="#5b9bd5"/>
-  <rect x="13" y="17" width="38" height="3" fill="#5b9bd5"/>
-  <g stroke="#003f7d" stroke-width="2">
-    <path d="M24 20v33M13 28h38M13 36h38M13 44h38"/>
-  </g>
-  <path d="M46 34l-9 13h6l-3 11 10-14h-6l3-10z" fill="#ffc400" stroke="#003f7d" stroke-width="1.5" stroke-linejoin="round"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;">
+    <path d="M64,12L64,52C64,58.623 58.623,64 52,64L12,64C5.377,64 0,58.623 0,52L0,12C0,5.377 5.377,0 12,0L52,0C58.623,0 64,5.377 64,12Z" style="fill:rgb(0,63,125);"/>
+    <path d="M51,20L51,50C51,51.656 49.656,53 48,53L16,53C14.344,53 13,51.656 13,50L13,20L51,20Z" style="fill:white;"/>
+    <path d="M13,20L13,14C13,12.344 14.344,11 16,11L48,11C49.656,11 51,12.344 51,14L51,20L13,20Z" style="fill:rgb(91,155,213);"/>
+    <g>
+        <path d="M24,20L24,53M13,28L51,28M13,36L51,36M13,44L51,44" style="fill-rule:nonzero;stroke:rgb(0,63,125);stroke-width:2px;"/>
+    </g>
+    <path d="M46,34L37,47L43,47L40,58L50,44L44,44L47,34L46,34Z" style="fill:rgb(255,196,0);fill-rule:nonzero;stroke:rgb(0,63,125);stroke-width:1.5px;stroke-linejoin:round;"/>
 </svg>
