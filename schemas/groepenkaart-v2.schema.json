@@ -21,7 +21,7 @@
       "items": { "enum": ["pv", "ev", "battery", "heat-pump"] }
     },
     "rcboEnabled": {
-      "description": "Whether groups can be linked to RCBOs (aardlekautomaten).",
+      "description": "Whether groups can be linked to RCBOs (Aardlekschakelaars).",
       "type": "boolean"
     },
     "rcbos": {

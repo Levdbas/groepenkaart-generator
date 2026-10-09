@@ -154,7 +154,7 @@
    function rcboSelect(group) {
       const linked = state.rcbos.find(function (r) { return r.id === group.rcboId; });
       const swatch = el('span', { className: 'rcbo-swatch' + (linked ? '' : ' is-empty'), style: swatchStyle(linked && linked.color), 'aria-hidden': 'true' });
-      const select = el('select', { 'aria-label': 'Aardlekautomaat voor groep ' + group.number }, [
+      const select = el('select', { 'aria-label': 'Aardlekschakelaar voor groep ' + group.number }, [
          el('option', { value: '', text: 'Geen koppeling' })
       ].concat(state.rcbos.map(function (rcbo, i) {
          return el('option', { value: rcbo.id, text: rcboOptionText(rcbo, i) });
@@ -217,7 +217,7 @@
                el('th', { className: 'col-number', text: 'Groep' }),
                el('th', { className: 'col-name', text: 'Naam' }),
                el('th', { text: 'Omschrijving' }),
-               state.rcboEnabled ? el('th', { className: 'col-rcbo', text: 'Aardlekautomaat' }) : null,
+               state.rcboEnabled ? el('th', { className: 'col-rcbo', text: 'Aardlekschakelaar' }) : null,
                el('th', { className: 'col-actions' })
             ])]),
             el('tbody', null, rows)
@@ -250,7 +250,7 @@
    }
 
    function renderRcbo(rcbo, index) {
-      const color = el('input', { type: 'color', className: 'rcbo-color', 'aria-label': 'Kleur aardlekautomaat ' + rcboHelpers.label(rcbo, index), title: 'Kleur kiezen' });
+      const color = el('input', { type: 'color', className: 'rcbo-color', 'aria-label': 'Kleur aardlekschakelaar ' + rcboHelpers.label(rcbo, index), title: 'Kleur kiezen' });
       color.value = rcbo.color;
       color.addEventListener('input', function () {
          if (!rcboHelpers.isColor(color.value)) return;
@@ -259,14 +259,14 @@
       });
       return el('li', { className: 'rcbo-item', 'data-id': rcbo.id }, [
          color,
-         rcboInput(rcbo.number, 'Bijv. A1', 'Code aardlekautomaat', function (v) { rcbo.number = v; }, 'input-number'),
-         rcboInput(rcbo.name, 'Omschrijving, bijv. Keuken en badkamer', 'Naam aardlekautomaat', function (v) { rcbo.name = v; }),
+         rcboInput(rcbo.number, 'Bijv. A1', 'Code aardlekschakelaar', function (v) { rcbo.number = v; }, 'input-number'),
+         rcboInput(rcbo.name, 'Omschrijving, bijv. Keuken en badkamer', 'Naam aardlekschakelaar', function (v) { rcbo.name = v; }),
          el('div', { className: 'row-actions' }, [
-            iconButton('↑', 'Aardlekautomaat omhoog', function () { move(state.rcbos, index, -1); update(); }),
-            iconButton('↓', 'Aardlekautomaat omlaag', function () { move(state.rcbos, index, 1); update(); }),
-            iconButton('✕', 'Aardlekautomaat verwijderen', function () {
+            iconButton('↑', 'Aardlekschakelaar omhoog', function () { move(state.rcbos, index, -1); update(); }),
+            iconButton('↓', 'Aardlekschakelaar omlaag', function () { move(state.rcbos, index, 1); update(); }),
+            iconButton('✕', 'Aardlekschakelaar verwijderen', function () {
                const linked = linkedGroupCount(rcbo);
-               const message = 'Aardlekautomaat "' + rcboOptionText(rcbo, index) + '" verwijderen?' +
+               const message = 'Aardlekschakelaar "' + rcboOptionText(rcbo, index) + '" verwijderen?' +
                   (linked ? ' ' + linked + (linked === 1 ? ' gekoppelde groep wordt' : ' gekoppelde groepen worden') + ' ontkoppeld.' : '');
                if (!confirm(message)) return;
                state.boxes.forEach(function (box) {
@@ -339,8 +339,8 @@
    function renderRcboKey(box) {
       const used = rcboHelpers.used(state.rcbos, box.groups);
       if (!used.length) return null;
-      return el('ul', { className: 'print-rcbo-key', 'aria-label': 'Aardlekautomaten' }, [
-         el('li', { className: 'print-rcbo-key-title', text: 'Aardlekautomaten:' })
+      return el('ul', { className: 'print-rcbo-key', 'aria-label': 'Aardlekschakelaars' }, [
+         el('li', { className: 'print-rcbo-key-title', text: 'Aardlekschakelaars:' })
       ].concat(used.map(function (entry) {
          return el('li', null, [
             el('span', { className: 'print-rcbo-swatch', style: 'background-color: ' + entry.rcbo.color }),
@@ -452,7 +452,7 @@
          update();
          return;
       }
-      if (state.rcbos.length && !confirm('Alle aardlekautomaten en de koppelingen van groepen worden gewist. Doorgaan?')) {
+      if (state.rcbos.length && !confirm('Alle Aardlekschakelaars en de koppelingen van groepen worden gewist. Doorgaan?')) {
          rcboEnabledEl.checked = true;
          return;
       }
@@ -474,7 +474,7 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, aardlekautomaten en installatiewaarschuwingen wilt wissen?')) {
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, Aardlekschakelaars en installatiewaarschuwingen wilt wissen?')) {
          state = schema.empty();
          storageWritable = true;
          update();

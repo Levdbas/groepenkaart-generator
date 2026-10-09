@@ -56,8 +56,8 @@
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(30, 30, 30);
-      doc.text('Aardlekautomaten:', x, y + 3.2);
-      x += doc.getTextWidth('Aardlekautomaten:') + 3;
+      doc.text('Aardlekschakelaars:', x, y + 3.2);
+      x += doc.getTextWidth('Aardlekschakelaars:') + 3;
       doc.setFont('helvetica', 'normal');
       doc.setDrawColor(30, 30, 30);
       doc.setLineWidth(0.2);

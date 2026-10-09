@@ -12,7 +12,7 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 - Per kast **groepen** toevoegen met een nummer, naam en omschrijving
 - Kasten en groepen verplaatsen (↑ ↓) en verwijderen (✕)
 - **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), een EV-lader, thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als grote rode kaarten met pictogrammen op de eerste pagina, zowel in de PDF als bij afdrukken.
-- **Aardlekautomaten** (aardlekautomaat: Residual Current Breaker with Overcurrent protection, RCBO): zet **Groepen koppelen aan Aardlekautomaten** aan, voeg aardlekautomaten toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF en bij afdrukken krijgt het groepnummer de kleur en code van de gekoppelde aardlekautomaat, met een legenda per pagina.
+- **Aardlekschakelaars** (aardlekschakelaar: Residual Current Breaker with Overcurrent protection, RCBO): zet **Groepen koppelen aan Aardlekschakelaars** aan, voeg Aardlekschakelaars toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF en bij afdrukken krijgt het groepnummer de kleur en code van de gekoppelde aardlekschakelaar, met een legenda per pagina.
 - **PDF downloaden**: één A4-pagina per kast, in de stijl van een standaard groepenkaart. Lege regels worden aangevuld tot 15 rijen, zodat je later nog met de hand kunt aanvullen.
 - **Afdrukken** via de printfunctie van de browser, met dezelfde opmaak
 - Automatisch **opslaan in de browser** (localStorage)
@@ -25,14 +25,14 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 3. Elke nieuwe kast begint automatisch met groep `1`. Klik op **+ Groep toevoegen** voor extra groepen. Het groepnummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`.
 4. Vul per groep de naam (bijvoorbeeld `Keuken`) en de omschrijving (bijvoorbeeld `Wandcontactdozen aanrecht, vaatwasser`) in.
 5. Vink bij **Aanwezige installaties** aan welke installaties aanwezig zijn. De selectie geldt voor de hele installatie, niet per kast. Standaard is niets aangevinkt. Elke kaart vermeldt **LET OP!**, de aanwezige installatie en **Gevaarlijke DC-spanning op de bekabeling mogelijk!** Controleer of deze waarschuwing van toepassing is op jouw installatie.
-6. Gebruik je aardlekautomaten? Vink dan **Groepen koppelen aan Aardlekautomaten** aan en klik op **+ Aardlekautomaat toevoegen**. Geef elke aardlekautomaat een code (bijvoorbeeld `A1`), een naam en een kleur. Standaard krijgt `A1` oranje (`#ed8c01`), `A2` blauw (`#009fe3`), `A3` groen (`#95be1a`) en elke volgende aardlekautomaat grijs (`#9e9e9e`); je kunt de kleur altijd aanpassen. Kies daarna per groep in de kolom **Aardlekautomaat** bij welke aardlekautomaat de groep hoort. De aardlekautomaten gelden voor de hele installatie en zijn niet aan een kast gebonden. Als je een aardlekautomaat verwijdert, worden de gekoppelde groepen ontkoppeld. Zet je de optie uit, dan worden na bevestiging alle aardlekautomaten en koppelingen verwijderd.
+6. Gebruik je Aardlekschakelaars? Vink dan **Groepen koppelen aan Aardlekschakelaars** aan en klik op **+ Aardlekschakelaar toevoegen**. Geef elke aardlekschakelaar een code (bijvoorbeeld `A1`), een naam en een kleur. Standaard krijgt `A1` oranje (`#ed8c01`), `A2` blauw (`#009fe3`), `A3` groen (`#95be1a`) en elke volgende aardlekschakelaar grijs (`#9e9e9e`); je kunt de kleur altijd aanpassen. Kies daarna per groep in de kolom **Aardlekschakelaar** bij welke aardlekschakelaar de groep hoort. De Aardlekschakelaars gelden voor de hele installatie en zijn niet aan een kast gebonden. Als je een aardlekschakelaar verwijdert, worden de gekoppelde groepen ontkoppeld. Zet je de optie uit, dan worden na bevestiging alle Aardlekschakelaars en koppelingen verwijderd.
 7. Klik op **PDF downloaden** voor een PDF-bestand, of op **Afdrukken** om direct te printen of via het printvenster als PDF op te slaan.
 
 ### Gegevens bewaren
 
 Alles wat je invoert wordt automatisch opgeslagen in je browser. Wis je de browsergegevens of gebruik je een andere browser of computer, dan ben je de gegevens kwijt. Gebruik daarom **Exporteren** om een `groepenkaart.json` te bewaren. Met **Importeren** laad je dat bestand later weer in.
 
-Ook de installatiewaarschuwingen worden opgeslagen en geëxporteerd. De mogelijke codes in `warnings` zijn `pv`, `ev`, `battery` en `heat-pump`. Oude bestanden zonder `warnings` blijven werken en worden zonder aangevinkte waarschuwingen geladen. Aardlekautomaten staan in `rcbos` (met `id`, `number`, `name` en een kleur als `#rrggbb`); `rcboEnabled` geeft aan of de koppeling aanstaat. Een groep verwijst met `rcboId` naar het `id` van een aardlekautomaat, of heeft `null` als de groep niet gekoppeld is. **Alles wissen** verwijdert kasten, groepen, de geselecteerde waarschuwingen en de aardlekautomaten.
+Ook de installatiewaarschuwingen worden opgeslagen en geëxporteerd. De mogelijke codes in `warnings` zijn `pv`, `ev`, `battery` en `heat-pump`. Oude bestanden zonder `warnings` blijven werken en worden zonder aangevinkte waarschuwingen geladen. Aardlekschakelaars staan in `rcbos` (met `id`, `number`, `name` en een kleur als `#rrggbb`); `rcboEnabled` geeft aan of de koppeling aanstaat. Een groep verwijst met `rcboId` naar het `id` van een aardlekschakelaar, of heeft `null` als de groep niet gekoppeld is. **Alles wissen** verwijdert kasten, groepen, de geselecteerde waarschuwingen en de Aardlekschakelaars.
 
 Voorbeeld van een exportbestand:
 
@@ -77,9 +77,9 @@ Voorbeeld van een exportbestand:
 
 JSON-exportbestanden en browseropslag bevatten `schemaVersion: 2`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De gedeelde gegevenstypen (`CardData`, `BoxData`, `GroupData`, `RcboData` en `WarningCode`), validatie en migraties staan in [src/js/schema.js](src/js/schema.js).
 
-Het [JSON Schema voor versie 2](schemas/groepenkaart-v2.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v2.schema.json), zodat andere tools exportbestanden kunnen valideren. Het [schema voor versie 1](schemas/groepenkaart-v1.schema.json) blijft ongewijzigd gepubliceerd. Elke export bevat `$schema` met de URL van de huidige versie; browseropslag bevat dit metadataveld niet. Het veld is optioneel voor import en externe validatie. De app gebruikt `schemaVersion` voor validatie en migraties en haalt geen schema op tijdens import. Versie 2 vereist `schemaVersion`, `warnings`, `rcboEnabled`, `rcbos` en `boxes`, en per groep `rcboId`. Een `rcboId` moet naar een bestaande aardlekautomaat verwijzen, en `rcbos` moet leeg zijn als `rcboEnabled` uit staat. De persistente `id` van een aardlekautomaat wordt wel opgeslagen; interne UI-ID's van kasten en groepen niet.
+Het [JSON Schema voor versie 2](schemas/groepenkaart-v2.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v2.schema.json), zodat andere tools exportbestanden kunnen valideren. Het [schema voor versie 1](schemas/groepenkaart-v1.schema.json) blijft ongewijzigd gepubliceerd. Elke export bevat `$schema` met de URL van de huidige versie; browseropslag bevat dit metadataveld niet. Het veld is optioneel voor import en externe validatie. De app gebruikt `schemaVersion` voor validatie en migraties en haalt geen schema op tijdens import. Versie 2 vereist `schemaVersion`, `warnings`, `rcboEnabled`, `rcbos` en `boxes`, en per groep `rcboId`. Een `rcboId` moet naar een bestaande aardlekschakelaar verwijzen, en `rcbos` moet leeg zijn als `rcboEnabled` uit staat. De persistente `id` van een aardlekschakelaar wordt wel opgeslagen; interne UI-ID's van kasten en groepen niet.
 
-Bestanden zonder `schemaVersion` (of met versie `0`) zijn het oude formaat en worden automatisch gemigreerd. Ontbrekende waarschuwingen worden een lege lijst; de bestaande omzetting van numerieke velden naar tekst blijft behouden. Bij de migratie van versie 1 naar 2 staat de koppeling met aardlekautomaten uit, zonder aardlekautomaten, en krijgt elke groep `rcboId: null`. Browseropslag blijft dezelfde sleutel `groepenkaart:v1` gebruiken om bestaande gegevens terug te vinden en wordt na succesvol laden in het huidige formaat opgeslagen.
+Bestanden zonder `schemaVersion` (of met versie `0`) zijn het oude formaat en worden automatisch gemigreerd. Ontbrekende waarschuwingen worden een lege lijst; de bestaande omzetting van numerieke velden naar tekst blijft behouden. Bij de migratie van versie 1 naar 2 staat de koppeling met Aardlekschakelaars uit, zonder Aardlekschakelaars, en krijgt elke groep `rcboId: null`. Browseropslag blijft dezelfde sleutel `groepenkaart:v1` gebruiken om bestaande gegevens terug te vinden en wordt na succesvol laden in het huidige formaat opgeslagen.
 
 Een onbekende nieuwere versie wordt geweigerd met een melding. Bij een mislukte import blijven de huidige gegevens intact. Als browseropslag niet kan worden geladen, blijft die bewaard en schrijven bewerkingen er niet overheen totdat je bewust een geldig bestand importeert of **Alles wissen** bevestigt.
 
@@ -133,7 +133,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── index.html                # Pagina en werkbalk (met placeholders)
 │   ├── css/style.css             # Opmaak voor scherm en print
 │   ├── js/warnings.js             # Gedeelde installatiewaarschuwingen en pictogrammen
-│   ├── js/rcbo.js                # Gedeelde hulpfuncties voor aardlekautomaten (kleuren, labels)
+│   ├── js/rcbo.js                # Gedeelde hulpfuncties voor Aardlekschakelaars (kleuren, labels)
 │   ├── js/schema.js              # Gegevenstypen, schemaversies, validatie en migraties
 │   ├── js/app.js                 # Gegevens, invoer, opslag, import/export
 │   └── js/pdf.js                 # PDF genereren met jsPDF
@@ -146,7 +146,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 
 ## Tests
 
-Voer `npm test` uit voor regressietests van schemaversies, migraties, browseropslag, import/export, waarschuwingselectie, aardlekautomaten en de echte PDF-uitvoer, inclusief oudere gegevens, alle vier kaarten en meerdere pagina's. De tests gebruiken de ingebouwde Node.js-testrunner.
+Voer `npm test` uit voor regressietests van schemaversies, migraties, browseropslag, import/export, waarschuwingselectie, Aardlekschakelaars en de echte PDF-uitvoer, inclusief oudere gegevens, alle vier kaarten en meerdere pagina's. De tests gebruiken de ingebouwde Node.js-testrunner.
 
 ## Bibliotheken
 

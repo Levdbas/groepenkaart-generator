@@ -13,10 +13,12 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 const legacy = {
    warnings: ['pv', 'ev', 'battery', 'heat-pump'],
    boxes: [
-      { number: '1', name: '', groups: [
-         { number: '1', name: '', description: '' },
-         { number: '2', name: '', description: '' }
-      ] },
+      {
+         number: '1', name: '', groups: [
+            { number: '1', name: '', description: '' },
+            { number: '2', name: '', description: '' }
+         ]
+      },
       { number: '2', name: '', groups: [] }
    ]
 };
@@ -37,14 +39,18 @@ const withRcbos = {
       { id: 'r2', number: '', name: '', color: '#fdd835' }
    ],
    boxes: [
-      { number: '1', name: 'Meterkast', groups: [
-         { number: '1', name: 'Keuken', description: '', rcboId: 'r1' },
-         { number: '2', name: 'Hal', description: '', rcboId: null }
-      ] },
-      { number: '2', name: 'Garage', groups: [
-         { number: '1', name: 'Werkbank', description: '', rcboId: 'r1' },
-         { number: '2', name: 'Tuin', description: '', rcboId: 'r2' }
-      ] }
+      {
+         number: '1', name: 'Meterkast', groups: [
+            { number: '1', name: 'Keuken', description: '', rcboId: 'r1' },
+            { number: '2', name: 'Hal', description: '', rcboId: null }
+         ]
+      },
+      {
+         number: '2', name: 'Garage', groups: [
+            { number: '1', name: 'Werkbank', description: '', rcboId: 'r1' },
+            { number: '2', name: 'Tuin', description: '', rcboId: 'r2' }
+         ]
+      }
    ]
 };
 
@@ -69,7 +75,7 @@ function setupApp(stored = null) {
          addEventListener(event, callback) { this.listeners[event] = callback; },
          appendChild(child) { this.children.push(child); },
          replaceChildren(...children) { this.children = children; },
-         click() {}, remove() {}
+         click() { }, remove() { }
       };
    }
    const nodes = new Map();
@@ -98,7 +104,7 @@ function setupApp(stored = null) {
       confirm(message) { confirms.push(message); return confirmation; },
       URL: {
          createObjectURL(blob) { exported = blob; return 'blob:test'; },
-         revokeObjectURL() {}
+         revokeObjectURL() { }
       },
       FileReader: class {
          readAsText(file) { this.result = file; this.onload(); }
@@ -106,7 +112,7 @@ function setupApp(stored = null) {
    });
    Object.assign(context.window, {
       GroepenkaartPdf: { today: () => '2026-10-09' },
-      addEventListener() {}
+      addEventListener() { }
    });
    vm.runInContext(sources[3], context);
    const findAll = (root, predicate, found = []) => {
@@ -139,7 +145,7 @@ function setupApp(stored = null) {
       printCells() { return findAll(nodes.get('print-area'), (n) => n.tag === 'td' && n.className === 'rcbo-cell'); },
       deleteRcbo(index) {
          const item = nodes.get('rcbo-list').children[index];
-         findAll(item, (n) => n.attrs.title === 'Aardlekautomaat verwijderen')[0].listeners.click();
+         findAll(item, (n) => n.attrs.title === 'Aardlekschakelaar verwijderen')[0].listeners.click();
       }
    };
 }
@@ -206,9 +212,13 @@ test('v1 input is still validated for required arrays, objects, strings, and war
       { schemaVersion: 1, warnings: [], boxes: [{ number: 1, name: '', groups: [] }] },
       { schemaVersion: 1, warnings: [], boxes: [{ number: '1', name: '', groups: null }] },
       { schemaVersion: 1, warnings: [], boxes: [{ number: '1', name: '', groups: [null] }] },
-      { schemaVersion: 1, warnings: [], boxes: [{ number: '1', name: '', groups: [
-         { number: '1', name: '', description: null }
-      ] }] }
+      {
+         schemaVersion: 1, warnings: [], boxes: [{
+            number: '1', name: '', groups: [
+               { number: '1', name: '', description: null }
+            ]
+         }]
+      }
    ]) {
       assert.throws(() => schema.normalize(data), /Ongeldig/);
    }
@@ -274,7 +284,7 @@ test('imports migrate legacy files and rejected imports leave current data untou
    assert.match(app.messages[0], /Importeren mislukt.*nieuwere schemaversie/);
    app.import({ ...structuredClone(withRcbos), rcbos: [] });
    assert.equal(app.storage(), stored);
-   assert.match(app.messages[1], /Importeren mislukt.*onbekende aardlekautomaat/);
+   assert.match(app.messages[1], /Importeren mislukt.*onbekende aardlekschakelaar/);
    app.confirm(false);
    app.import({ boxes: [] });
    assert.equal(app.storage(), stored);

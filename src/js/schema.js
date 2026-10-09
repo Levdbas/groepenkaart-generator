@@ -84,15 +84,15 @@
       if (typeof data.rcboEnabled !== 'boolean') throw new Error('Ongeldig bestand: "rcboEnabled" moet waar of onwaar zijn.');
       if (!Array.isArray(data.rcbos)) throw new Error('Ongeldig bestand: "rcbos" moet een lijst zijn.');
       if (!data.rcboEnabled && data.rcbos.length) {
-         throw new Error('Ongeldig bestand: aardlekautomaten zijn uitgeschakeld maar "rcbos" is niet leeg.');
+         throw new Error('Ongeldig bestand: Aardlekschakelaars zijn uitgeschakeld maar "rcbos" is niet leeg.');
       }
       const ids = {};
       return data.rcbos.map(function (rcbo) {
-         requireStrings(rcbo, ['id', 'number', 'name', 'color'], 'een aardlekautomaat');
-         if (!rcbo.id) throw new Error('Ongeldig bestand: een aardlekautomaat heeft een lege "id".');
-         if (ids[rcbo.id]) throw new Error('Ongeldig bestand: dubbele aardlekautomaat-id "' + rcbo.id + '".');
+         requireStrings(rcbo, ['id', 'number', 'name', 'color'], 'een aardlekschakelaar');
+         if (!rcbo.id) throw new Error('Ongeldig bestand: een aardlekschakelaar heeft een lege "id".');
+         if (ids[rcbo.id]) throw new Error('Ongeldig bestand: dubbele aardlekschakelaar-id "' + rcbo.id + '".');
          if (!rcboHelpers.isColor(rcbo.color)) {
-            throw new Error('Ongeldig bestand: kleur van aardlekautomaat moet een hexkleur zijn, zoals #ed8c01.');
+            throw new Error('Ongeldig bestand: kleur van aardlekschakelaar moet een hexkleur zijn, zoals #ed8c01.');
          }
          ids[rcbo.id] = true;
          return { id: rcbo.id, number: rcbo.number, name: rcbo.name, color: rcbo.color.toLowerCase() };
@@ -139,7 +139,7 @@
                   }
                   if (group.rcboId !== null && rcboIds.indexOf(group.rcboId) === -1) {
                      throw new Error('Ongeldig bestand: groep ' + JSON.stringify(group.number) +
-                        ' verwijst naar een onbekende aardlekautomaat (' + JSON.stringify(group.rcboId) + ').');
+                        ' verwijst naar een onbekende aardlekschakelaar (' + JSON.stringify(group.rcboId) + ').');
                   }
                   return { number: group.number, name: group.name, description: group.description, rcboId: group.rcboId };
                })

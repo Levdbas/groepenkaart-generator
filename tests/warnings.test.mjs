@@ -177,7 +177,7 @@ test('linked groups get a colored group-number cell with the RCBO code and reada
    assert.deepEqual(Array.from(cells[2].styles.textColor), [0, 0, 0]);
    assert.ok(!Array.isArray(cells[3].styles.fillColor), 'padding rows stay unmarked');
    const text = pageText(document, 1);
-   assert.ok(text.includes('Aardlekautomaten:'));
+   assert.ok(text.includes('Aardlekschakelaars:'));
    assert.ok(text.includes('(A1 \x96 Keuken en badkamer)'), 'en dash uses WinAnsi encoding');
    assert.ok(!text.includes('Ongebruikt'), 'only RCBOs used on the page appear in the key');
    assert.ok(document.lastAutoTable.settings.startY > 46);
@@ -185,7 +185,7 @@ test('linked groups get a colored group-number cell with the RCBO code and reada
 
 test('the RCBO key is per page and the table still fits with warnings and a wrapped key', () => {
    const many = Array.from({ length: 8 }, (_, i) => ({
-      id: `r${i}`, number: `A${i + 1}`, name: `Aardlekautomaat met lange naam ${i + 1}`, color: '#e53935'
+      id: `r${i}`, number: `A${i + 1}`, name: `Aardlekschakelaar met lange naam ${i + 1}`, color: '#e53935'
    }));
    const harness = setup();
    harness.pdf.download([linkedBox('1', many.map((r) => r.id).concat(Array(7).fill(null)))], 15, ids, many);
@@ -196,7 +196,7 @@ test('the RCBO key is per page and the table still fits with warnings and a wrap
    harness.pdf.download([linkedBox('1', many.map((r) => r.id)), box('2')], 15, ids, many);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
-   assert.ok(!pageText(document, 2).includes('Aardlekautomaten:'));
+   assert.ok(!pageText(document, 2).includes('Aardlekschakelaars:'));
    assert.equal(document.lastAutoTable.settings.startY, 46);
 });
 
@@ -205,6 +205,6 @@ test('without RCBOs the PDF output is unchanged', () => {
    harness.pdf.download([box()], 15, [], []);
    const document = harness.document();
    assert.equal(document.lastAutoTable.settings.startY, 46);
-   assert.ok(!pageText(document, 1).includes('Aardlekautomaten'));
+   assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
 });
 
