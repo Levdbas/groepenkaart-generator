@@ -259,7 +259,12 @@
    }
 
    document.getElementById('add-box').addEventListener('click', function () {
-      state.boxes.push({ id: uid(), number: nextNumber(state.boxes), name: '', groups: [] });
+      state.boxes.push({
+         id: uid(),
+         number: nextNumber(state.boxes),
+         name: '',
+         groups: [{ id: uid(), number: '1', name: '', description: '' }]
+      });
       update();
       const last = boxesEl.lastElementChild;
       if (last) {
