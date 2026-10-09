@@ -2,6 +2,8 @@
 
 Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of verdeelkast te maken en als PDF te downloaden of af te drukken. De app draait volledig in de browser. Er is geen server, account of build-stap nodig, dus hij werkt direct op GitHub Pages.
 
+**[➜ Open de Groepenkaart generator](https://levdbas.github.io/groepenkaart-generator/)**
+
 ## Functies
 
 - Meerdere **kasten** toevoegen, elk met een nummer en een naam
