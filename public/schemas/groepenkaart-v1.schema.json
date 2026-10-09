@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://levdbas.github.io/groepenkaart-generator/schemas/groepenkaart-v1.schema.json",
+  "title": "JSON schema for groepenkaart v1",
+  "type": "object",
+  "required": ["schemaVersion", "warnings", "boxes"],
+  "properties": {
+    "schemaVersion": {
+      "description": "Version of theme.json to use.",
+      "type": "integer",
+      "const": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "enum": ["pv", "ev", "battery", "heat-pump"] }
+    },
+    "boxes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/box" }
+    }
+  },
+  "$defs": {
+    "box": {
+      "type": "object",
+      "required": ["number", "name", "groups"],
+      "properties": {
+        "number": { "type": "string" },
+        "name": { "type": "string" },
+        "groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/group" }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["number", "name", "description"],
+      "properties": {
+        "number": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

@@ -4,7 +4,10 @@
    const STORAGE_KEY = 'groepenkaart:v1';
    const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
+   const schema = window.GroepenkaartSchema;
 
+   let storageWritable = true;
+   let loadedFromStorage = false;
    let state = load();
 
    const boxesEl = document.getElementById('boxes');
@@ -35,49 +38,44 @@
       try {
          const raw = localStorage.getItem(STORAGE_KEY);
          if (raw) {
-            return normalize(JSON.parse(raw));
+            const data = normalize(JSON.parse(raw));
+            loadedFromStorage = true;
+            return data;
          }
       } catch (e) {
+         storageWritable = false;
          console.warn('Opgeslagen gegevens konden niet worden geladen', e);
+         alert('Opgeslagen gegevens konden niet worden geladen: ' + e.message +
+            ' De opgeslagen gegevens blijven bewaard. Importeer een geldig bestand of kies Alles wissen om ze te vervangen.');
       }
-      return { boxes: [], warnings: [] };
+      return schema.empty();
    }
 
    function save() {
+      if (!storageWritable) return;
       try {
-         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+         localStorage.setItem(STORAGE_KEY, JSON.stringify(schema.normalize(state)));
       } catch (e) {
          console.warn('Opslaan mislukt', e);
       }
    }
 
-   function str(value) {
-      if (typeof value === 'string') return value;
-      if (typeof value === 'number' && isFinite(value)) return String(value);
-      return '';
-   }
-
-   // Throws on invalid input so imports can report a clear error.
    function normalize(data) {
-      if (!data || typeof data !== 'object' || !Array.isArray(data.boxes)) {
-         throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
-      }
+      const normalized = schema.normalize(data);
       return {
-         warnings: warnings.normalize(data.warnings),
-         boxes: data.boxes.map(function (box) {
-            if (!box || typeof box !== 'object') throw new Error('Ongeldige kast in bestand.');
-            const groups = Array.isArray(box.groups) ? box.groups : [];
+         schemaVersion: normalized.schemaVersion,
+         warnings: normalized.warnings,
+         boxes: normalized.boxes.map(function (box) {
             return {
                id: uid(),
-               number: str(box.number),
-               name: str(box.name),
-               groups: groups.map(function (g) {
-                  if (!g || typeof g !== 'object') throw new Error('Ongeldige groep in bestand.');
+               number: box.number,
+               name: box.name,
+               groups: box.groups.map(function (g) {
                   return {
                      id: uid(),
-                     number: str(g.number),
-                     name: str(g.name),
-                     description: str(g.description)
+                     number: g.number,
+                     name: g.name,
+                     description: g.description
                   };
                })
             };
@@ -254,18 +252,7 @@
    }
 
    function exportJson() {
-      const data = {
-         warnings: state.warnings.slice(),
-         boxes: state.boxes.map(function (b) {
-            return {
-               number: b.number,
-               name: b.name,
-               groups: b.groups.map(function (g) {
-                  return { number: g.number, name: g.name, description: g.description };
-               })
-            };
-         })
-      };
+      const data = schema.normalize(state);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = el('a', { href: url, download: 'groepenkaart.json' });
@@ -280,8 +267,9 @@
       reader.onload = function () {
          try {
             const data = normalize(JSON.parse(reader.result));
-            if ((state.boxes.length || state.warnings.length) && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
+            if ((!storageWritable || state.boxes.length || state.warnings.length) && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
             state = data;
+            storageWritable = true;
             update();
          } catch (e) {
             alert('Importeren mislukt: ' + (e instanceof SyntaxError ? 'geen geldig JSON-bestand.' : e.message));
@@ -331,11 +319,13 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if ((state.boxes.length || state.warnings.length) && confirm('Weet je zeker dat je alle kasten, groepen en installatiewaarschuwingen wilt wissen?')) {
-         state = { boxes: [], warnings: [] };
+      if ((!storageWritable || state.boxes.length || state.warnings.length) && confirm('Weet je zeker dat je alle kasten, groepen en installatiewaarschuwingen wilt wissen?')) {
+         state = schema.empty();
+         storageWritable = true;
          update();
       }
    });
 
    render();
+   if (loadedFromStorage) save();
 })();

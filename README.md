@@ -36,6 +36,7 @@ Voorbeeld van een exportbestand:
 
 ```json
 {
+  "schemaVersion": 1,
   "warnings": ["pv", "ev", "battery", "heat-pump"],
   "boxes": [
     {
@@ -57,6 +58,18 @@ Voorbeeld van een exportbestand:
   ]
 }
 ```
+
+### Schemaversies en migraties
+
+JSON-exportbestanden en browseropslag bevatten `schemaVersion: 1`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De gedeelde gegevenstypen (`CardData`, `BoxData`, `GroupData` en `WarningCode`), validatie en migraties staan in [src/js/schema.js](src/js/schema.js).
+
+Het [JSON Schema voor versie 1](public/schemas/groepenkaart-v1.schema.json) wordt mee gepubliceerd op [schemas/groepenkaart-v1.schema.json](https://levdbas.github.io/groepenkaart-generator/schemas/groepenkaart-v1.schema.json), zodat andere tools exportbestanden kunnen valideren. Versie 1 vereist `schemaVersion`, `warnings` en `boxes`, met tekstvelden voor kast- en groepgegevens. Interne UI-ID's worden niet opgeslagen of geëxporteerd.
+
+Bestanden zonder `schemaVersion` (of met versie `0`) zijn het oude formaat en worden automatisch naar versie 1 gemigreerd. Ontbrekende waarschuwingen worden een lege lijst; de bestaande omzetting van numerieke velden naar tekst blijft behouden. Browseropslag blijft dezelfde sleutel `groepenkaart:v1` gebruiken om bestaande gegevens terug te vinden en wordt na succesvol laden in het huidige formaat opgeslagen.
+
+Een onbekende nieuwere versie wordt geweigerd met een melding. Bij een mislukte import blijven de huidige gegevens intact. Als browseropslag niet kan worden geladen, blijft die bewaard en schrijven bewerkingen er niet overheen totdat je bewust een geldig bestand importeert of **Alles wissen** bevestigt.
+
+Bij een toekomstige formaatwijziging: verhoog `currentVersion`, werk de gegevenstypen en validatie bij, voeg een migratiestap van versie N naar N+1 toe en publiceer een nieuw schema zonder het oude te wijzigen. Voeg regressietests toe voor de volledige migratieketen. Een nieuwe functie die het gegevensformaat niet verandert, hoeft geen nieuwe schemaversie te krijgen.
 
 ## Lokaal draaien / development
 
@@ -106,9 +119,11 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── index.html                # Pagina en werkbalk (met placeholders)
 │   ├── css/style.css             # Opmaak voor scherm en print
 │   ├── js/warnings.js             # Gedeelde installatiewaarschuwingen en pictogrammen
+│   ├── js/schema.js              # Gegevenstypen, schemaversies, validatie en migraties
 │   ├── js/app.js                 # Gegevens, invoer, opslag, import/export
 │   └── js/pdf.js                 # PDF genereren met jsPDF
 ├── public/                       # Wordt ongewijzigd naar dist/ gekopieerd
+│   └── schemas/                  # Gepubliceerde JSON Schemas per gegevensversie
 ├── scripts/build.mjs             # Build en dev-server
 ├── .github/workflows/pages.yml   # Bouwen en deployen naar GitHub Pages
 └── package.json
@@ -116,7 +131,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 
 ## Tests
 
-Voer `npm test` uit voor regressietests van de waarschuwingselectie en de echte PDF-uitvoer, inclusief oudere gegevens, alle vier kaarten en meerdere pagina's. De tests gebruiken de ingebouwde Node.js-testrunner.
+Voer `npm test` uit voor regressietests van schemaversies, migraties, browseropslag, import/export, waarschuwingselectie en de echte PDF-uitvoer, inclusief oudere gegevens, alle vier kaarten en meerdere pagina's. De tests gebruiken de ingebouwde Node.js-testrunner.
 
 ## Bibliotheken
 
