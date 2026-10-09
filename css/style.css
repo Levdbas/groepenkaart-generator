@@ -28,9 +28,30 @@ body {
 }
 
 .app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   background: var(--blue);
   color: #fff;
   padding: 1.25rem 1.5rem;
+}
+
+.github-link {
+  display: inline-flex;
+  color: #fff;
+  opacity: 0.85;
+}
+
+.github-link:hover,
+.github-link:focus-visible {
+  opacity: 1;
+}
+
+.github-link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+  border-radius: 50%;
 }
 
 .app-header h1 {
