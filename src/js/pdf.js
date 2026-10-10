@@ -135,7 +135,12 @@
          const keyHeight = drawRcboKey(doc, rcbo.used(rcbos, box.groups), margin, 43 + offset);
 
          const entries = box.groups.map(function (g) { return lookup[g.rcboId]; });
-         const body = box.groups.map(function (g, i) { return [rcbo.cellText(g.number, entries[i]), g.name, g.description]; });
+         const body = box.groups.map(function (g, i) {
+            const description = [g.description].filter(Boolean).concat((g.items || []).map(function (item) {
+               return '• ' + item;
+            })).join('\n');
+            return [rcbo.cellText(g.number, entries[i]), g.name, description];
+         });
          for (let i = box.groups.length; i < minRows; i++) body.push(['', '', '']);
 
          doc.autoTable({

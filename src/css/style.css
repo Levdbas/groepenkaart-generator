@@ -100,7 +100,8 @@ body {
 }
 
 .btn:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
@@ -225,13 +226,33 @@ input:focus-visible {
   gap: 0.25rem;
 }
 
-input[type="text"] {
+input[type="text"],
+textarea {
   width: 100%;
   padding: 0.4rem 0.5rem;
   font: inherit;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+input[type="text"] {
+  height: 2.25rem;
+  min-height: 2.25rem;
+}
+
+.box-actions .btn-icon,
+.group-actions .btn-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.group-items-field {
+  margin-top: 0.4rem;
 }
 
 .box-header .input-number {
@@ -252,8 +273,9 @@ input[type="text"] {
 }
 
 .groups-table td {
-  padding: 0.3rem;
+  padding: 0.6rem 0.3rem;
   border-bottom: 1px solid var(--border);
+  vertical-align: top;
 }
 
 .groups-table .col-number {
@@ -261,11 +283,11 @@ input[type="text"] {
 }
 
 .groups-table .col-name {
-  width: 30%;
+  width: 24%;
 }
 
 .groups-table .col-actions {
-  width: 7rem;
+  width: 8rem;
 }
 
 .groups-table .input-number {
@@ -324,6 +346,8 @@ input[type="text"] {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 4px;
+  height: 2.25rem;
+  min-height: 2.25rem;
 }
 
 .rcbo-swatch {
@@ -401,6 +425,12 @@ select:focus-visible,
     padding: 0;
   }
 
+  .box-actions .btn-icon,
+  .group-actions .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+
   .boxes {
     margin: 1rem auto;
     gap: 1rem;
@@ -438,7 +468,8 @@ select:focus-visible,
     justify-content: flex-end;
   }
 
-  input[type="text"] {
+  input[type="text"],
+  textarea {
     min-height: 44px;
     font-size: 1rem;
   }
@@ -663,6 +694,12 @@ select:focus-visible,
 
   .print-page td:first-child {
     text-align: center;
+  }
+
+  .print-group-items {
+    margin: 1mm 0;
+    padding-left: 5mm;
+    overflow-wrap: anywhere;
   }
 
   .print-page td.rcbo-cell {

@@ -204,6 +204,36 @@ test('invalid and newer versions are rejected before interpreting their contents
    assert.throws(() => schema.normalize({ schemaVersion: Number.MAX_SAFE_INTEGER }), /nieuwere schemaversie/);
 });
 
+test('optional group items preserve arrays across schema versions without changing the version', () => {
+   const { schema } = setupSchema();
+   for (const source of [legacy, v1, v2, withRcbos]) {
+      const data = structuredClone(source);
+      data.boxes[0].groups[0].items = ['Vaatwasser', 'Stopcontacten'];
+      data.boxes[0].groups[1].items = [];
+      const original = structuredClone(data);
+      const normalized = plain(schema.normalize(data));
+      assert.equal(normalized.schemaVersion, 2);
+      assert.deepEqual(normalized.boxes[0].groups[0].items, ['Vaatwasser', 'Stopcontacten']);
+      assert.deepEqual(normalized.boxes[0].groups[1].items, []);
+      assert.deepEqual(plain(schema.normalize(normalized)), normalized);
+      assert.deepEqual(data, original);
+   }
+});
+
+test('invalid group items are rejected without replacing browser data', () => {
+   const { schema } = setupSchema();
+   const app = setupApp(JSON.stringify(withRcbos));
+   const stored = app.storage();
+   for (const items of [null, 'Vaatwasser', {}, [1], ['Vaatwasser', false], [null], [[]]]) {
+      const data = structuredClone(withRcbos);
+      data.boxes[0].groups[0].items = items;
+      assert.throws(() => schema.normalize(data), /items.*lijst met tekst/);
+      app.import(data);
+      assert.equal(app.storage(), stored);
+      assert.match(app.messages.at(-1), /Importeren mislukt.*items/);
+   }
+});
+
 test('v1 input is still validated for required arrays, objects, strings, and warning codes', () => {
    const { schema } = setupSchema();
    for (const data of [
@@ -262,10 +292,13 @@ test('published schemas match the current version, required fields, and warning 
    const strings = { box: ['number', 'name'], group: ['number', 'name', 'description'], rcbo: ['id', 'number', 'name', 'color'] };
    for (const [name, fields] of Object.entries(strings)) {
       const definition = publishedSchema.$defs[name];
-      assert.deepEqual(definition.required, Object.keys(definition.properties));
+      assert.deepEqual(definition.required, Object.keys(definition.properties).filter((field) => field !== 'items'));
       for (const field of fields) assert.equal(definition.properties[field].type, 'string');
    }
    assert.deepEqual(publishedSchema.$defs.group.properties.rcboId.type, ['string', 'null']);
+   assert.equal(publishedSchema.$defs.group.properties.items.type, 'array');
+   assert.equal(publishedSchema.$defs.group.properties.items.items.type, 'string');
+   assert.ok(!publishedSchema.$defs.group.required.includes('items'));
    assert.equal(publishedV1Schema.properties.schemaVersion.const, 1);
    assert.equal(publishedV1Schema.$id, schema.schemaUrl.replace('-v2.', '-v1.'));
 });
@@ -360,6 +393,33 @@ test('RCBO text color picks the higher-contrast option', () => {
    assert.equal(rcbo.textColor('#fdd835'), '#000000');
    assert.equal(rcbo.textColor('#1e88e5'), '#000000');
    for (const color of ['#ed8c01', '#009fe3', '#95be1a', '#9e9e9e']) assert.equal(rcbo.textColor(color), '#000000');
+});
+
+test('textarea lines are saved as arrays and printed as bullets without re-rendering the input', async () => {
+   const app = setupApp(JSON.stringify(withRcbos));
+   const input = app.findAll(app.nodes.get('boxes'), (n) => n.tag === 'textarea')[0];
+   assert.equal(input.value, '');
+   input.value = ' Vaatwasser \r\n\nStopcontacten\n <lamp> \n';
+   input.listeners.input();
+   assert.equal(app.findAll(app.nodes.get('boxes'), (n) => n.tag === 'textarea')[0], input);
+   const stored = JSON.parse(app.storage());
+   assert.deepEqual(stored.boxes[0].groups[0].items, ['Vaatwasser', 'Stopcontacten', '<lamp>']);
+   assert.equal(stored.schemaVersion, 2);
+   const exported = await app.export();
+   assert.deepEqual(exported.boxes[0].groups[0].items, stored.boxes[0].groups[0].items);
+   const lists = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-group-items');
+   assert.equal(lists.length, 1);
+   assert.deepEqual(lists[0].children.map((n) => [n.tag, n.textContent]),
+      [['li', 'Vaatwasser'], ['li', 'Stopcontacten'], ['li', '<lamp>']]);
+   const restored = setupApp(app.storage());
+   assert.equal(restored.findAll(restored.nodes.get('boxes'), (n) => n.tag === 'textarea')[0].value,
+      'Vaatwasser\nStopcontacten\n<lamp>');
+   restored.import(exported);
+   assert.deepEqual(JSON.parse(restored.storage()).boxes[0].groups[0].items, stored.boxes[0].groups[0].items);
+   input.value = ' \n\n ';
+   input.listeners.input();
+   assert.deepEqual(JSON.parse(app.storage()).boxes[0].groups[0].items, []);
+   assert.equal(app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-group-items').length, 0);
 });
 
 test('default RCBO colors follow the code, with gray for other codes', () => {

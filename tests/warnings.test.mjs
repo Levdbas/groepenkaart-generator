@@ -105,6 +105,38 @@ test('PDF without warnings retains the original table position and 15 rows', () 
    assert.ok(!pageText(document, 1).includes('LET OP!'));
 });
 
+test('PDF group items render as bullets under the description and wrap within the cell', () => {
+   const harness = setup();
+   const data = box();
+   data.groups[0].items = ['Vaatwasser', 'Stopcontacten', 'Lange aansluiting '.repeat(20)];
+   harness.pdf.download([data], 15);
+   const document = harness.document();
+   const cell = document.lastAutoTable.body[0].cells[2];
+   assert.equal(cell.text[0], data.groups[0].description);
+   assert.equal(cell.text[1], '• Vaatwasser');
+   assert.equal(cell.text[2], '• Stopcontacten');
+   assert.ok(cell.text.length > 4, 'long items wrap');
+   document.setFont('helvetica', 'normal');
+   document.setFontSize(10);
+   for (const line of cell.text) {
+      assert.ok(document.getTextWidth(line) <= cell.width - 4 + 0.1, 'item lines stay within cell padding');
+   }
+   assert.equal(document.lastAutoTable.body.length, 15);
+   assert.ok(document.output().startsWith('%PDF-'));
+});
+
+test('long group item lists preserve all items across PDF overflow pages', () => {
+   const harness = setup();
+   const data = box();
+   data.groups[0].description = '';
+   data.groups[0].items = Array.from({ length: 100 }, (_, i) => `Connection-${i + 1}`);
+   harness.pdf.download([data], 15);
+   const document = harness.document();
+   assert.ok(document.getNumberOfPages() > 1);
+   const text = document.internal.pages.slice(1).map((page) => page.join('\n')).join('\n');
+   for (const item of data.groups[0].items) assert.ok(text.includes(item), `${item} is preserved`);
+});
+
 test('warning cards fit below the print date and above the standard table on A4', () => {
    for (const selected of [['pv'], ids]) {
       const harness = setup();

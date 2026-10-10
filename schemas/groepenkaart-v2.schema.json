@@ -65,6 +65,11 @@
         "number": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
+        "items": {
+          "description": "Optional list of appliances or connections on this group.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "rcboId": { "type": ["string", "null"] }
       }
     }

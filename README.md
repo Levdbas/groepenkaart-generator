@@ -9,7 +9,7 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 ## Functies
 
 - Meerdere **kasten** toevoegen, elk met een nummer en een naam
-- Per kast **groepen** toevoegen met een nummer, naam en omschrijving
+- Per kast **groepen** toevoegen met een nummer, naam, omschrijving en een optionele opsomming van aansluitingen
 - Kasten en groepen verplaatsen (↑ ↓) en verwijderen (✕)
 - **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als grote rode kaarten met pictogrammen op de eerste pagina, zowel in de PDF als bij afdrukken.
 - **Aardlekschakelaars** (aardlekschakelaar: Residual Current Breaker with Overcurrent protection, RCBO): zet **Groepen koppelen aan Aardlekschakelaars** aan, voeg Aardlekschakelaars toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF en bij afdrukken krijgt het groepnummer de kleur en code van de gekoppelde aardlekschakelaar, met een legenda per pagina.
@@ -23,9 +23,9 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 1. Open de [web app](https://levdbas.github.io/groepenkaart-generator/) of [draai de app lokaal](#lokaal-draaien).
 2. Klik onderaan de pagina op **+ Kast toevoegen** en vul een kastnummer en een naam in, bijvoorbeeld `1` en `Meterkast begane grond`.
 3. Elke nieuwe kast begint automatisch met groep `1`. Klik op **+ Groep toevoegen** voor extra groepen. Het groepnummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`.
-4. Vul per groep de naam (bijvoorbeeld `Keuken`) en de omschrijving (bijvoorbeeld `Wandcontactdozen aanrecht, vaatwasser`) in.
+4. Vul per groep de naam (bijvoorbeeld `Keuken`) en de omschrijving (bijvoorbeeld `Wandcontactdozen aanrecht, vaatwasser`) in. Bij **Aansluitingen** kun je per regel een apparaat of aansluiting invullen. Lege regels worden genegeerd. De aansluitingen verschijnen als opsomming onder de omschrijving in de PDF en bij afdrukken.
 5. Vink bij **Aanwezige installaties** aan welke installaties aanwezig zijn. De selectie geldt voor de hele installatie, niet per kast. Standaard is niets aangevinkt. Elke kaart vermeldt **LET OP!**, de aanwezige installatie en een bijbehorende waarschuwing. Voor een airco/warmtepomp luidt die: **Omvormer: condensatoren kunnen na uitschakelen nog spanning houden.**
-6. Gebruik je Aardlekschakelaars? Vink dan **Groepen koppelen aan Aardlekschakelaars** aan en klik op **+ Aardlekschakelaar toevoegen**. Geef elke aardlekschakelaar een code (bijvoorbeeld `A1`), een naam en een kleur. Standaard krijgt `A1` oranje (`#ed8c01`), `A2` blauw (`#009fe3`), `A3` groen (`#95be1a`) en elke volgende aardlekschakelaar grijs (`#9e9e9e`); je kunt de kleur altijd aanpassen. Kies daarna per groep in de kolom **Aardlekschakelaar** bij welke aardlekschakelaar de groep hoort. De Aardlekschakelaars gelden voor de hele installatie en zijn niet aan een kast gebonden. Als je een aardlekschakelaar verwijdert, worden de gekoppelde groepen ontkoppeld. Zet je de optie uit, dan worden na bevestiging alle Aardlekschakelaars en koppelingen verwijderd.
+6. Je groepen ook koppelen aan aardlekschakelaars? Vink dan **Groepen koppelen aan Aardlekschakelaars** aan en klik op **+ Aardlekschakelaar toevoegen**. Geef elke aardlekschakelaar een code (bijvoorbeeld `A1`), een naam en een kleur. Standaard krijgt `A1` oranje (`#ed8c01`), `A2` blauw (`#009fe3`), `A3` groen (`#95be1a`) en elke volgende aardlekschakelaar grijs (`#9e9e9e`); je kunt de kleur altijd aanpassen. Kies daarna per groep in de kolom **Aardlekschakelaar** bij welke aardlekschakelaar de groep hoort. De Aardlekschakelaars gelden voor de hele installatie en zijn niet aan een kast gebonden. Als je een aardlekschakelaar verwijdert, worden de gekoppelde groepen ontkoppeld. Zet je de optie uit, dan worden na bevestiging alle Aardlekschakelaars en koppelingen verwijderd.
 7. Klik op **PDF downloaden** voor een PDF-bestand, of op **Afdrukken** om direct te printen of via het printvenster als PDF op te slaan.
 
 ### Gegevens bewaren
@@ -59,6 +59,7 @@ Voorbeeld van een exportbestand:
           "number": "1",
           "name": "Keuken",
           "description": "Wandcontactdozen aanrecht",
+          "items": ["Vaatwasser", "Wandcontactdozen aanrecht"],
           "rcboId": "5eefe74d-12b8-40e6-825b-409e26c0b066"
         },
         {
@@ -76,6 +77,8 @@ Voorbeeld van een exportbestand:
 ### Schemaversies en migraties
 
 JSON-exportbestanden en browseropslag bevatten `schemaVersion: 2`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De gedeelde gegevenstypen (`CardData`, `BoxData`, `GroupData`, `RcboData` en `WarningCode`), validatie en migraties staan in [src/js/schema.js](src/js/schema.js).
+
+Groepen kunnen optioneel `items` bevatten: een array van strings met de aansluitingen. Bestaande bestanden zonder dit veld blijven werken; de schemaversie blijft 2. Een leeg tekstveld wordt na bewerking opgeslagen als `items: []`.
 
 Het [JSON Schema voor versie 2](schemas/groepenkaart-v2.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v2.schema.json), zodat andere tools exportbestanden kunnen valideren. Het [schema voor versie 1](schemas/groepenkaart-v1.schema.json) blijft ongewijzigd gepubliceerd. Elke export bevat `$schema` met de URL van de huidige versie; browseropslag bevat dit metadataveld niet. Het veld is optioneel voor import en externe validatie. De app gebruikt `schemaVersion` voor validatie en migraties en haalt geen schema op tijdens import. Versie 2 vereist `schemaVersion`, `warnings`, `rcboEnabled`, `rcbos` en `boxes`, en per groep `rcboId`. Een `rcboId` moet naar een bestaande aardlekschakelaar verwijzen, en `rcbos` moet leeg zijn als `rcboEnabled` uit staat. De persistente `id` van een aardlekschakelaar wordt wel opgeslagen; interne UI-ID's van kasten en groepen niet.
 

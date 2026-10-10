@@ -87,7 +87,8 @@
                      number: g.number,
                      name: g.name,
                      description: g.description,
-                     rcboId: g.rcboId
+                     rcboId: g.rcboId,
+                     ...(g.items ? { items: g.items.slice() } : {})
                   };
                })
             };
@@ -146,6 +147,22 @@
       return el('button', { type: 'button', className: 'btn btn-icon ' + (className || ''), title: title, 'aria-label': title, text: text, onclick: onClick });
    }
 
+   function groupItemsInput(group) {
+      const node = el('textarea', {
+         rows: '3', placeholder: 'Eén aansluiting per regel',
+         'aria-label': 'Aansluitingen voor groep ' + group.number
+      });
+      node.value = (group.items || []).join('\n');
+      node.addEventListener('input', function () {
+         group.items = node.value.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
+         save();
+         renderPrint();
+      });
+      return el('label', { className: 'field group-items-field' }, [
+         el('span', { text: 'Aansluitingen (één per regel)' }), node
+      ]);
+   }
+
    function rcboOptionText(rcbo, index) {
       return rcbo.name.trim() ? rcboHelpers.label(rcbo, index) + ' – ' + rcbo.name.trim() : rcboHelpers.label(rcbo, index);
    }
@@ -179,7 +196,10 @@
       return el('tr', null, [
          el('td', null, [input(group.number, 'Nr', 'Groepnummer', function (v) { group.number = v; }, 'input-number')]),
          el('td', null, [input(group.name, 'Naam', 'Groepnaam', function (v) { group.name = v; })]),
-         el('td', null, [input(group.description, 'Omschrijving', 'Omschrijving', function (v) { group.description = v; })]),
+         el('td', null, [
+            input(group.description, 'Omschrijving', 'Omschrijving', function (v) { group.description = v; }),
+            groupItemsInput(group)
+         ]),
          state.rcboEnabled ? el('td', { className: 'group-rcbo' }, [rcboSelect(group)]) : null,
          el('td', { className: 'group-actions' }, [
             el('div', { className: 'row-actions' }, [
@@ -315,7 +335,11 @@
                   text: rcboHelpers.cellText(g.number, entry)
                } : { text: g.number }),
                el('td', { text: g.name }),
-               el('td', { text: g.description })
+               el('td', null, [
+                  g.description ? el('div', { text: g.description }) : null,
+                  g.items && g.items.length ? el('ul', { className: 'print-group-items' },
+                     g.items.map(function (item) { return el('li', { text: item }); })) : null
+               ])
             ]);
          });
          for (let i = box.groups.length; i < MIN_ROWS; i++) {

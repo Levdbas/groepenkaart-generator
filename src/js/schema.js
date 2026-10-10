@@ -4,7 +4,7 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {{id: string, number: string, name: string, color: string}} RcboData
-    * @typedef {{number: string, name: string, description: string, rcboId: string | null}} GroupData
+    * @typedef {{number: string, name: string, description: string, rcboId: string | null, items?: string[]}} GroupData
     * @typedef {{number: string, name: string, groups: GroupData[]}} BoxData
     * @typedef {{schemaVersion: 2, warnings: WarningCode[], rcboEnabled: boolean, rcbos: RcboData[], boxes: BoxData[]}} CardData
     */
@@ -43,7 +43,8 @@
                      return {
                         number: legacyString(group.number),
                         name: legacyString(group.name),
-                        description: legacyString(group.description)
+                        description: legacyString(group.description),
+                        ...normalizeItems(group)
                      };
                   })
                };
@@ -73,6 +74,14 @@
       if (!isObject(value) || fields.some(function (field) { return typeof value[field] !== 'string'; })) {
          throw new Error('Ongeldig bestand: ' + label + ' moet tekstvelden bevatten: ' + fields.join(', ') + '.');
       }
+   }
+
+   function normalizeItems(group) {
+      if (!Object.prototype.hasOwnProperty.call(group, 'items')) return {};
+      if (!Array.isArray(group.items) || group.items.some(function (item) { return typeof item !== 'string'; })) {
+         throw new Error('Ongeldig bestand: "items" van een groep moet een lijst met tekst zijn.');
+      }
+      return { items: group.items.slice() };
    }
 
    /** @returns {CardData} */
@@ -141,7 +150,10 @@
                      throw new Error('Ongeldig bestand: groep ' + JSON.stringify(group.number) +
                         ' verwijst naar een onbekende aardlekschakelaar (' + JSON.stringify(group.rcboId) + ').');
                   }
-                  return { number: group.number, name: group.name, description: group.description, rcboId: group.rcboId };
+                  return {
+                     number: group.number, name: group.name, description: group.description, rcboId: group.rcboId,
+                     ...normalizeItems(group)
+                  };
                })
             };
          })
