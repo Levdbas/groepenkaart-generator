@@ -325,6 +325,7 @@
             el('h1', { text: 'Groepenindeling' }),
             el('p', { className: 'print-date', text: date }),
             index === 0 ? renderWarnings() : null,
+            index === 0 ? renderUnusedRcbos() : null,
             el('h2', { text: boxTitle(box) }),
             renderRcboKey(box),
             el('table', null, [
@@ -364,6 +365,21 @@
             warnings.svg(warning.icon)
          ]);
       }));
+   }
+
+   function renderUnusedRcbos() {
+      const groups = state.boxes.flatMap(function (box) { return box.groups; });
+      const unused = rcboHelpers.unused(state.rcbos, groups);
+      if (!unused.length) return null;
+      return el('section', { className: 'print-unused-rcbos' }, [
+         el('h3', { text: 'Aardlekschakelaars niet in gebruik' }),
+         el('ul', null, unused.map(function (entry) {
+            return el('li', null, [
+               el('span', { className: 'print-rcbo-swatch', style: 'background-color: ' + entry.rcbo.color }),
+               el('span', { text: rcboHelpers.keyText(entry) })
+            ]);
+         }))
+      ]);
    }
 
    function renderBoxes() {

@@ -49,6 +49,11 @@
          .filter(function (entry) { return groups.some(function (g) { return g.rcboId === entry.rcbo.id; }); });
    }
 
+   function unused(rcbos, groups) {
+      return (rcbos || []).map(function (rcbo, i) { return { rcbo: rcbo, label: label(rcbo, i) }; })
+         .filter(function (entry) { return !groups.some(function (g) { return g.rcboId === entry.rcbo.id; }); });
+   }
+
    function cellText(groupNumber, entry) {
       return entry ? [groupNumber, entry.label].filter(Boolean).join(' · ') : groupNumber;
    }
@@ -59,6 +64,6 @@
 
    window.GroepenkaartRcbo = {
       defaultColors: defaultColors, fallbackColor: fallbackColor, isColor: isColor, rgb: rgb, textColor: textColor, label: label,
-      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, cellText: cellText, keyText: keyText
+      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, keyText: keyText
    };
 })();

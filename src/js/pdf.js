@@ -45,6 +45,31 @@
       return height + 5;
    }
 
+   function drawUnusedRcbos(doc, entries, margin, top) {
+      if (!entries.length) return 0;
+      const rcbo = window.GroepenkaartRcbo;
+      const right = doc.internal.pageSize.getWidth() - margin;
+      const swatch = 4;
+      const lineHeight = 4.5;
+      const textWidth = right - margin - swatch - 3;
+      let y = top + 8;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(30, 30, 30);
+      doc.text('Aardlekschakelaars niet in gebruik', margin, top + 3.2);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      entries.forEach(function (entry) {
+         const lines = doc.splitTextToSize(rcbo.keyText(entry), textWidth);
+         doc.setFillColor.apply(doc, rcbo.rgb(entry.rcbo.color));
+         doc.rect(margin, y - 3.5, swatch, swatch, 'FD');
+         doc.text(lines, margin + swatch + 3, y);
+         y += Math.max(lines.length * lineHeight, lineHeight) + 1;
+      });
+      return y - top;
+   }
+
    // Draws a wrapping key of the RCBOs used on this page and returns the height it takes.
    function drawRcboKey(doc, entries, margin, top) {
       if (!entries.length) return 0;
@@ -86,6 +111,8 @@
 
       const rcbo = window.GroepenkaartRcbo;
       const lookup = rcbo.index(rcbos);
+      const allGroups = boxes.flatMap(function (box) { return box.groups; });
+      const unusedRcbos = rcbo.unused(rcbos, allGroups);
       const margin = 15;
       const date = 'Afgedrukt op ' + today();
 
@@ -100,7 +127,8 @@
          doc.setFontSize(10);
          doc.setTextColor(91, 101, 115);
          doc.text(date, margin, 31);
-         const offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 36) : 0;
+         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 36) : 0;
+         if (index === 0) offset += drawUnusedRcbos(doc, unusedRcbos, margin, 36 + offset);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(13);
          doc.text(title(box), margin, 40 + offset);

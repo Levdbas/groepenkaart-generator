@@ -551,6 +551,33 @@ select:focus-visible,
     font-family: Helvetica, Arial, sans-serif;
   }
 
+  .print-unused-rcbos {
+    margin: 0 0 3mm;
+    break-inside: avoid;
+    color: #1e1e1e;
+    font-size: 9pt;
+  }
+
+  .print-unused-rcbos h3 {
+    margin: 0 0 1mm;
+    font-size: 9pt;
+  }
+
+  .print-unused-rcbos ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5mm 5mm;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .print-unused-rcbos li {
+    display: flex;
+    align-items: center;
+    gap: 1.5mm;
+  }
+
   .print-warning {
     flex: 0 0 42mm;
     height: 42mm;

@@ -196,6 +196,22 @@ test('linked groups get a colored group-number cell with the RCBO code and reada
    assert.ok(document.lastAutoTable.settings.startY > 46);
 });
 
+test('unused RCBOs are listed below warnings once across all boxes', () => {
+   const harness = setup();
+   const boxes = [
+      linkedBox('1', ['r1']),
+      linkedBox('2', ['r2'])
+   ];
+   assert.equal(harness.pdf.download(boxes, 15, ['pv'], rcbos), true);
+   const firstPage = pageText(harness.document(), 1);
+   assert.ok(firstPage.includes('Aardlekschakelaars niet in gebruik'));
+   assert.ok(firstPage.includes('(A3 \x96 Ongebruikt)'));
+   assert.ok(!firstPage.includes('(A1 \x96 Keuken en badkamer)'));
+   assert.ok(!firstPage.includes('(A2)'));
+   assert.ok(firstPage.indexOf('Aardlekschakelaars niet in gebruik') > firstPage.indexOf('LET OP!'));
+   assert.ok(!pageText(harness.document(), 2).includes('Aardlekschakelaars niet in gebruik'));
+});
+
 test('the RCBO key is per page and the table still fits with warnings and a wrapped key', () => {
    const many = Array.from({ length: 8 }, (_, i) => ({
       id: `r${i}`, number: `A${i + 1}`, name: `Aardlekschakelaar met lange naam ${i + 1}`, color: '#e53935'

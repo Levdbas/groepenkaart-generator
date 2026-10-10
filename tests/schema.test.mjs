@@ -342,6 +342,16 @@ test('RCBOs can be added and linked to groups in any box, and linked groups are 
    assert.equal(key.length, 1);
 });
 
+test('unused RCBOs appear below warnings in the browser print output', () => {
+   const data = structuredClone(withRcbos);
+   data.rcbos.push({ id: 'r3', number: 'A3', name: 'Reserve', color: '#95be1a' });
+   const app = setupApp(JSON.stringify(data));
+   const section = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-unused-rcbos');
+   assert.equal(section.length, 1);
+   assert.equal(section[0].children[0].textContent, 'Aardlekschakelaars niet in gebruik');
+   assert.deepEqual(section[0].children[1].children.map((item) => item.children[1].textContent), ['A3 – Reserve']);
+});
+
 test('RCBO text color picks the higher-contrast option', () => {
    const { context } = setupSchema();
    const rcbo = context.window.GroepenkaartRcbo;
