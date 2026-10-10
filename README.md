@@ -36,11 +36,13 @@ In de PDF krijgt de fasekolom een gekleurde onderrand binnen de cel: L1 bruin (`
 
 ### QR-code en deellink
 
-Met **QR-code toevoegen aan de PDF** komt onder de laatste tabel een QR-code van circa 5,5 cm met een korte uitleg. De QR-code bevat een link naar de app met alle gegevens van de groepenkaart in het deel na de `#`, bijvoorbeeld `https://levdbas.github.io/groepenkaart-generator/#data=…`. De gegevens zijn dezelfde als in het JSON-bestand (zonder `$schema`), gecomprimeerd met deflate en als base64url-tekst in de link gezet. Dit deel van een link gaat nooit naar een server.
+Met **QR-code toevoegen aan de PDF** komt onder de laatste tabel een QR-code van circa 5,5 cm met een korte uitleg. De QR-code bevat een link naar de app met alle gegevens van de groepenkaart in het deel na de `#`, bijvoorbeeld `https://levdbas.github.io/groepenkaart-generator/#c1=…`. Dit deel van een link gaat nooit naar een server.
+
+Om de QR-code zo eenvoudig mogelijk te houden, worden de gegevens compact opgeslagen ([src/js/share.js](src/js/share.js)): de gegevens van het JSON-bestand (zonder `$schema`) worden herschreven naar korte lijsten zonder veldnamen, waarbij groepen naar een aardlekschakelaar verwijzen met een volgnummer in plaats van een lang `id`. Daarna worden ze met deflate gecomprimeerd en als tekst uit de tekens `0-9 A-Z - + * $` in de link gezet. Die tekens passen in de compactere alfanumerieke modus van een QR-code (circa 5,5 bit per teken in plaats van 8). De `id`'s van aardlekschakelaars worden bij het openen opnieuw genummerd (`r1`, `r2`, …). Het formaat `c1` beschrijft altijd gegevens van schemaversie 4; bij een nieuwe schemaversie hoort een nieuw formaat. Links in het eerdere formaat (`#data=`, gecomprimeerde JSON als base64url) kunnen nog steeds worden geopend. Een kaart met 32 groepen, 3 aardlekschakelaars en aansluitingen kost zo circa 740 tekens en een QR-code van 89 bij 89 blokjes, tegen circa 1050 tekens en 121 bij 121 blokjes in het eerdere formaat.
 
 Opent iemand zo'n link, dan valideert en migreert de app de gegevens net als bij **Importeren**, vraagt bevestiging als er al gegevens zijn, en haalt daarna de gegevens uit de adresbalk. Oude QR-codes blijven werken na een nieuwe schemaversie, omdat `schemaVersion` in de gegevens zit.
 
-Een QR-code kan maximaal circa 2950 tekens bevatten. Dat is ruim voldoende voor een gewone groepenkaart (30 groepen blijven rond de 500 tekens). Past een kaart er niet in, dan toont de app een melding en maakt de PDF zonder QR-code; bewaar de gegevens dan met **Exporteren**. De QR-code is een momentopname: wijzig je de kaart daarna, dan komt de gedrukte code niet meer overeen.
+Een QR-code heeft een maximale capaciteit van ongeveer 2950 tekens. Dat is ruim voldoende voor een gewone groepenkaart. Past een kaart er niet in, dan toont de app een melding en maakt de PDF zonder QR-code; bewaar de gegevens dan met **Exporteren**. De QR-code is een momentopname: wijzig je de kaart daarna, dan komt de gedrukte code niet meer overeen.
 
 ### Gegevens bewaren
 

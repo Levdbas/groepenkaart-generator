@@ -135,6 +135,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true) {
    const pdfCalls = [];
    const replaced = [];
    const windowListeners = {};
+   const timers = [];
    const location = { href: 'https://example.test/app/?x=1' + hash, pathname: '/app/', search: '?x=1', hash };
    const document = {
       body: node('body'),
@@ -172,7 +173,9 @@ function setupApp(stored = null, hash = '', confirmAnswer = true) {
       btoa, atob,
       location: location,
       history: { replaceState(state, title, url) { location.hash = ''; replaced.push(url); } },
-      addEventListener(event, callback) { windowListeners[event] = callback; }
+      addEventListener(event, callback) { windowListeners[event] = callback; },
+      setTimeout(callback) { timers.push(callback); return timers.length; },
+      clearTimeout() { timers.length = 0; }
    });
    vm.runInContext(sources[3], context);
    vm.runInContext(sources[4], context);
@@ -182,7 +185,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true) {
       return found;
    };
    return {
-      schema, shareContext: context.window, nodes, messages, confirms, findAll, pdfCalls, replaced, location, windowListeners, storage: () => storage,
+      schema, shareContext: context.window, nodes, messages, confirms, findAll, pdfCalls, replaced, location, windowListeners, timers, storage: () => storage,
       confirm(value) { confirmation = value; },
       import(data) {
          nodes.get('import-json').listeners.change({ target: { files: [JSON.stringify(data)] } });
@@ -1049,10 +1052,9 @@ test('the PDF only receives a QR code when the option is on, with a link that re
    assert.equal(app.nodes.get('qr-status').hidden, true);
 
    const share = app.shareContext.GroepenkaartShare;
-   const link = share.url('https://example.test/app/?x=1#old', { $schema: 'x', ...app.schema.normalize(JSON.parse(app.storage())) });
-   assert.match(link, /^https:\/\/example\.test\/app\/\?x=1#data=[A-Za-z0-9_-]+$/);
-   const decoded = share.decode(share.tokenFromHash(new URL(link).hash));
-   assert.ok(!('$schema' in decoded));
+   const link = share.url('https://example.test/app/?x=1#old', app.schema.normalize(JSON.parse(app.storage())));
+   assert.match(link, /^https:\/\/example\.test\/app\/\?x=1#c1=[0-9A-Z$*+-]+$/);
+   const decoded = share.decode(new URL(link).hash);
    assert.deepEqual(plain(app.schema.normalize(decoded)), JSON.parse(app.storage()));
 });
 
@@ -1060,7 +1062,7 @@ test('a QR code is skipped with a visible message when the data does not fit', (
    const big = structuredClone(withRcds);
    let seed = 1;
    const random = () => (seed = (seed * 48271) % 2147483647).toString(36);
-   big.boxes[0].groups = Array.from({ length: 150 }, (_, i) => ({
+   big.boxes[0].groups = Array.from({ length: 400 }, (_, i) => ({
       number: String(i + 1), description: random() + random() + random(), rcdId: null, phases: []
    }));
    const app = setupApp(JSON.stringify(big));
@@ -1076,8 +1078,8 @@ test('a QR code is skipped with a visible message when the data does not fit', (
 
 test('opening a link replaces the data after confirmation, cleans the address and rejects bad links', () => {
    const source = setupApp(JSON.stringify(withRcds));
-   const token = source.shareContext.GroepenkaartShare.encode(JSON.parse(source.storage()));
-   const hash = '#data=' + token;
+   const share = source.shareContext.GroepenkaartShare;
+   const hash = '#c1=' + share.encode(JSON.parse(source.storage()));
 
    const fresh = setupApp(null, hash);
    assert.deepEqual(JSON.parse(fresh.storage()), withRcds);
@@ -1092,7 +1094,9 @@ test('opening a link replaces the data after confirmation, cleans the address an
    assert.deepEqual(JSON.parse(declined.storage()), v4);
    assert.deepEqual(declined.replaced, ['/app/?x=1']);
 
-   for (const bad of ['#data=', '#data=!!!', '#data=' + 'A'.repeat(20), '#data=' + 'A'.repeat(10001)]) {
+   const bads = ['#c1=', '#c1=abc', '#c1=!!!', '#c1=' + 'A'.repeat(20), '#c1=' + 'A'.repeat(4001), '#c1=1', '#data=', '#data=!!!',
+      '#data=' + 'A'.repeat(20)];
+   for (const bad of bads) {
       const app = setupApp(JSON.stringify(v3), bad);
       assert.match(app.messages.at(-1), /Openen van de link mislukt/);
       assert.deepEqual(JSON.parse(app.storage()), v4);
@@ -1105,9 +1109,89 @@ test('opening a link replaces the data after confirmation, cleans the address an
    assert.deepEqual(JSON.parse(open.storage()), withRcds);
 });
 
-test('an old link keeps working after a schema migration', () => {
+test('compact links round-trip all data, with RCD ids renumbered and everything else unchanged', () => {
    const { schema } = setupSchema();
    const share = setupApp().shareContext.GroepenkaartShare;
-   const oldData = { ...structuredClone(withRcdsV2) };
-   assert.deepEqual(plain(schema.normalize(share.decode(share.encode(oldData)))), withRcds);
+   const data = {
+      schemaVersion: 4, warnings: ['pv', 'heat-pump'], qrEnabled: true, rcdEnabled: true, phaseEnabled: true,
+      rcds: [
+         { id: 'f3b1c5de-0000-4000-8000-000000000001', number: 'A1', name: 'Keuken "en" bad', color: '#ed8c01', amountOfPoles: 2, phases: ['L2'] },
+         { id: 'f3b1c5de-0000-4000-8000-000000000002', number: '', name: '', color: '#009fe3', amountOfPoles: 4, phases: ['L1', 'L2', 'L3'] }
+      ],
+      boxes: [
+         {
+            number: '1', name: 'Meterkast é – ü 日本', groups: [
+               { number: '1', description: 'Keuken', rcdId: 'f3b1c5de-0000-4000-8000-000000000001', phases: [], items: ['Vaatwasser', 'Oven'] },
+               { number: '2', description: '', rcdId: 'f3b1c5de-0000-4000-8000-000000000002', phases: ['L1', 'L3'], items: [] },
+               { number: '3', description: 'Hal', rcdId: null, phases: ['L3'] }
+            ]
+         },
+         { number: '2', name: '', groups: [] }
+      ]
+   };
+   const original = structuredClone(data);
+   const decoded = plain(schema.normalize(share.decode('#c1=' + share.encode(data))));
+   assert.deepEqual(data, original);
+   const renumbered = structuredClone(data);
+   renumbered.rcds[0].id = 'r1';
+   renumbered.rcds[1].id = 'r2';
+   renumbered.boxes[0].groups[0].rcdId = 'r1';
+   renumbered.boxes[0].groups[1].rcdId = 'r2';
+   assert.deepEqual(decoded, renumbered);
+   assert.deepEqual(plain(schema.normalize(share.decode('#c1=' + share.encode(schema.empty())))), plain(schema.empty()));
+   assert.throws(() => share.encode({ ...data, schemaVersion: 5 }), /schemaversie 5/);
+   assert.equal(schema.currentVersion, 4, 'update the compact link format together with the schema version');
+});
+
+test('compact links are much smaller than the original base64url format and the token is QR alphanumeric', () => {
+   const { schema } = setupSchema();
+   const share = setupApp().shareContext.GroepenkaartShare;
+   const groups = Array.from({ length: 24 }, (_, i) => ({
+      number: String(i + 1), description: ['Keuken', 'Woonkamer verlichting', 'Slaapkamer', 'Wasmachine en droger'][i % 4],
+      rcdId: 'f3b1c5de-0000-4000-8000-00000000000' + (i % 3), phases: [], ...(i % 4 === 0 ? { items: ['Wandcontactdozen', 'Verlichting'] } : {})
+   }));
+   const data = {
+      ...plain(schema.empty()), rcdEnabled: true,
+      rcds: [0, 1, 2].map((i) => ({ id: 'f3b1c5de-0000-4000-8000-00000000000' + i, number: 'A' + i, name: '', color: '#ed8c01', amountOfPoles: 2, phases: [] })),
+      boxes: [{ number: '1', name: 'Meterkast', groups }]
+   };
+   const legacyToken = Buffer.from(require('fflate').deflateSync(Buffer.from(JSON.stringify(data)), { level: 9 })).toString('base64url');
+   const token = share.encode(data);
+   assert.match(token, /^[0-9A-Z$*+-]+$/);
+   assert.ok(token.length < legacyToken.length * 0.7, `${token.length} should be well below ${legacyToken.length}`);
+
+   const link = share.url('https://levdbas.github.io/groepenkaart-generator/', data);
+   const code = share.qr(link);
+   const legacyCode = (() => { const c = require('qrcode-generator')(0, 'M'); c.addData('https://levdbas.github.io/groepenkaart-generator/#data=' + legacyToken, 'Byte'); c.make(); return c; })();
+   assert.ok(code.getModuleCount() < legacyCode.getModuleCount() - 20, `${code.getModuleCount()} vs ${legacyCode.getModuleCount()}`);
+});
+
+test('links in the original #data= format can still be opened, including after a schema migration', () => {
+   const { schema } = setupSchema();
+   const share = setupApp().shareContext.GroepenkaartShare;
+   const token = Buffer.from(require('fflate').deflateSync(Buffer.from(JSON.stringify(withRcdsV2)), { level: 9 })).toString('base64url');
+   assert.ok(share.isLink('#data=' + token));
+   assert.deepEqual(plain(schema.normalize(share.decode('#data=' + token))), withRcds);
+   assert.ok(!share.isLink('#other'));
+   assert.ok(!share.isLink(''));
+});
+
+test('the too-large message follows typing once the typing pauses', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   app.setQrEnabled(true);
+   const status = app.nodes.get('qr-status');
+   assert.equal(status.hidden, true);
+   const description = app.findAll(app.nodes.get('boxes'), (n) => n.attrs['aria-label'] === 'Omschrijving')[0];
+   let seed = 7;
+   description.value = Array.from({ length: 6000 }, () => (seed = (seed * 48271) % 2147483647).toString(36)[0]).join('');
+   description.listeners.input();
+   description.listeners.input();
+   assert.equal(app.timers.length, 1, 'repeated typing keeps a single pending check');
+   assert.equal(status.hidden, true);
+   app.timers[0]();
+   assert.equal(status.hidden, false);
+   description.value = 'kort';
+   description.listeners.input();
+   app.timers[0]();
+   assert.equal(status.hidden, true);
 });

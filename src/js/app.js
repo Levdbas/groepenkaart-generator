@@ -10,6 +10,7 @@
 
    let storageWritable = true;
    let loadedFromStorage = false;
+   let qrStatusTimer;
    let state = load();
 
    const boxesEl = document.getElementById('boxes');
@@ -62,7 +63,14 @@
       return schema.empty();
    }
 
+   // Building the QR code takes a moment, so after typing it only runs once the typing pauses.
+   function scheduleQrStatus() {
+      window.clearTimeout(qrStatusTimer);
+      qrStatusTimer = window.setTimeout(renderQrStatus, 400);
+   }
+
    function save() {
+      scheduleQrStatus();
       if (!storageWritable) return;
       try {
          localStorage.setItem(STORAGE_KEY, JSON.stringify(schema.normalize(state)));
@@ -514,7 +522,7 @@
    }
 
    function renderQrStatus() {
-      const tooLarge = state.qrEnabled && !share.fits(shareUrl());
+      const tooLarge = state.qrEnabled && share.qr(shareUrl()) === null;
       qrStatusEl.hidden = !tooLarge;
       qrStatusEl.textContent = tooLarge
          ? 'De gegevens zijn te groot voor een QR-code. De PDF wordt zonder QR-code gemaakt; gebruik Exporteren om alles te bewaren.'
@@ -523,11 +531,11 @@
 
    // Replaces the data with the card in the page address (the link in a QR code). Returns whether it did.
    function importFromLink() {
-      const token = share.tokenFromHash(window.location.hash);
-      if (token === null) return false;
+      const hash = window.location.hash;
+      if (!share.isLink(hash)) return false;
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
       try {
-         const data = normalize(share.decode(token));
+         const data = normalize(share.decode(hash));
          if (hasData() && !confirm('Huidige gegevens vervangen door de groepenkaart uit de link?')) return false;
          state = data;
          storageWritable = true;
