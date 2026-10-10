@@ -192,7 +192,8 @@ test('linked groups get a colored group-number cell with the RCBO code and reada
    const text = pageText(document, 1);
    assert.ok(text.includes('Aardlekschakelaars:'));
    assert.ok(text.includes('(A1 \x96 Keuken en badkamer)'), 'en dash uses WinAnsi encoding');
-   assert.ok(!text.includes('Ongebruikt'), 'only RCBOs used on the page appear in the key');
+   assert.ok(text.includes('Aardlekschakelaars niet in gebruik'));
+   assert.ok(text.includes('(A3 \x96 Ongebruikt)'), 'unused RCBOs are listed separately from the key');
    assert.ok(document.lastAutoTable.settings.startY > 46);
 });
 
@@ -204,11 +205,14 @@ test('unused RCBOs are listed below warnings once across all boxes', () => {
    ];
    assert.equal(harness.pdf.download(boxes, 15, ['pv'], rcbos), true);
    const firstPage = pageText(harness.document(), 1);
-   assert.ok(firstPage.includes('Aardlekschakelaars niet in gebruik'));
-   assert.ok(firstPage.includes('(A3 \x96 Ongebruikt)'));
-   assert.ok(!firstPage.includes('(A1 \x96 Keuken en badkamer)'));
-   assert.ok(!firstPage.includes('(A2)'));
-   assert.ok(firstPage.indexOf('Aardlekschakelaars niet in gebruik') > firstPage.indexOf('LET OP!'));
+   const unusedHeading = 'Aardlekschakelaars niet in gebruik';
+   const unusedStart = firstPage.indexOf(unusedHeading);
+   const unusedLabel = firstPage.indexOf('(A3 \x96 Ongebruikt)');
+   const usedLabel = firstPage.indexOf('(A1 \x96 Keuken en badkamer)');
+   assert.notEqual(unusedStart, -1);
+   assert.notEqual(unusedLabel, -1);
+   assert.ok(unusedLabel < usedLabel, 'unused RCBOs appear before the used RCBO key');
+   assert.ok(unusedStart > firstPage.indexOf('LET OP!'));
    assert.ok(!pageText(harness.document(), 2).includes('Aardlekschakelaars niet in gebruik'));
 });
 
