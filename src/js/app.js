@@ -20,8 +20,11 @@
    const warningInputs = warnings.definitions.map(function (warning) {
       const checkbox = el('input', { type: 'checkbox', value: warning.id });
       checkbox.addEventListener('change', function () {
-         state.warnings = warningInputs.filter(function (node) { return node.checked; })
-            .map(function (node) { return node.value; });
+         const selectable = warnings.definitions.map(function (definition) { return definition.id; });
+         state.warnings = state.warnings.filter(function (id) { return !selectable.includes(id); })
+            .concat(warningInputs.filter(function (node) { return node.checked; })
+               .map(function (node) { return node.value; }));
+         state.warnings = warnings.normalize(state.warnings);
          save();
          renderPrint();
       });
@@ -357,7 +360,7 @@
             el('strong', { text: 'LET OP!' }),
             el('strong', { text: warning.heading[0] }),
             el('strong', { text: warning.heading[1] }),
-            el('p', { text: warnings.message }),
+            el('p', { text: warning.message || warnings.message }),
             warnings.svg(warning.icon)
          ]);
       }));

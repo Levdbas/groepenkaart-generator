@@ -2,6 +2,7 @@
    'use strict';
 
    const message = 'Gevaarlijke DC-spanning op de bekabeling mogelijk!';
+   const codes = ['pv', 'ev', 'battery', 'heat-pump'];
    // Icons use a 64 x 32 coordinate system shared by SVG and PDF drawing.
    const definitions = [
       {
@@ -26,27 +27,6 @@
          ]
       },
       {
-         id: 'ev',
-         label: 'EV-lader',
-         heading: ['EV-LADER', 'AANWEZIG'],
-         icon: [
-            ['rect', 3, 17, 39, 10],
-            ['line', 10, 17, 15, 8],
-            ['line', 15, 8, 30, 8],
-            ['line', 30, 8, 36, 17],
-            ['line', 23, 8, 23, 17],
-            ['circle', 12, 27, 4],
-            ['circle', 34, 27, 4],
-            ['rect', 48, 3, 12, 23],
-            ['line', 48, 26, 60, 26],
-            ['line', 48, 16, 44, 16],
-            ['line', 44, 16, 44, 22],
-            ['line', 55, 7, 52, 13],
-            ['line', 52, 13, 57, 13],
-            ['line', 57, 13, 54, 19]
-         ]
-      },
-      {
          id: 'battery',
          label: 'Thuisbatterij',
          heading: ['THUISBATTERIJ', 'AANWEZIG'],
@@ -64,6 +44,7 @@
          id: 'heat-pump',
          label: 'Airco/Warmtepomp',
          heading: ['AIRCO / WARMTEPOMP', 'AANWEZIG'],
+         message: 'Omvormer: condensatoren kunnen na uitschakelen nog spanning houden.',
          icon: [
             ['rect', 8, 3, 48, 25],
             ['circle', 25, 15, 9],
@@ -84,12 +65,11 @@
    function normalize(value) {
       if (value === undefined) return [];
       if (!Array.isArray(value) || value.some(function (id) {
-         return !definitions.some(function (warning) { return warning.id === id; });
+         return !codes.includes(id);
       })) {
          throw new Error('Ongeldig bestand: "warnings" moet een lijst met bekende installatiecodes zijn.');
       }
-      return definitions.filter(function (warning) { return value.includes(warning.id); })
-         .map(function (warning) { return warning.id; });
+      return codes.filter(function (id) { return value.includes(id); });
    }
 
    function selected(ids) {
@@ -125,5 +105,5 @@
       });
    }
 
-   window.GroepenkaartWarnings = { definitions: definitions, message: message, normalize: normalize, selected: selected, svg: svg, drawIcon: drawIcon };
+   window.GroepenkaartWarnings = { codes: codes, definitions: definitions, message: message, normalize: normalize, selected: selected, svg: svg, drawIcon: drawIcon };
 })();

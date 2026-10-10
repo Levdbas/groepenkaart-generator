@@ -35,8 +35,9 @@
          doc.text(warning.heading[0], center, top + 10, { align: 'center' });
          doc.text(warning.heading[1], center, top + 14, { align: 'center' });
          doc.setFont('helvetica', 'normal');
-         doc.setFontSize(6.8);
-         doc.text(doc.splitTextToSize(warnings.message.toUpperCase(), width - 6), center, top + 19, {
+         const message = warning.message || warnings.message;
+         doc.setFontSize(warning.message ? 5.8 : 6.8);
+         doc.text(doc.splitTextToSize(message.toUpperCase(), width - 6), center, top + 19, {
             align: 'center', lineHeightFactor: 1.2
          });
          warnings.drawIcon(doc, warning.icon, center - 12, top + 28, 24);

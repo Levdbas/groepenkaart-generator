@@ -71,7 +71,10 @@ function setupApp(stored = null) {
    function node(tag) {
       return {
          tag, attrs: {}, children: [], listeners: {}, checked: false, value: '',
-         setAttribute(key, value) { this.attrs[key] = value; },
+         setAttribute(key, value) {
+            this.attrs[key] = value;
+            if (key === 'value') this.value = String(value);
+         },
          addEventListener(event, callback) { this.listeners[event] = callback; },
          appendChild(child) { this.children.push(child); },
          replaceChildren(...children) { this.children = children; },
@@ -251,7 +254,10 @@ test('published schemas match the current version, required fields, and warning 
    assert.equal(publishedSchema.properties.schemaVersion.const, schema.currentVersion);
    assert.deepEqual(publishedSchema.required, Object.keys(plain(schema.empty())));
    assert.deepEqual(publishedSchema.properties.warnings.items.enum,
-      Array.from(context.window.GroepenkaartWarnings.definitions, (warning) => warning.id));
+      Array.from(context.window.GroepenkaartWarnings.codes));
+   assert.deepEqual(publishedV1Schema.properties.warnings.items.enum,
+      Array.from(context.window.GroepenkaartWarnings.codes));
+   assert.ok(publishedSchema.properties.warnings.items.enum.includes('ev'));
    assert.equal(publishedSchema.properties.rcboEnabled.type, 'boolean');
    const strings = { box: ['number', 'name'], group: ['number', 'name', 'description'], rcbo: ['id', 'number', 'name', 'color'] };
    for (const [name, fields] of Object.entries(strings)) {
@@ -268,6 +274,9 @@ test('browser storage migrates on load and exports the same portable versioned d
    const app = setupApp(JSON.stringify(legacy));
    assert.deepEqual(JSON.parse(app.storage()), v2);
    assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...v2 });
+   assert.equal(app.nodes.get('installation-options').children.length, 3);
+   app.selectWarning();
+   assert.deepEqual(JSON.parse(app.storage()).warnings, legacy.warnings);
    assert.equal(app.nodes.get('boxes').children.length, 2);
    assert.equal(app.nodes.get('rcbo-panel').hidden, true);
    assert.equal(app.selects().length, 0);

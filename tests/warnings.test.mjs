@@ -26,6 +26,7 @@ function setup() {
 }
 
 const ids = ['pv', 'ev', 'battery', 'heat-pump'];
+const displayedIds = ['pv', 'battery', 'heat-pump'];
 function box(number = '1', count = 1) {
    return {
       number, name: `Meterkast ${number}`,
@@ -49,6 +50,8 @@ test('normalization validates codes and gives unique, stable display order', () 
    const { warnings } = setup();
    assert.deepEqual(Array.from(warnings.normalize(['heat-pump', 'pv', 'pv'])), ['pv', 'heat-pump']);
    assert.deepEqual(Array.from(warnings.normalize(ids)), ids);
+   assert.deepEqual(Array.from(warnings.selected(['ev'])), []);
+   assert.deepEqual(Array.from(warnings.definitions, (warning) => warning.id), displayedIds);
    for (const value of [null, true, 'pv', {}, ['unknown'], ['pv', 1], [null]]) {
       assert.throws(() => warnings.normalize(value), /warnings/);
    }
@@ -56,11 +59,11 @@ test('normalization validates codes and gives unique, stable display order', () 
 
 test('each installation can be selected independently and deselected', () => {
    const { warnings } = setup();
-   for (const id of ids) {
+   for (const id of displayedIds) {
       assert.deepEqual(Array.from(warnings.selected([id]), (warning) => warning.id), [id]);
    }
    assert.equal(warnings.selected([]).length, 0);
-   assert.equal(warnings.selected(ids).length, 4);
+   assert.equal(warnings.selected(ids).length, 3);
 });
 
 test('JSON round-trip preserves selections', () => {
@@ -80,11 +83,15 @@ test('all warning labels and text fit inside the 42 mm cards', () => {
       }
    }
    document.setFont('helvetica', 'normal');
-   document.setFontSize(6.8);
-   const lines = document.splitTextToSize(warnings.message.toUpperCase(), 36);
-   assert.ok(lines.length * 6.8 * 1.2 / document.internal.scaleFactor < 9,
-      'warning text must fit above the pictogram');
-   for (const line of lines) assert.ok(document.getTextWidth(line) <= 36);
+   for (const warning of warnings.definitions) {
+      const message = warning.message || warnings.message;
+      const fontSize = warning.message ? 5.8 : 6.8;
+      document.setFontSize(fontSize);
+      const lines = document.splitTextToSize(message.toUpperCase(), 36);
+      assert.ok(lines.length * fontSize * 1.2 / document.internal.scaleFactor < 9,
+         `${warning.id} warning text must fit above the pictogram`);
+      for (const line of lines) assert.ok(document.getTextWidth(line) <= 36);
+   }
 });
 
 test('PDF without warnings retains the original table position and 15 rows', () => {
@@ -98,19 +105,25 @@ test('PDF without warnings retains the original table position and 15 rows', () 
    assert.ok(!pageText(document, 1).includes('LET OP!'));
 });
 
-test('one and four warning cards fit below the print date and above the standard table on A4', () => {
+test('warning cards fit below the print date and above the standard table on A4', () => {
    for (const selected of [['pv'], ids]) {
       const harness = setup();
       harness.pdf.download([box()], 15, selected);
       const document = harness.document();
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
-      assert.equal((text.match(/LET OP!/g) || []).length, selected.length);
+      assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
       assert.ok(text.indexOf('LET OP!') > text.indexOf('Groepenindeling'));
       assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
       assert.equal(document.lastAutoTable.settings.startY, 93);
       assert.ok(document.lastAutoTable.finalY < 282, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('GEVAARLIJKE DC-SPANNING'));
+      if (selected.includes('heat-pump')) {
+         assert.ok(text.includes('OMVORMER:'));
+         assert.ok(text.includes('CONDENSATOREN'));
+         assert.ok(text.includes('SPANNING HOUDEN.'));
+      }
+      assert.ok(!text.includes('EV-LADER'));
       assert.ok(text.includes('Group-1-1'));
       assert.ok(document.output().startsWith('%PDF-'));
    }
@@ -121,7 +134,7 @@ test('warnings appear only on the first page with multiple kasten', () => {
    harness.pdf.download([box('1'), box('2')], 15, ids);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
-   assert.equal((pageText(document, 1).match(/LET OP!/g) || []).length, 4);
+   assert.equal((pageText(document, 1).match(/LET OP!/g) || []).length, 3);
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
    assert.equal(document.lastAutoTable.settings.startY, 46);
@@ -207,4 +220,3 @@ test('without RCBOs the PDF output is unchanged', () => {
    assert.equal(document.lastAutoTable.settings.startY, 46);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
 });
-
