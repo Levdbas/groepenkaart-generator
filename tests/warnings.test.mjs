@@ -11,10 +11,16 @@ const sources = await Promise.all(['warnings', 'rcbo', 'pdf'].map((name) =>
 
 function setup() {
    let document;
+   const lines = [];
    const window = {
       jspdf: {
          jsPDF: function (options) {
             document = new jsPDF(options);
+            const line = document.line;
+            document.line = function (x1, y1, x2, y2) {
+               lines.push({ x1, y1, x2, y2, color: document.getDrawColor(), width: document.getLineWidth() });
+               return line.call(document, x1, y1, x2, y2);
+            };
             document.save = (filename) => { document.savedFilename = filename; };
             return document;
          }
@@ -22,7 +28,7 @@ function setup() {
    };
    const context = vm.createContext({ window });
    sources.forEach((source) => vm.runInContext(source, context));
-   return { window, warnings: window.GroepenkaartWarnings, pdf: window.GroepenkaartPdf, document: () => document };
+   return { window, warnings: window.GroepenkaartWarnings, pdf: window.GroepenkaartPdf, lines, document: () => document };
 }
 
 const ids = ['pv', 'ev', 'battery', 'heat-pump'];
@@ -31,7 +37,7 @@ function box(number = '1', count = 1) {
    return {
       number, name: `Meterkast ${number}`,
       groups: Array.from({ length: count }, (_, index) => ({
-         number: String(index + 1), name: `Group-${number}-${index + 1}`, description: 'Lighting and sockets'
+         number: String(index + 1), description: `Group-${number}-${index + 1}`
       }))
    };
 }
@@ -105,13 +111,98 @@ test('PDF without warnings retains the original table position and 15 rows', () 
    assert.ok(!pageText(document, 1).includes('LET OP!'));
 });
 
+test('PDF shows effective phases, pole counts and unassigned selections only when enabled', () => {
+   const harness = setup();
+   const rcbos = [
+      { id: 'two', number: 'A1', name: 'Keuken', color: '#ed8c01', amountOfPoles: 2, phases: ['L2'] },
+      { id: 'four', number: 'A2', name: 'Garage', color: '#009fe3', amountOfPoles: 4, phases: ['L1', 'L2', 'L3'] },
+      { id: 'unused', number: 'A3', name: 'Reserve', color: '#95be1a', amountOfPoles: 2, phases: [] }
+   ];
+   const data = box('1', 5);
+   data.groups[0] = { ...data.groups[0], rcboId: 'two', phases: ['L3'] };
+   data.groups[1] = { ...data.groups[1], rcboId: 'four', phases: ['L1', 'L3'] };
+   data.groups[2] = { ...data.groups[2], rcboId: null, phases: ['L1', 'L2', 'L3'] };
+   data.groups[3] = { ...data.groups[3], rcboId: 'four', phases: [] };
+   data.groups[4] = { ...data.groups[4], rcboId: null, phases: ['L2'] };
+   assert.equal(harness.pdf.download([data], 15, [], rcbos, true), true);
+   const document = harness.document();
+   const table = document.lastAutoTable;
+   assert.equal(table.columns.length, 3);
+   assert.deepEqual(table.head[0].cells[2].text, ['Fasen']);
+   assert.deepEqual(table.head[0].cells[1].text, ['Omschrijving']);
+   assert.deepEqual(table.body.slice(0, 5).map((row) => row.cells[2].text.join(' ')),
+      ['L2', 'L1, L3', 'L1, L2, L3', 'Niet gekozen', 'L2']);
+   assert.equal(table.body.length, 15);
+   assert.deepEqual(table.body[5].cells[2].text, ['']);
+   assert.deepEqual(Array.from(table.body[0].cells[0].styles.fillColor), [237, 140, 1]);
+   assert.ok(pageText(document, 1).includes('2P; L2'));
+   assert.ok(pageText(document, 1).includes('4P; L1, L2, L3'));
+   assert.ok(pageText(document, 1).includes('2P; Niet gekozen'));
+   assert.ok(document.output().startsWith('%PDF-'));
+   const borders = harness.lines.filter((line) => line.width === 1);
+   const expected = [['#000000'], ['#8b4513', '#808080'], ['#8b4513', '#000000', '#808080'], [], ['#000000']];
+   assert.equal(borders.length, 7, 'only assigned group phases have colored borders');
+   let offset = 0;
+   expected.forEach((colors, index) => {
+      const cell = table.body[index].cells[2];
+      colors.forEach((color, segment) => {
+         const border = borders[offset++];
+         const width = (cell.width - 4) / colors.length;
+         assert.equal(border.color, color);
+         assert.ok(Math.abs(border.x1 - (cell.x + 2 + segment * width)) < 0.001);
+         assert.ok(Math.abs(border.x2 - border.x1 - width) < 0.001);
+         assert.equal(border.y1, border.y2);
+         assert.ok(Math.abs(border.y1 - (cell.y + cell.height - 1.5)) < 0.001);
+      });
+   });
+   harness.lines.length = 0;
+   harness.pdf.download([data], 15, [], rcbos, false);
+   assert.equal(harness.document().lastAutoTable.columns.length, 2);
+   assert.ok(!pageText(harness.document(), 1).includes('Fasen'));
+   assert.ok(!pageText(harness.document(), 1).includes('2P;'));
+   assert.equal(harness.lines.filter((line) => line.width === 1).length, 0);
+});
+
+test('phase borders are drawn on every fragment of a group split across PDF pages', () => {
+   const harness = setup();
+   const data = box();
+   data.groups[0].phases = ['L1', 'L3'];
+   data.groups[0].items = Array.from({ length: 90 }, (_, i) => `Connection ${i}`);
+   harness.pdf.download([data], 15, [], [], true);
+   assert.ok(harness.document().getNumberOfPages() > 1);
+   const borders = harness.lines.filter((line) => line.width === 1);
+   assert.ok(borders.length >= 4);
+   for (let i = 0; i < borders.length; i += 2) {
+      assert.equal(borders[i].color, '#8b4513');
+      assert.equal(borders[i + 1].color, '#808080');
+      assert.equal(borders[i].y1, borders[i + 1].y1);
+   }
+});
+
+test('phase PDF columns and long RCBO labels fit inside the page and survive overflow', () => {
+   const harness = setup();
+   const rcbos = [{ id: 'r1', number: 'A1', name: 'Lange omschrijving '.repeat(9), color: '#ed8c01', amountOfPoles: 4 }];
+   const data = box('1', 65);
+   data.groups.forEach((group) => { group.rcboId = 'r1'; group.phases = ['L1', 'L2', 'L3']; });
+   harness.pdf.download([data, box('2')], 15, ['pv'], rcbos, true);
+   const document = harness.document();
+   assert.ok(document.getNumberOfPages() > 2);
+   const output = Array.from({ length: document.getNumberOfPages() }, (_, i) => pageText(document, i + 1)).join('\n');
+   assert.ok(output.includes('Group-1-65'));
+   assert.ok(output.includes('Group-2-1'));
+   assert.ok(output.includes('L1, L2, L3'));
+   const table = document.lastAutoTable;
+   assert.equal(table.columns.length, 3);
+   assert.ok(table.columns.reduce((sum, column) => sum + column.width, 0) <= 180.01);
+});
+
 test('PDF group items render as bullets under the description and wrap within the cell', () => {
    const harness = setup();
    const data = box();
    data.groups[0].items = ['Vaatwasser', 'Stopcontacten', 'Lange aansluiting '.repeat(20)];
    harness.pdf.download([data], 15);
    const document = harness.document();
-   const cell = document.lastAutoTable.body[0].cells[2];
+   const cell = document.lastAutoTable.body[0].cells[1];
    assert.equal(cell.text[0], data.groups[0].description);
    assert.equal(cell.text[1], '• Vaatwasser');
    assert.equal(cell.text[2], '• Stopcontacten');

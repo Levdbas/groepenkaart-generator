@@ -102,6 +102,26 @@
     </fieldset>
 
     <fieldset
+      class="installation-options no-print"
+      aria-describedby="phase-help"
+    >
+      <legend>Fasen</legend>
+      <p id="phase-help">
+        Documenteer de fasen van een 3-faseninstallatie. Kies bij een 2-polige
+        aardlekschakelaar één fase; gekoppelde groepen nemen die over.
+        Een 4-polige aardlekschakelaar heeft alle drie de fasen. Kies bij
+        groepen hierop, of zonder koppeling, zelf één of meer fasen.
+        De fasen verschijnen ook in de PDF en bij afdrukken.
+      </p>
+      <div class="installation-checkboxes">
+        <label>
+          <input type="checkbox" id="phase-enabled" />
+          <span>Fasen documenteren (3-faseninstallatie)</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset
       class="installation-options rcbo-options no-print"
       aria-describedby="rcbo-help"
     >

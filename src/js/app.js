@@ -15,6 +15,7 @@
    const emptyEl = document.getElementById('empty-state');
    const printEl = document.getElementById('print-area');
    const rcboEnabledEl = document.getElementById('rcbo-enabled');
+   const phaseEnabledEl = document.getElementById('phase-enabled');
    const rcboPanelEl = document.getElementById('rcbo-panel');
    const rcboListEl = document.getElementById('rcbo-list');
    const warningInputs = warnings.definitions.map(function (warning) {
@@ -73,8 +74,9 @@
          schemaVersion: normalized.schemaVersion,
          warnings: normalized.warnings,
          rcboEnabled: normalized.rcboEnabled,
+         phaseEnabled: normalized.phaseEnabled,
          rcbos: normalized.rcbos.map(function (rcbo) {
-            return { id: rcbo.id, number: rcbo.number, name: rcbo.name, color: rcbo.color };
+            return { ...rcbo, phases: rcbo.phases.slice() };
          }),
          boxes: normalized.boxes.map(function (box) {
             return {
@@ -85,9 +87,9 @@
                   return {
                      id: uid(),
                      number: g.number,
-                     name: g.name,
                      description: g.description,
                      rcboId: g.rcboId,
+                     phases: g.phases.slice(),
                      ...(g.items ? { items: g.items.slice() } : {})
                   };
                })
@@ -171,7 +173,7 @@
       return color ? 'background-color: ' + color : '';
    }
 
-   function rcboSelect(group) {
+   function rcboSelect(group, onChange) {
       const linked = state.rcbos.find(function (r) { return r.id === group.rcboId; });
       const swatch = el('span', { className: 'rcbo-swatch' + (linked ? '' : ' is-empty'), style: swatchStyle(linked && linked.color), 'aria-hidden': 'true' });
       const select = el('select', { 'aria-label': 'Aardlekschakelaar voor groep ' + group.number }, [
@@ -186,21 +188,55 @@
          const rcbo = state.rcbos.find(function (r) { return r.id === group.rcboId; });
          swatch.className = 'rcbo-swatch' + (rcbo ? '' : ' is-empty');
          swatch.setAttribute('style', swatchStyle(rcbo && rcbo.color));
+         onChange();
          save();
          renderPrint();
       });
       return el('div', { className: 'rcbo-select' }, [swatch, select]);
    }
 
+   function groupPhaseInput(group) {
+      const rcbo = state.rcbos.find(function (r) { return r.id === group.rcboId; });
+      if (rcbo && rcbo.amountOfPoles === 2) {
+         return el('div', { className: 'phase-inherited', text: rcboHelpers.phaseText(rcboHelpers.groupPhases(group, rcbo)) + ' (via aardlekschakelaar)' });
+      }
+      const status = el('span', { className: 'phase-status', text: rcboHelpers.phaseText(group.phases) });
+      return el('fieldset', { className: 'phase-choices' }, [
+         el('legend', { text: 'Fasen voor groep ' + group.number }),
+         ...rcboHelpers.phaseCodes.map(function (phase) {
+            const checkbox = el('input', { type: 'checkbox', value: phase });
+            checkbox.checked = group.phases.includes(phase);
+            checkbox.addEventListener('change', function () {
+               group.phases = rcboHelpers.phaseCodes.filter(function (code) {
+                  return code === phase ? checkbox.checked : group.phases.includes(code);
+               });
+               status.textContent = rcboHelpers.phaseText(group.phases);
+               save();
+               renderPrint();
+            });
+            return el('label', null, [checkbox, el('span', { text: phase })]);
+         }),
+         status
+      ]);
+   }
+
    function renderGroupRow(box, group, index) {
+      const phaseCell = state.phaseEnabled ? el('td', { className: 'group-phases', 'data-label': 'Fasen' }, [groupPhaseInput(group)]) : null;
+      const refreshPhase = function () {
+         if (phaseCell) phaseCell.replaceChildren(groupPhaseInput(group));
+      };
+      const description = input(group.description, 'Omschrijving', 'Omschrijving', function (v) { group.description = v; });
+      const items = groupItemsInput(group);
+      // With phases the connections get their own row; otherwise they stay stacked under the description.
+      const descriptionCells = state.phaseEnabled ? [
+         el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [description]),
+         el('td', { className: 'group-items' }, [items])
+      ] : [el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [description, items])];
       return el('tr', null, [
-         el('td', null, [input(group.number, 'Nr', 'Groepnummer', function (v) { group.number = v; }, 'input-number')]),
-         el('td', null, [input(group.name, 'Naam', 'Groepnaam', function (v) { group.name = v; })]),
-         el('td', null, [
-            input(group.description, 'Omschrijving', 'Omschrijving', function (v) { group.description = v; }),
-            groupItemsInput(group)
-         ]),
-         state.rcboEnabled ? el('td', { className: 'group-rcbo' }, [rcboSelect(group)]) : null,
+         el('td', { className: 'group-number', 'data-label': 'Groep' }, [input(group.number, 'Nr', 'Groepnummer', function (v) { group.number = v; }, 'input-number')]),
+         ...descriptionCells,
+         state.rcboEnabled ? el('td', { className: 'group-rcbo', 'data-label': 'Aardlekschakelaar' }, [rcboSelect(group, refreshPhase)]) : null,
+         phaseCell,
          el('td', { className: 'group-actions' }, [
             el('div', { className: 'row-actions' }, [
                iconButton('↑', 'Groep omhoog', function () { move(box.groups, index, -1); update(); }),
@@ -235,12 +271,12 @@
                }, 'btn-danger')
             ])
          ]),
-         el('table', { className: 'groups-table' }, [
+         el('table', { className: 'groups-table' + (state.phaseEnabled ? ' has-phases' : '') + (state.rcboEnabled ? ' has-rcbos' : '') }, [
             el('thead', null, [el('tr', null, [
                el('th', { className: 'col-number', text: 'Groep' }),
-               el('th', { className: 'col-name', text: 'Naam' }),
                el('th', { text: 'Omschrijving' }),
                state.rcboEnabled ? el('th', { className: 'col-rcbo', text: 'Aardlekschakelaar' }) : null,
+               state.phaseEnabled ? el('th', { className: 'col-phases', text: 'Fasen' }) : null,
                el('th', { className: 'col-actions' })
             ])]),
             el('tbody', null, rows)
@@ -250,7 +286,7 @@
             className: 'btn btn-primary btn-add-group',
             text: '+ Groep toevoegen',
             onclick: function () {
-               box.groups.push({ id: uid(), number: nextNumber(box.groups), name: '', description: '', rcboId: null });
+               box.groups.push({ id: uid(), number: nextNumber(box.groups), description: '', rcboId: null, phases: [] });
                update();
                const inputs = boxesEl.querySelectorAll('[data-id="' + box.id + '"] tbody tr:last-child input');
                if (inputs[1]) inputs[1].focus();
@@ -270,6 +306,43 @@
       save();
       renderBoxes();
       renderPrint();
+   }
+
+   function rcboPhaseInput(rcbo) {
+      if (rcbo.amountOfPoles === 4) {
+         return el('div', { className: 'field' }, [
+            el('span', { text: 'Fasen' }),
+            el('span', { className: 'phase-inherited', text: 'L1, L2, L3 (4-polig)' })
+         ]);
+      }
+      const select = el('select', { 'aria-label': 'Fase aardlekschakelaar ' + rcbo.number }, [
+         el('option', { value: '', text: 'Kies een fase' }),
+         ...rcboHelpers.phaseCodes.map(function (phase) { return el('option', { value: phase, text: phase }); })
+      ]);
+      select.value = rcbo.phases[0] || '';
+      select.addEventListener('change', function () {
+         rcbo.phases = select.value ? [select.value] : [];
+         rcboChanged();
+      });
+      return el('label', { className: 'field' }, [el('span', { text: 'Fase' }), select]);
+   }
+
+   function rcboPhaseControls(rcbo) {
+      const phases = el('div', { className: 'rcbo-phase-selection' }, [rcboPhaseInput(rcbo)]);
+      const poles = el('select', { 'aria-label': 'Aantal polen aardlekschakelaar ' + rcbo.number }, [
+         el('option', { value: '2', text: '2-polig' }),
+         el('option', { value: '4', text: '4-polig' })
+      ]);
+      poles.value = String(rcbo.amountOfPoles);
+      poles.addEventListener('change', function () {
+         rcbo.amountOfPoles = Number(poles.value);
+         rcbo.phases = rcbo.amountOfPoles === 4 ? rcboHelpers.phaseCodes.slice() : [];
+         phases.replaceChildren(rcboPhaseInput(rcbo));
+         rcboChanged();
+      });
+      return el('div', { className: 'rcbo-phase-controls' }, [
+         el('label', { className: 'field' }, [el('span', { text: 'Aantal polen' }), poles]), phases
+      ]);
    }
 
    function renderRcbo(rcbo, index) {
@@ -298,7 +371,8 @@
                state.rcbos.splice(index, 1);
                update();
             }, 'btn-danger')
-         ])
+         ]),
+         state.phaseEnabled ? rcboPhaseControls(rcbo) : null
       ]);
    }
 
@@ -328,22 +402,28 @@
          const lookup = rcboHelpers.index(state.rcbos);
          const rows = box.groups.map(function (g) {
             const entry = lookup[g.rcboId];
+            const phases = rcboHelpers.groupPhases(g, entry && entry.rcbo);
             return el('tr', null, [
                el('td', entry ? {
                   className: 'rcbo-cell',
                   style: 'background-color: ' + entry.rcbo.color + '; color: ' + rcboHelpers.textColor(entry.rcbo.color),
                   text: rcboHelpers.cellText(g.number, entry)
                } : { text: g.number }),
-               el('td', { text: g.name }),
                el('td', null, [
                   g.description ? el('div', { text: g.description }) : null,
                   g.items && g.items.length ? el('ul', { className: 'print-group-items' },
                      g.items.map(function (item) { return el('li', { text: item }); })) : null
-               ])
+               ]),
+               state.phaseEnabled ? el('td', { className: 'print-phases', text: rcboHelpers.phaseText(phases) }, [
+                  phases.length ? el('span', { className: 'print-phase-border', 'aria-hidden': 'true' },
+                     phases.map(function (phase) {
+                        return el('span', { style: 'background-color: ' + rcboHelpers.phaseColors[phase] });
+                     })) : null
+               ]) : null
             ]);
          });
          for (let i = box.groups.length; i < MIN_ROWS; i++) {
-            rows.push(el('tr', null, [el('td'), el('td'), el('td')]));
+            rows.push(el('tr', null, [el('td'), el('td'), state.phaseEnabled ? el('td') : null]));
          }
          return el('article', { className: 'print-page' }, [
             el('h1', { text: 'Groepenindeling' }),
@@ -355,8 +435,8 @@
             el('table', null, [
                el('thead', null, [el('tr', null, [
                   el('th', { className: 'col-number', text: 'Groep' }),
-                  el('th', { className: 'col-name', text: 'Naam' }),
-                  el('th', { text: 'Omschrijving' })
+                  el('th', { text: 'Omschrijving' }),
+                  state.phaseEnabled ? el('th', { className: 'col-phases', text: 'Fasen' }) : null
                ])]),
                el('tbody', null, rows)
             ])
@@ -372,7 +452,7 @@
       ].concat(used.map(function (entry) {
          return el('li', null, [
             el('span', { className: 'print-rcbo-swatch', style: 'background-color: ' + entry.rcbo.color }),
-            el('span', { text: rcboHelpers.keyText(entry) })
+            el('span', { text: rcboHelpers.keyText(entry, state.phaseEnabled) })
          ]);
       })));
    }
@@ -400,7 +480,7 @@
          el('ul', null, unused.map(function (entry) {
             return el('li', null, [
                el('span', { className: 'print-rcbo-swatch', style: 'background-color: ' + entry.rcbo.color }),
-               el('span', { text: rcboHelpers.keyText(entry) })
+               el('span', { text: rcboHelpers.keyText(entry, state.phaseEnabled) })
             ]);
          }))
       ]);
@@ -412,6 +492,7 @@
 
    function render() {
       warningInputs.forEach(function (node) { node.checked = state.warnings.includes(node.value); });
+      phaseEnabledEl.checked = state.phaseEnabled;
       renderRcbos();
       renderBoxes();
       emptyEl.hidden = state.boxes.length > 0;
@@ -419,7 +500,7 @@
    }
 
    function hasData() {
-      return !storageWritable || state.boxes.length || state.warnings.length || state.rcboEnabled;
+      return !storageWritable || state.boxes.length || state.warnings.length || state.rcboEnabled || state.phaseEnabled;
    }
 
    function exportJson() {
@@ -454,7 +535,7 @@
          id: uid(),
          number: nextNumber(state.boxes),
          name: '',
-         groups: [{ id: uid(), number: '1', name: '', description: '', rcboId: null }]
+         groups: [{ id: uid(), number: '1', description: '', rcboId: null, phases: [] }]
       });
       update();
       const last = boxesEl.lastElementChild;
@@ -469,7 +550,7 @@
          alert('Voeg eerst een kast toe.');
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings, state.rcbos)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings, state.rcbos, state.phaseEnabled)) {
          window.print();
       }
    });
@@ -487,6 +568,11 @@
       const file = e.target.files && e.target.files[0];
       if (file) importJson(file);
       e.target.value = '';
+   });
+
+   phaseEnabledEl.addEventListener('change', function () {
+      state.phaseEnabled = phaseEnabledEl.checked;
+      update();
    });
 
    rcboEnabledEl.addEventListener('change', function () {
@@ -509,7 +595,7 @@
 
    document.getElementById('add-rcbo').addEventListener('click', function () {
       const number = rcboHelpers.nextNumber(state.rcbos);
-      const rcbo = { id: uid(), number: number, name: '', color: rcboHelpers.defaultColor(number) };
+      const rcbo = { id: uid(), number: number, name: '', color: rcboHelpers.defaultColor(number), amountOfPoles: 2, phases: [] };
       state.rcbos.push(rcbo);
       update();
       const last = rcboListEl.lastElementChild;
@@ -517,7 +603,7 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, Aardlekschakelaars en installatiewaarschuwingen wilt wissen?')) {
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, Aardlekschakelaars, installatiewaarschuwingen en fase-instellingen wilt wissen?')) {
          state = schema.empty();
          storageWritable = true;
          update();

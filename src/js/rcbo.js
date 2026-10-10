@@ -4,6 +4,20 @@
    const defaultColors = { A1: '#ed8c01', A2: '#009fe3', A3: '#95be1a' };
    const fallbackColor = '#9e9e9e';
    const colorPattern = /^#[0-9a-f]{6}$/i;
+   const phaseCodes = ['L1', 'L2', 'L3'];
+   const phaseColors = { L1: '#8B4513', L2: '#000000', L3: '#808080' };
+
+   function rcboPhases(rcbo) {
+      return rcbo.amountOfPoles === 4 ? phaseCodes.slice() : (rcbo.phases || []).slice();
+   }
+
+   function groupPhases(group, rcbo) {
+      return rcbo && rcbo.amountOfPoles !== 4 ? rcboPhases(rcbo) : (group.phases || []).slice();
+   }
+
+   function phaseText(phases) {
+      return phases.length ? phases.join(', ') : 'Niet gekozen';
+   }
 
    function isColor(value) {
       return typeof value === 'string' && colorPattern.test(value);
@@ -58,12 +72,14 @@
       return entry ? [groupNumber, entry.label].filter(Boolean).join(' · ') : groupNumber;
    }
 
-   function keyText(entry) {
-      return entry.rcbo.name.trim() ? entry.label + ' – ' + entry.rcbo.name.trim() : entry.label;
+   function keyText(entry, phaseEnabled) {
+      const text = entry.rcbo.name.trim() ? entry.label + ' – ' + entry.rcbo.name.trim() : entry.label;
+      return phaseEnabled ? text + ' (' + (entry.rcbo.amountOfPoles || 2) + 'P; ' + phaseText(rcboPhases(entry.rcbo)) + ')' : text;
    }
 
    window.GroepenkaartRcbo = {
       defaultColors: defaultColors, fallbackColor: fallbackColor, isColor: isColor, rgb: rgb, textColor: textColor, label: label,
-      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, keyText: keyText
+      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, keyText: keyText,
+      phaseCodes: phaseCodes, phaseColors: phaseColors, rcboPhases: rcboPhases, groupPhases: groupPhases, phaseText: phaseText
    };
 })();
