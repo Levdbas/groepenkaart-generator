@@ -591,10 +591,6 @@
       }
    });
 
-   document.getElementById('print').addEventListener('click', function () {
-      window.print();
-   });
-
    // Keeps the printed date current if the page stays open across days.
    window.addEventListener('beforeprint', renderPrint);
 
