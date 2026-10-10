@@ -6,6 +6,7 @@
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
    const rcdHelpers = window.GroepenkaartRcd;
+   const share = window.GroepenkaartShare;
 
    let storageWritable = true;
    let loadedFromStorage = false;
@@ -14,6 +15,8 @@
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
    const printEl = document.getElementById('print-area');
+   const qrEnabledEl = document.getElementById('qr-enabled');
+   const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
    const phaseEnabledEl = document.getElementById('phase-enabled');
    const rcdPanelEl = document.getElementById('rcd-panel');
@@ -73,6 +76,7 @@
       return {
          schemaVersion: normalized.schemaVersion,
          warnings: normalized.warnings,
+         qrEnabled: normalized.qrEnabled,
          rcdEnabled: normalized.rcdEnabled,
          phaseEnabled: normalized.phaseEnabled,
          rcds: normalized.rcds.map(function (rcd) {
@@ -493,6 +497,8 @@
    function render() {
       warningInputs.forEach(function (node) { node.checked = state.warnings.includes(node.value); });
       phaseEnabledEl.checked = state.phaseEnabled;
+      qrEnabledEl.checked = state.qrEnabled;
+      renderQrStatus();
       renderRcds();
       renderBoxes();
       emptyEl.hidden = state.boxes.length > 0;
@@ -500,7 +506,36 @@
    }
 
    function hasData() {
-      return !storageWritable || state.boxes.length || state.warnings.length || state.rcdEnabled || state.phaseEnabled;
+      return !storageWritable || state.boxes.length || state.warnings.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
+   }
+
+   function shareUrl() {
+      return share.url(window.location.href, schema.normalize(state));
+   }
+
+   function renderQrStatus() {
+      const tooLarge = state.qrEnabled && !share.fits(shareUrl());
+      qrStatusEl.hidden = !tooLarge;
+      qrStatusEl.textContent = tooLarge
+         ? 'De gegevens zijn te groot voor een QR-code. De PDF wordt zonder QR-code gemaakt; gebruik Exporteren om alles te bewaren.'
+         : '';
+   }
+
+   // Replaces the data with the card in the page address (the link in a QR code). Returns whether it did.
+   function importFromLink() {
+      const token = share.tokenFromHash(window.location.hash);
+      if (token === null) return false;
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      try {
+         const data = normalize(share.decode(token));
+         if (hasData() && !confirm('Huidige gegevens vervangen door de groepenkaart uit de link?')) return false;
+         state = data;
+         storageWritable = true;
+         return true;
+      } catch (e) {
+         alert('Openen van de link mislukt: ' + e.message);
+         return false;
+      }
    }
 
    function exportJson() {
@@ -550,7 +585,8 @@
          alert('Voeg eerst een kast toe.');
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings, state.rcds, state.phaseEnabled)) {
+      const qr = state.qrEnabled ? share.qr(shareUrl()) : null;
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings, state.rcds, state.phaseEnabled, qr)) {
          window.print();
       }
    });
@@ -568,6 +604,11 @@
       const file = e.target.files && e.target.files[0];
       if (file) importJson(file);
       e.target.value = '';
+   });
+
+   qrEnabledEl.addEventListener('change', function () {
+      state.qrEnabled = qrEnabledEl.checked;
+      update();
    });
 
    phaseEnabledEl.addEventListener('change', function () {
@@ -603,13 +644,18 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, Aardlekschakelaars, installatiewaarschuwingen en fase-instellingen wilt wissen?')) {
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, groepen, Aardlekschakelaars, installatiewaarschuwingen en fase- en QR-instellingen wilt wissen?')) {
          state = schema.empty();
          storageWritable = true;
          update();
       }
    });
 
+   window.addEventListener('hashchange', function () {
+      if (importFromLink()) update();
+   });
+
+   const importedFromLink = importFromLink();
    render();
-   if (loadedFromStorage) save();
+   if (loadedFromStorage || importedFromLink) save();
 })();

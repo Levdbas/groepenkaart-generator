@@ -7,10 +7,10 @@
     * @typedef {{id: string, number: string, name: string, color: string, amountOfPoles: 2 | 4, phases: PhaseCode[]}} RcdData
     * @typedef {{number: string, description: string, rcdId: string | null, phases: PhaseCode[], items?: string[]}} GroupData
     * @typedef {{number: string, name: string, groups: GroupData[]}} BoxData
-    * @typedef {{schemaVersion: 3, warnings: WarningCode[], rcdEnabled: boolean, phaseEnabled: boolean, rcds: RcdData[], boxes: BoxData[]}} CardData
+    * @typedef {{schemaVersion: 4, warnings: WarningCode[], qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, rcds: RcdData[], boxes: BoxData[]}} CardData
     */
 
-   const currentVersion = 3;
+   const currentVersion = 4;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
@@ -113,6 +113,10 @@
          delete migrated.rcboEnabled;
          delete migrated.rcbos;
          return migrated;
+      },
+      // Adds the optional QR code on the last PDF page: disabled by default.
+      3: function (data) {
+         return Object.assign({}, data, { schemaVersion: 4, qrEnabled: false });
       }
    };
 
@@ -139,7 +143,7 @@
 
    /** @returns {CardData} */
    function empty() {
-      return { schemaVersion: currentVersion, warnings: [], rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: [] };
+      return { schemaVersion: currentVersion, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: [] };
    }
 
    function normalizePhases(value) {
@@ -202,11 +206,13 @@
       if (!Array.isArray(data.boxes)) throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
       if (!Array.isArray(data.warnings)) throw new Error('Ongeldig bestand: "warnings" moet een lijst zijn.');
       if (typeof data.phaseEnabled !== 'boolean') throw new Error('Ongeldig bestand: "phaseEnabled" moet waar of onwaar zijn.');
+      if (typeof data.qrEnabled !== 'boolean') throw new Error('Ongeldig bestand: "qrEnabled" moet waar of onwaar zijn.');
       const rcds = normalizeRcds(data);
       const rcdIds = rcds.map(function (rcd) { return rcd.id; });
       return {
          schemaVersion: currentVersion,
          warnings: warnings.normalize(data.warnings),
+         qrEnabled: data.qrEnabled,
          rcdEnabled: data.rcdEnabled,
          phaseEnabled: data.phaseEnabled,
          rcds: rcds,

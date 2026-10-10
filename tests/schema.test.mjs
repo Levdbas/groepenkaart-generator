@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import vm from 'node:vm';
 
-const sources = await Promise.all(['warnings', 'rcd', 'schema', 'app'].map((name) =>
+const require = createRequire(import.meta.url);
+
+const sources = await Promise.all(['warnings', 'rcd', 'schema', 'share', 'app'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 const readSchema = async (version) => JSON.parse(await readFile(
    new URL(`../schemas/groepenkaart-v${version}.schema.json`, import.meta.url), 'utf8'));
-const publishedSchema = await readSchema(3);
+const publishedSchema = await readSchema(4);
+const publishedV3Schema = await readSchema(3);
 const publishedV2Schema = await readSchema(2);
 const publishedV1Schema = await readSchema(1);
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -32,6 +36,7 @@ const v2 = {
    rcbos: [],
    boxes: legacy.boxes.map((box) => ({ ...box, groups: box.groups.map((g) => ({ ...g, rcboId: null })) }))
 };
+// The shape published as schema version 3, before the QR code option.
 const v3 = {
    schemaVersion: 3,
    warnings: legacy.warnings,
@@ -42,6 +47,7 @@ const v3 = {
       ...box, groups: box.groups.map((g) => ({ number: g.number, description: g.description, rcdId: null, phases: [] }))
    }))
 };
+const v4 = { ...v3, schemaVersion: 4, qrEnabled: false };
 const withRcdsV2 = {
    schemaVersion: 2,
    warnings: [],
@@ -67,8 +73,9 @@ const withRcdsV2 = {
 };
 // Group names are merged into the description when migrating from v2.
 const withRcds = {
-   schemaVersion: 3,
+   schemaVersion: 4,
    warnings: [],
+   qrEnabled: false,
    rcdEnabled: true,
    phaseEnabled: false,
    rcds: [
@@ -98,10 +105,10 @@ function setupSchema() {
    return { schema: window.GroepenkaartSchema, context };
 }
 
-function setupApp(stored = null) {
+function setupApp(stored = null, hash = '', confirmAnswer = true) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl,
-      'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v3.schema.json');
+      'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v4.schema.json');
    assert.equal(publishedSchema.$id, schema.schemaUrl);
    assert.equal(publishedSchema.properties.$schema.type, 'string');
    assert.equal(publishedSchema.properties.$schema.format, 'uri');
@@ -124,8 +131,11 @@ function setupApp(stored = null) {
    const confirms = [];
    let storage = stored;
    let exported;
-   let confirmation = true;
+   let confirmation = confirmAnswer;
    const pdfCalls = [];
+   const replaced = [];
+   const windowListeners = {};
+   const location = { href: 'https://example.test/app/?x=1' + hash, pathname: '/app/', search: '?x=1', hash };
    const document = {
       body: node('body'),
       createElement: node,
@@ -153,17 +163,26 @@ function setupApp(stored = null) {
       }
    });
    Object.assign(context.window, {
-      GroepenkaartPdf: { today: () => '2026-10-09', download(...args) { pdfCalls.push(plain(args)); return true; } },
-      addEventListener() { }
+      GroepenkaartPdf: {
+         today: () => '2026-10-09',
+         download(...args) { pdfCalls.push(args.map((arg) => arg && arg.getModuleCount ? 'qr' : plain(arg))); return true; }
+      },
+      fflate: require('fflate'),
+      qrcode: require('qrcode-generator'),
+      btoa, atob,
+      location: location,
+      history: { replaceState(state, title, url) { location.hash = ''; replaced.push(url); } },
+      addEventListener(event, callback) { windowListeners[event] = callback; }
    });
    vm.runInContext(sources[3], context);
+   vm.runInContext(sources[4], context);
    const findAll = (root, predicate, found = []) => {
       if (predicate(root)) found.push(root);
       root.children.forEach((child) => findAll(child, predicate, found));
       return found;
    };
    return {
-      schema, nodes, messages, confirms, findAll, pdfCalls, storage: () => storage,
+      schema, shareContext: context.window, nodes, messages, confirms, findAll, pdfCalls, replaced, location, windowListeners, storage: () => storage,
       confirm(value) { confirmation = value; },
       import(data) {
          nodes.get('import-json').listeners.change({ target: { files: [JSON.stringify(data)] } });
@@ -182,6 +201,11 @@ function setupApp(stored = null) {
          checkbox.checked = value;
          checkbox.listeners.change();
       },
+      setQrEnabled(value) {
+         const checkbox = nodes.get('qr-enabled');
+         checkbox.checked = value;
+         checkbox.listeners.change();
+      },
       setPhaseEnabled(value) {
          const checkbox = nodes.get('phase-enabled');
          checkbox.checked = value;
@@ -197,24 +221,24 @@ function setupApp(stored = null) {
    };
 }
 
-test('unversioned files migrate through v1 and v2 to v3 without modifying the original data', () => {
+test('unversioned files migrate through v1 and v2 to v4 without modifying the original data', () => {
    const { schema } = setupSchema();
    const original = structuredClone(legacy);
-   assert.deepEqual(plain(schema.normalize(legacy)), v3);
+   assert.deepEqual(plain(schema.normalize(legacy)), v4);
    assert.deepEqual(legacy, original);
    assert.deepEqual(plain(schema.normalize({ boxes: [] })), plain(schema.empty()));
 });
 
-test('v1 files migrate to v3 with RCDs and phases disabled and no group links', () => {
+test('v1 files migrate to v4 with RCDs and phases disabled and no group links', () => {
    const { schema } = setupSchema();
    const original = structuredClone(v1);
-   assert.deepEqual(plain(schema.normalize(v1)), v3);
+   assert.deepEqual(plain(schema.normalize(v1)), v4);
    assert.deepEqual(v1, original);
 });
 
-test('v2 files migrate to v3 with default phase settings and keep all existing data', () => {
+test('v2 files migrate to v4 with default phase settings and keep all existing data', () => {
    const { schema } = setupSchema();
-   for (const [source, expected] of [[v2, v3], [withRcdsV2, withRcds]]) {
+   for (const [source, expected] of [[v2, v4], [withRcdsV2, withRcds]]) {
       const original = structuredClone(source);
       assert.deepEqual(plain(schema.normalize(source)), expected);
       assert.deepEqual(source, original);
@@ -236,7 +260,7 @@ test('v2 to v3 renames the RCBO fields to RCD fields', () => {
    const original = structuredClone(data);
    const migrated = plain(schema.normalize(data));
    assert.deepEqual(data, original);
-   assert.equal(migrated.schemaVersion, 3);
+   assert.equal(migrated.schemaVersion, 4);
    assert.equal(migrated.rcdEnabled, true);
    assert.deepEqual(migrated.rcds.map((rcd) => [rcd.id, rcd.number, rcd.name, rcd.color]), [
       ['r1', 'A1', 'Keuken', '#e53935'], ['r2', '', '', '#fdd835']
@@ -285,7 +309,7 @@ test('v2 files that already contain phase fields keep them and get missing ones 
    const original = structuredClone(data);
    const migrated = plain(schema.normalize(data));
    assert.deepEqual(data, original);
-   assert.equal(migrated.schemaVersion, 3);
+   assert.equal(migrated.schemaVersion, 4);
    assert.equal(migrated.phaseEnabled, true);
    assert.deepEqual(migrated.rcds.map((rcd) => [rcd.amountOfPoles, rcd.phases]), [[2, ['L2']], [4, ['L1', 'L2', 'L3']]]);
    assert.deepEqual(migrated.boxes.flatMap((box) => box.groups.map((group) => group.phases)), [[], [], [], ['L1', 'L3']]);
@@ -366,7 +390,7 @@ test('legacy migration preserves numeric fields, missing fields, and old browser
       boxes: [{ id: 'old', number: 2, groups: [{ id: 'old-group', number: 3 }] }, {}]
    });
    assert.deepEqual(plain(data), {
-      schemaVersion: 3, warnings: [], rcdEnabled: false, phaseEnabled: false, rcds: [],
+      schemaVersion: 4, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, rcds: [],
       boxes: [
          { number: '2', name: '', groups: [{ number: '3', description: '', rcdId: null, phases: [] }] },
          { number: '', name: '', groups: [] }
@@ -383,7 +407,7 @@ test('v3 round-trip keeps all data, RCD IDs, and strips UI-only IDs', () => {
    const normalized = plain(schema.normalize(data));
    assert.deepEqual(normalized, withRcds);
    assert.deepEqual(plain(schema.normalize(normalized)), normalized);
-   assert.deepEqual(plain(schema.empty()), { schemaVersion: 3, warnings: [], rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: [] });
+   assert.deepEqual(plain(schema.empty()), { schemaVersion: 4, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: [] });
 });
 
 test('v3 files that still use the old RCBO field names are rejected', () => {
@@ -420,7 +444,7 @@ test('invalid and newer versions are rejected before interpreting their contents
    for (const version of [null, '1', true, -1, 1.5, {}, []]) {
       assert.throws(() => schema.normalize({ schemaVersion: version, boxes: [] }), /schemaVersion/);
    }
-   assert.throws(() => schema.normalize({ schemaVersion: 4 }), /nieuwere schemaversie/);
+   assert.throws(() => schema.normalize({ schemaVersion: 5 }), /nieuwere schemaversie/);
    assert.throws(() => schema.normalize({ schemaVersion: Number.MAX_SAFE_INTEGER }), /nieuwere schemaversie/);
 });
 
@@ -462,13 +486,13 @@ test('v3 requires pole counts and phases and validates unique phase codes and RC
 
 test('optional group items preserve arrays across schema versions without changing the version', () => {
    const { schema } = setupSchema();
-   for (const source of [legacy, v1, v2, v3, withRcdsV2, withRcds]) {
+   for (const source of [legacy, v1, v2, v3, v4, withRcdsV2, withRcds]) {
       const data = structuredClone(source);
       data.boxes[0].groups[0].items = ['Vaatwasser', 'Stopcontacten'];
       data.boxes[0].groups[1].items = [];
       const original = structuredClone(data);
       const normalized = plain(schema.normalize(data));
-      assert.equal(normalized.schemaVersion, 3);
+      assert.equal(normalized.schemaVersion, 4);
       assert.deepEqual(normalized.boxes[0].groups[0].items, ['Vaatwasser', 'Stopcontacten']);
       assert.deepEqual(normalized.boxes[0].groups[1].items, []);
       assert.deepEqual(plain(schema.normalize(normalized)), normalized);
@@ -557,7 +581,8 @@ test('published schemas match the current version, required fields, and warning 
    assert.equal(publishedSchema.properties.rcdEnabled.type, 'boolean');
    assert.equal(publishedSchema.properties.phaseEnabled.type, 'boolean');
    assert.ok(publishedSchema.required.includes('phaseEnabled'));
-   assert.deepEqual(publishedSchema.required, ['schemaVersion', 'warnings', 'rcdEnabled', 'phaseEnabled', 'rcds', 'boxes']);
+   assert.deepEqual(publishedSchema.required, ['schemaVersion', 'warnings', 'qrEnabled', 'rcdEnabled', 'phaseEnabled', 'rcds', 'boxes']);
+   assert.equal(publishedSchema.properties.qrEnabled.type, 'boolean');
    assert.deepEqual(publishedSchema.$defs.phases.items.enum, ['L1', 'L2', 'L3']);
    assert.equal(publishedSchema.$defs.phases.uniqueItems, true);
    assert.equal(publishedSchema.$defs.phases.maxItems, 3);
@@ -579,14 +604,14 @@ test('published schemas match the current version, required fields, and warning 
    assert.equal(publishedSchema.$defs.group.properties.items.type, 'array');
    assert.equal(publishedSchema.$defs.group.properties.items.items.type, 'string');
    assert.ok(!publishedSchema.$defs.group.required.includes('items'));
-   assert.equal(publishedSchema.title, 'JSON schema for groepenkaart v3');
+   assert.equal(publishedSchema.title, 'JSON schema for groepenkaart v4');
    assert.equal(publishedV1Schema.properties.schemaVersion.const, 1);
-   assert.equal(publishedV1Schema.$id, schema.schemaUrl.replace('-v3.', '-v1.'));
+   assert.equal(publishedV1Schema.$id, schema.schemaUrl.replace('-v4.', '-v1.'));
 });
 
 test('the published v2 schema stays unchanged and does not describe phase fields', () => {
    const { schema } = setupSchema();
-   assert.equal(publishedV2Schema.$id, schema.schemaUrl.replace('-v3.', '-v2.'));
+   assert.equal(publishedV2Schema.$id, schema.schemaUrl.replace('-v4.', '-v2.'));
    assert.equal(publishedV2Schema.title, 'JSON schema for groepenkaart v2');
    assert.equal(publishedV2Schema.properties.schemaVersion.const, 2);
    assert.deepEqual(publishedV2Schema.required, ['schemaVersion', 'warnings', 'rcboEnabled', 'rcbos', 'boxes']);
@@ -597,10 +622,18 @@ test('the published v2 schema stays unchanged and does not describe phase fields
    assert.ok(publishedV2Schema.$defs.group.required.includes('name'));
 });
 
+test('the published v3 schema stays unchanged and does not describe the QR code option', () => {
+   const { schema } = setupSchema();
+   assert.equal(publishedV3Schema.$id, schema.schemaUrl.replace('-v4.', '-v3.'));
+   assert.equal(publishedV3Schema.properties.schemaVersion.const, 3);
+   assert.deepEqual(publishedV3Schema.required, ['schemaVersion', 'warnings', 'rcdEnabled', 'phaseEnabled', 'rcds', 'boxes']);
+   assert.ok(!('qrEnabled' in publishedV3Schema.properties));
+});
+
 test('browser storage migrates on load and exports the same portable versioned data', async () => {
    const app = setupApp(JSON.stringify(legacy));
-   assert.deepEqual(JSON.parse(app.storage()), v3);
-   assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...v3 });
+   assert.deepEqual(JSON.parse(app.storage()), v4);
+   assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...v4 });
    assert.equal(app.nodes.get('installation-options').children.length, 3);
    app.selectWarning();
    assert.deepEqual(JSON.parse(app.storage()).warnings, legacy.warnings);
@@ -614,9 +647,9 @@ test('imports migrate legacy files and rejected imports leave current data untou
    const app = setupApp();
    app.import(legacy);
    const stored = app.storage();
-   app.import({ schemaVersion: 4, boxes: [] });
+   app.import({ schemaVersion: 5, boxes: [] });
    assert.equal(app.storage(), stored);
-   assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...v3 });
+   assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...v4 });
    assert.match(app.messages[0], /Importeren mislukt.*nieuwere schemaversie/);
    app.import({ ...structuredClone(withRcds), rcds: [] });
    assert.equal(app.storage(), stored);
@@ -635,7 +668,7 @@ test('exported files include the raw schema URL and can be imported again withou
    assert.deepEqual(JSON.parse(imported.storage()), withRcds);
    assert.deepEqual(await imported.export(), exported);
    assert.deepEqual(await setupApp().export(), {
-      $schema: publishedSchema.$id, schemaVersion: 3, warnings: [], rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: []
+      $schema: publishedSchema.$id, schemaVersion: 4, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: []
    });
 });
 
@@ -875,7 +908,7 @@ test('textarea lines are saved as arrays and printed as bullets without re-rende
    assert.equal(app.findAll(app.nodes.get('boxes'), (n) => n.tag === 'textarea')[0], input);
    const stored = JSON.parse(app.storage());
    assert.deepEqual(stored.boxes[0].groups[0].items, ['Vaatwasser', 'Stopcontacten', '<lamp>']);
-   assert.equal(stored.schemaVersion, 3);
+   assert.equal(stored.schemaVersion, 4);
    const exported = await app.export();
    assert.deepEqual(exported.boxes[0].groups[0].items, stored.boxes[0].groups[0].items);
    const lists = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-group-items');
@@ -940,7 +973,7 @@ test('disabling RCDs clears all RCDs and links only after confirmation', () => {
 });
 
 test('failed storage loads cannot be overwritten by edits or cancelled imports', () => {
-   for (const stored of [JSON.stringify({ schemaVersion: 4, boxes: [] }), '{broken']) {
+   for (const stored of [JSON.stringify({ schemaVersion: 5, boxes: [] }), '{broken']) {
       const app = setupApp(stored);
       assert.equal(app.storage(), stored);
       assert.equal(app.messages.length, 2);
@@ -951,20 +984,130 @@ test('failed storage loads cannot be overwritten by edits or cancelled imports',
       assert.equal(app.storage(), stored);
       app.confirm(true);
       app.import(legacy);
-      assert.deepEqual(JSON.parse(app.storage()), v3);
+      assert.deepEqual(JSON.parse(app.storage()), v4);
    }
 });
 
 test('clearing data writes the current schema, including after a failed load or with only RCDs enabled', () => {
-   for (const stored of [JSON.stringify(legacy), JSON.stringify({ schemaVersion: 4 }), JSON.stringify(withRcds)]) {
+   for (const stored of [JSON.stringify(legacy), JSON.stringify({ schemaVersion: 5 }), JSON.stringify(withRcds)]) {
       const app = setupApp(stored);
       app.nodes.get('clear-all').listeners.click();
       assert.deepEqual(JSON.parse(app.storage()), {
-         schemaVersion: 3, warnings: [], rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: []
+         schemaVersion: 4, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: []
       });
    }
    const app = setupApp();
    app.setRcdEnabled(true);
    app.nodes.get('clear-all').listeners.click();
    assert.equal(JSON.parse(app.storage()).rcdEnabled, false);
+});
+
+test('v3 files migrate to v4 with the QR code option off and keep all existing data', () => {
+   const { schema } = setupSchema();
+   const v3WithRcds = { ...structuredClone(withRcds), schemaVersion: 3 };
+   delete v3WithRcds.qrEnabled;
+   const original = structuredClone(v3WithRcds);
+   assert.deepEqual(plain(schema.normalize(v3WithRcds)), withRcds);
+   assert.deepEqual(v3WithRcds, original);
+   assert.deepEqual(plain(schema.normalize(v3)), v4);
+});
+
+test('v4 requires qrEnabled to be a boolean and preserves explicit booleans', () => {
+   const { schema } = setupSchema();
+   for (const value of [undefined, null, 'true', 1]) {
+      const data = { ...structuredClone(withRcds), qrEnabled: value };
+      assert.throws(() => schema.normalize(data), /qrEnabled/);
+   }
+   for (const value of [true, false]) {
+      assert.equal(schema.normalize({ ...structuredClone(withRcds), qrEnabled: value }).qrEnabled, value);
+   }
+});
+
+test('the QR option persists, reloads, exports and is reset by clearing', async () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   assert.equal(app.nodes.get('qr-enabled').checked, false);
+   app.setQrEnabled(true);
+   assert.equal(JSON.parse(app.storage()).qrEnabled, true);
+   assert.equal((await app.export()).qrEnabled, true);
+   const reloaded = setupApp(app.storage());
+   assert.equal(reloaded.nodes.get('qr-enabled').checked, true);
+   const imported = setupApp();
+   imported.import(await app.export());
+   assert.equal(imported.nodes.get('qr-enabled').checked, true);
+   reloaded.nodes.get('clear-all').listeners.click();
+   assert.equal(JSON.parse(reloaded.storage()).qrEnabled, false);
+   assert.equal(reloaded.nodes.get('qr-enabled').checked, false);
+});
+
+test('the PDF only receives a QR code when the option is on, with a link that restores the data', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][5], null);
+   app.setQrEnabled(true);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[1][5], 'qr');
+   assert.equal(app.nodes.get('qr-status').hidden, true);
+
+   const share = app.shareContext.GroepenkaartShare;
+   const link = share.url('https://example.test/app/?x=1#old', { $schema: 'x', ...app.schema.normalize(JSON.parse(app.storage())) });
+   assert.match(link, /^https:\/\/example\.test\/app\/\?x=1#data=[A-Za-z0-9_-]+$/);
+   const decoded = share.decode(share.tokenFromHash(new URL(link).hash));
+   assert.ok(!('$schema' in decoded));
+   assert.deepEqual(plain(app.schema.normalize(decoded)), JSON.parse(app.storage()));
+});
+
+test('a QR code is skipped with a visible message when the data does not fit', () => {
+   const big = structuredClone(withRcds);
+   let seed = 1;
+   const random = () => (seed = (seed * 48271) % 2147483647).toString(36);
+   big.boxes[0].groups = Array.from({ length: 150 }, (_, i) => ({
+      number: String(i + 1), description: random() + random() + random(), rcdId: null, phases: []
+   }));
+   const app = setupApp(JSON.stringify(big));
+   assert.equal(app.nodes.get('qr-status').hidden, true);
+   app.setQrEnabled(true);
+   assert.equal(app.nodes.get('qr-status').hidden, false);
+   assert.match(app.nodes.get('qr-status').textContent, /te groot/);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][5], null);
+   app.setQrEnabled(false);
+   assert.equal(app.nodes.get('qr-status').hidden, true);
+});
+
+test('opening a link replaces the data after confirmation, cleans the address and rejects bad links', () => {
+   const source = setupApp(JSON.stringify(withRcds));
+   const token = source.shareContext.GroepenkaartShare.encode(JSON.parse(source.storage()));
+   const hash = '#data=' + token;
+
+   const fresh = setupApp(null, hash);
+   assert.deepEqual(JSON.parse(fresh.storage()), withRcds);
+   assert.deepEqual(fresh.replaced, ['/app/?x=1']);
+   assert.deepEqual(fresh.confirms, []);
+
+   const existing = setupApp(JSON.stringify(v3), hash);
+   assert.equal(existing.confirms.length, 1);
+   assert.deepEqual(JSON.parse(existing.storage()), withRcds);
+
+   const declined = setupApp(JSON.stringify(v3), hash, false);
+   assert.deepEqual(JSON.parse(declined.storage()), v4);
+   assert.deepEqual(declined.replaced, ['/app/?x=1']);
+
+   for (const bad of ['#data=', '#data=!!!', '#data=' + 'A'.repeat(20), '#data=' + 'A'.repeat(10001)]) {
+      const app = setupApp(JSON.stringify(v3), bad);
+      assert.match(app.messages.at(-1), /Openen van de link mislukt/);
+      assert.deepEqual(JSON.parse(app.storage()), v4);
+   }
+   assert.deepEqual(setupApp(null, '#other').replaced, []);
+
+   const open = setupApp(JSON.stringify(v3));
+   open.location.hash = hash;
+   open.windowListeners.hashchange();
+   assert.deepEqual(JSON.parse(open.storage()), withRcds);
+});
+
+test('an old link keeps working after a schema migration', () => {
+   const { schema } = setupSchema();
+   const share = setupApp().shareContext.GroepenkaartShare;
+   const oldData = { ...structuredClone(withRcdsV2) };
+   assert.deepEqual(plain(schema.normalize(share.decode(share.encode(oldData)))), withRcds);
 });

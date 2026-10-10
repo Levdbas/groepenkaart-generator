@@ -106,8 +106,41 @@
       return y - top + rowHeight + 1;
    }
 
-   // Returns false when jsPDF is unavailable so the caller can fall back to printing.
-   function download(boxes, minRows, warningIds, rcds, phaseEnabled) {
+   // Draws the QR code with a caption below the last table, on a new page when it does not fit.
+   function drawQr(doc, qr, margin) {
+      const size = 55;
+      const gap = 8;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      let top = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 40) + gap;
+      if (top + size > pageHeight - margin) {
+         doc.addPage();
+         top = margin;
+      }
+
+      const count = qr.getModuleCount();
+      const cell = size / count;
+      doc.setFillColor(0, 0, 0);
+      for (let row = 0; row < count; row++) {
+         for (let col = 0; col < count; col++) {
+            if (!qr.isDark(row, col)) continue;
+            // Merge horizontal runs of dark modules into one rectangle.
+            let end = col;
+            while (end + 1 < count && qr.isDark(row, end + 1)) end++;
+            doc.rect(margin + col * cell, top + row * cell, (end - col + 1) * cell, cell, 'F');
+            col = end;
+         }
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(91, 101, 115);
+      doc.text(doc.splitTextToSize('Scan deze QR-code om deze groepenkaart met alle gegevens te openen en aan te passen in de Groepenkaart generator.', 90),
+         margin + size + 8, top + 8);
+   }
+
+   // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
+   // is drawn on the last page.
+   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr) {
       if (!window.jspdf || !window.jspdf.jsPDF) return false;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -208,6 +241,7 @@
          });
       });
 
+      if (qr) drawQr(doc, qr, margin);
       doc.save('groepenkaart.pdf');
       return true;
    }

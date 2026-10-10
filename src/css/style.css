@@ -159,6 +159,11 @@ textarea:focus-visible {
   font-size: 0.9rem;
 }
 
+.installation-options p.qr-status {
+  margin: 0.5rem 0 0;
+  color: #b42318;
+}
+
 .installation-checkboxes {
   display: flex;
   flex-wrap: wrap;

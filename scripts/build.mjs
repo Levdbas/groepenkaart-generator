@@ -9,11 +9,13 @@ const src = join(root, 'src');
 const dist = join(root, 'dist');
 
 const vendorFiles = [
+   'node_modules/fflate/umd/index.js',
+   'node_modules/qrcode-generator/dist/qrcode.js',
    'node_modules/jspdf/dist/jspdf.umd.min.js',
    // Must come after jsPDF: it attaches autoTable to window.jspdf on load.
    'node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js',
 ];
-const appFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/pdf.js', 'src/js/app.js'];
+const appFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/share.js', 'src/js/pdf.js', 'src/js/app.js'];
 
 const read = (file) => readFile(join(root, file), 'utf8');
 const hash = (content) => createHash('sha256').update(content).digest('hex').slice(0, 8);

@@ -29,8 +29,10 @@
     "test": "node --test"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8"
+    "jspdf-autotable": "^5.0.8",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"

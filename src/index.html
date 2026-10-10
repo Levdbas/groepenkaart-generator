@@ -91,6 +91,26 @@
 
     <fieldset
       class="installation-options no-print"
+      aria-describedby="qr-help"
+    >
+      <legend>QR-code</legend>
+      <p id="qr-help">
+        Zet onderaan de laatste pagina van de PDF een QR-code met een link naar
+        deze app. Scannen opent de groepenkaart met alle gegevens, zodat je
+        hem kunt aanpassen. De gegevens zitten in de link zelf en gaan niet naar
+        een server. Dit geldt alleen voor de PDF, niet voor afdrukken.
+      </p>
+      <div class="installation-checkboxes">
+        <label>
+          <input type="checkbox" id="qr-enabled" />
+          <span>QR-code toevoegen aan de PDF</span>
+        </label>
+      </div>
+      <p id="qr-status" class="qr-status" role="status" hidden></p>
+    </fieldset>
+
+    <fieldset
+      class="installation-options no-print"
       aria-describedby="installation-help"
     >
       <legend>Aanwezige installaties</legend>
