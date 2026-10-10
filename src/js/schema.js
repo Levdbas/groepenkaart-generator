@@ -4,16 +4,16 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
-    * @typedef {{id: string, number: string, name: string, color: string, amountOfPoles: 2 | 4, phases: PhaseCode[]}} RcboData
-    * @typedef {{number: string, description: string, rcboId: string | null, phases: PhaseCode[], items?: string[]}} GroupData
+    * @typedef {{id: string, number: string, name: string, color: string, amountOfPoles: 2 | 4, phases: PhaseCode[]}} RcdData
+    * @typedef {{number: string, description: string, rcdId: string | null, phases: PhaseCode[], items?: string[]}} GroupData
     * @typedef {{number: string, name: string, groups: GroupData[]}} BoxData
-    * @typedef {{schemaVersion: 3, warnings: WarningCode[], rcboEnabled: boolean, phaseEnabled: boolean, rcbos: RcboData[], boxes: BoxData[]}} CardData
+    * @typedef {{schemaVersion: 3, warnings: WarningCode[], rcdEnabled: boolean, phaseEnabled: boolean, rcds: RcdData[], boxes: BoxData[]}} CardData
     */
 
    const currentVersion = 3;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
-   const rcboHelpers = window.GroepenkaartRcbo;
+   const rcdHelpers = window.GroepenkaartRcd;
 
    function isObject(value) {
       return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -52,7 +52,8 @@
             })
          };
       },
-      // Adds RCBO support: disabled, no RCBOs and no group links. Shape errors are reported by the final validation.
+      // Adds RCBO support using the version 2 field names (version 3 renames them to RCD): disabled, no RCBOs and
+      // no group links. Shape errors are reported by the final validation.
       1: function (data) {
          if (!Array.isArray(data.boxes)) throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
          return Object.assign({}, data, {
@@ -69,21 +70,23 @@
             })
          });
       },
-      // Adds phase support and merges each group's name into its description. Fields already present (from earlier
-      // phase-aware v2 files) are kept, missing ones get their defaults, and a missing 4-pole phase list is derived.
-      // Other shape errors are reported by the final validation.
+      // Adds phase support, renames RCBO to RCD (rcboEnabled -> rcdEnabled, rcbos -> rcds, rcboId -> rcdId) and merges
+      // each group's name into its description. Fields already present (from earlier phase-aware v2 files) are kept,
+      // missing ones get their defaults, and a missing 4-pole phase list is derived. Other shape errors are reported
+      // by the final validation.
       2: function (data) {
          if (!Array.isArray(data.boxes)) throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
          const has = function (value, key) { return Object.prototype.hasOwnProperty.call(value, key); };
-         return Object.assign({}, data, {
+         const migrated = Object.assign({}, data, {
             schemaVersion: 3,
             phaseEnabled: has(data, 'phaseEnabled') ? data.phaseEnabled : false,
-            rcbos: Array.isArray(data.rcbos) ? data.rcbos.map(function (rcbo) {
-               if (!isObject(rcbo)) return rcbo;
-               const amountOfPoles = has(rcbo, 'amountOfPoles') ? rcbo.amountOfPoles : 2;
-               return Object.assign({}, rcbo, {
+            rcdEnabled: data.rcboEnabled,
+            rcds: Array.isArray(data.rcbos) ? data.rcbos.map(function (rcd) {
+               if (!isObject(rcd)) return rcd;
+               const amountOfPoles = has(rcd, 'amountOfPoles') ? rcd.amountOfPoles : 2;
+               return Object.assign({}, rcd, {
                   amountOfPoles: amountOfPoles,
-                  phases: has(rcbo, 'phases') ? rcbo.phases : (amountOfPoles === 4 ? rcboHelpers.phaseCodes.slice() : [])
+                  phases: has(rcd, 'phases') ? rcd.phases : (amountOfPoles === 4 ? rcdHelpers.phaseCodes.slice() : [])
                });
             }) : data.rcbos,
             boxes: data.boxes.map(function (box) {
@@ -94,17 +97,22 @@
                      if (typeof group.name !== 'string') {
                         throw new Error('Ongeldig bestand: een groep moet tekstvelden bevatten: number, name, description.');
                      }
-                     const migrated = Object.assign({}, group, {
+                     const migratedGroup = Object.assign({}, group, {
                         description: typeof group.description === 'string'
-                           ? mergeGroupName(group.name, group.description) : group.description
+                           ? mergeGroupName(group.name, group.description) : group.description,
+                        rcdId: group.rcboId
                      });
-                     delete migrated.name;
-                     if (!has(migrated, 'phases')) migrated.phases = [];
-                     return migrated;
+                     delete migratedGroup.name;
+                     delete migratedGroup.rcboId;
+                     if (!has(migratedGroup, 'phases')) migratedGroup.phases = [];
+                     return migratedGroup;
                   })
                });
             })
          });
+         delete migrated.rcboEnabled;
+         delete migrated.rcbos;
+         return migrated;
       }
    };
 
@@ -131,45 +139,45 @@
 
    /** @returns {CardData} */
    function empty() {
-      return { schemaVersion: currentVersion, warnings: [], rcboEnabled: false, phaseEnabled: false, rcbos: [], boxes: [] };
+      return { schemaVersion: currentVersion, warnings: [], rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: [] };
    }
 
    function normalizePhases(value) {
       if (!Array.isArray(value.phases) ||
-         value.phases.some(function (phase) { return !rcboHelpers.phaseCodes.includes(phase); }) ||
+         value.phases.some(function (phase) { return !rcdHelpers.phaseCodes.includes(phase); }) ||
          new Set(value.phases).size !== value.phases.length) {
          throw new Error('Ongeldig bestand: "phases" moet een lijst met unieke fasen L1, L2 of L3 zijn.');
       }
-      return rcboHelpers.phaseCodes.filter(function (phase) { return value.phases.includes(phase); });
+      return rcdHelpers.phaseCodes.filter(function (phase) { return value.phases.includes(phase); });
    }
 
-   function normalizeRcbos(data) {
-      if (typeof data.rcboEnabled !== 'boolean') throw new Error('Ongeldig bestand: "rcboEnabled" moet waar of onwaar zijn.');
-      if (!Array.isArray(data.rcbos)) throw new Error('Ongeldig bestand: "rcbos" moet een lijst zijn.');
-      if (!data.rcboEnabled && data.rcbos.length) {
-         throw new Error('Ongeldig bestand: Aardlekschakelaars zijn uitgeschakeld maar "rcbos" is niet leeg.');
+   function normalizeRcds(data) {
+      if (typeof data.rcdEnabled !== 'boolean') throw new Error('Ongeldig bestand: "rcdEnabled" moet waar of onwaar zijn.');
+      if (!Array.isArray(data.rcds)) throw new Error('Ongeldig bestand: "rcds" moet een lijst zijn.');
+      if (!data.rcdEnabled && data.rcds.length) {
+         throw new Error('Ongeldig bestand: Aardlekschakelaars zijn uitgeschakeld maar "rcds" is niet leeg.');
       }
       const ids = {};
-      return data.rcbos.map(function (rcbo) {
-         requireStrings(rcbo, ['id', 'number', 'name', 'color'], 'een aardlekschakelaar');
-         if (!rcbo.id) throw new Error('Ongeldig bestand: een aardlekschakelaar heeft een lege "id".');
-         if (ids[rcbo.id]) throw new Error('Ongeldig bestand: dubbele aardlekschakelaar-id "' + rcbo.id + '".');
-         if (!rcboHelpers.isColor(rcbo.color)) {
+      return data.rcds.map(function (rcd) {
+         requireStrings(rcd, ['id', 'number', 'name', 'color'], 'een aardlekschakelaar');
+         if (!rcd.id) throw new Error('Ongeldig bestand: een aardlekschakelaar heeft een lege "id".');
+         if (ids[rcd.id]) throw new Error('Ongeldig bestand: dubbele aardlekschakelaar-id "' + rcd.id + '".');
+         if (!rcdHelpers.isColor(rcd.color)) {
             throw new Error('Ongeldig bestand: kleur van aardlekschakelaar moet een hexkleur zijn, zoals #ed8c01.');
          }
-         const amountOfPoles = rcbo.amountOfPoles;
+         const amountOfPoles = rcd.amountOfPoles;
          if (amountOfPoles !== 2 && amountOfPoles !== 4) {
             throw new Error('Ongeldig bestand: "amountOfPoles" van een aardlekschakelaar moet 2 of 4 zijn.');
          }
-         const phases = normalizePhases(rcbo);
+         const phases = normalizePhases(rcd);
          if (amountOfPoles === 2 && phases.length > 1) {
             throw new Error('Ongeldig bestand: een 2-polige aardlekschakelaar kan maar één fase hebben.');
          }
          if (amountOfPoles === 4 && phases.length !== 3) {
             throw new Error('Ongeldig bestand: een 4-polige aardlekschakelaar heeft alle drie de fasen.');
          }
-         ids[rcbo.id] = true;
-         return { id: rcbo.id, number: rcbo.number, name: rcbo.name, color: rcbo.color.toLowerCase(), amountOfPoles: amountOfPoles, phases: phases };
+         ids[rcd.id] = true;
+         return { id: rcd.id, number: rcd.number, name: rcd.name, color: rcd.color.toLowerCase(), amountOfPoles: amountOfPoles, phases: phases };
       });
    }
 
@@ -194,14 +202,14 @@
       if (!Array.isArray(data.boxes)) throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
       if (!Array.isArray(data.warnings)) throw new Error('Ongeldig bestand: "warnings" moet een lijst zijn.');
       if (typeof data.phaseEnabled !== 'boolean') throw new Error('Ongeldig bestand: "phaseEnabled" moet waar of onwaar zijn.');
-      const rcbos = normalizeRcbos(data);
-      const rcboIds = rcbos.map(function (rcbo) { return rcbo.id; });
+      const rcds = normalizeRcds(data);
+      const rcdIds = rcds.map(function (rcd) { return rcd.id; });
       return {
          schemaVersion: currentVersion,
          warnings: warnings.normalize(data.warnings),
-         rcboEnabled: data.rcboEnabled,
+         rcdEnabled: data.rcdEnabled,
          phaseEnabled: data.phaseEnabled,
-         rcbos: rcbos,
+         rcds: rcds,
          boxes: data.boxes.map(function (box) {
             requireStrings(box, ['number', 'name'], 'een kast');
             if (!Array.isArray(box.groups)) throw new Error('Ongeldig bestand: "groups" moet een lijst zijn.');
@@ -210,15 +218,15 @@
                name: box.name,
                groups: box.groups.map(function (group) {
                   requireStrings(group, ['number', 'description'], 'een groep');
-                  if (group.rcboId !== null && typeof group.rcboId !== 'string') {
-                     throw new Error('Ongeldig bestand: "rcboId" van een groep moet tekst of null zijn.');
+                  if (group.rcdId !== null && typeof group.rcdId !== 'string') {
+                     throw new Error('Ongeldig bestand: "rcdId" van een groep moet tekst of null zijn.');
                   }
-                  if (group.rcboId !== null && rcboIds.indexOf(group.rcboId) === -1) {
+                  if (group.rcdId !== null && rcdIds.indexOf(group.rcdId) === -1) {
                      throw new Error('Ongeldig bestand: groep ' + JSON.stringify(group.number) +
-                        ' verwijst naar een onbekende aardlekschakelaar (' + JSON.stringify(group.rcboId) + ').');
+                        ' verwijst naar een onbekende aardlekschakelaar (' + JSON.stringify(group.rcdId) + ').');
                   }
                   return {
-                     number: group.number, description: group.description, rcboId: group.rcboId,
+                     number: group.number, description: group.description, rcdId: group.rcdId,
                      phases: normalizePhases(group),
                      ...normalizeItems(group)
                   };

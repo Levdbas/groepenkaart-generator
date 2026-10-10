@@ -12,7 +12,7 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 - Per kast **groepen** toevoegen met een nummer, een omschrijving en een optionele opsomming van aansluitingen
 - Kasten en groepen verplaatsen (↑ ↓) en verwijderen (✕)
 - **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als grote rode kaarten met pictogrammen op de eerste pagina, zowel in de PDF als bij afdrukken.
-- **Aardlekschakelaars** (aardlekschakelaar: Residual Current Breaker with Overcurrent protection, RCBO): zet **Groepen koppelen aan Aardlekschakelaars** aan, voeg Aardlekschakelaars toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF en bij afdrukken krijgt het groepnummer de kleur en code van de gekoppelde aardlekschakelaar, met een legenda per pagina.
+- **Aardlekschakelaars** (aardlekschakelaar: Residual Current Device, RCD): zet **Groepen koppelen aan Aardlekschakelaars** aan, voeg Aardlekschakelaars toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF en bij afdrukken krijgt het groepnummer de kleur en code van de gekoppelde aardlekschakelaar, met een legenda per pagina.
 - **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke aardlekschakelaar 2 of 4 polen. Een 2-polige aardlekschakelaar heeft één te kiezen fase (L1, L2 of L3); gekoppelde groepen nemen die fase over. Een 4-polige aardlekschakelaar heeft alle drie de fasen; groepen hierop kiezen zelf één of meer fasen, net als groepen zonder koppeling. De fasen verschijnen in de PDF en bij afdrukken.
 - **PDF downloaden**: één A4-pagina per kast, in de stijl van een standaard groepenkaart. Lege regels worden aangevuld tot 15 rijen, zodat je later nog met de hand kunt aanvullen.
 - **Afdrukken** via de printfunctie van de browser, met dezelfde opmaak
@@ -37,7 +37,7 @@ In de PDF en bij afdrukken krijgt de fasekolom een gekleurde onderrand binnen de
 
 Alles wat je invoert wordt automatisch opgeslagen in je browser. Wis je de browsergegevens of gebruik je een andere browser of computer, dan ben je de gegevens kwijt. Gebruik daarom **Exporteren** om een `groepenkaart.json` te bewaren. Met **Importeren** laad je dat bestand later weer in.
 
-Ook de installatiewaarschuwingen worden opgeslagen en geëxporteerd. De mogelijke codes in `warnings` zijn `pv`, `ev`, `battery` en `heat-pump`. De `ev`-code blijft onderdeel van het bestandsformaat voor compatibiliteit, maar EV-laders zijn niet meer als waarschuwing beschikbaar in de app of op de groepenkaart. Oude bestanden zonder `warnings` blijven werken en worden zonder aangevinkte waarschuwingen geladen. Aardlekschakelaars staan in `rcbos` (met `id`, `number`, `name` en een kleur als `#rrggbb`); `rcboEnabled` geeft aan of de koppeling aanstaat. Een groep verwijst met `rcboId` naar het `id` van een aardlekschakelaar, of heeft `null` als de groep niet gekoppeld is. **Alles wissen** verwijdert kasten, groepen, de geselecteerde waarschuwingen en de Aardlekschakelaars.
+Ook de installatiewaarschuwingen worden opgeslagen en geëxporteerd. De mogelijke codes in `warnings` zijn `pv`, `ev`, `battery` en `heat-pump`. De `ev`-code blijft onderdeel van het bestandsformaat voor compatibiliteit, maar EV-laders zijn niet meer als waarschuwing beschikbaar in de app of op de groepenkaart. Oude bestanden zonder `warnings` blijven werken en worden zonder aangevinkte waarschuwingen geladen. Aardlekschakelaars staan in `rcds` (met `id`, `number`, `name` en een kleur als `#rrggbb`); `rcdEnabled` geeft aan of de koppeling aanstaat. Een groep verwijst met `rcdId` naar het `id` van een aardlekschakelaar, of heeft `null` als de groep niet gekoppeld is. **Alles wissen** verwijdert kasten, groepen, de geselecteerde waarschuwingen en de Aardlekschakelaars.
 
 Voorbeeld van een exportbestand:
 
@@ -46,9 +46,9 @@ Voorbeeld van een exportbestand:
   "$schema": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v3.schema.json",
   "schemaVersion": 3,
   "warnings": ["pv", "ev", "battery", "heat-pump"],
-  "rcboEnabled": true,
+  "rcdEnabled": true,
   "phaseEnabled": true,
-  "rcbos": [
+  "rcds": [
     {
       "id": "5eefe74d-12b8-40e6-825b-409e26c0b066",
       "number": "A1",
@@ -67,13 +67,13 @@ Voorbeeld van een exportbestand:
           "number": "1",
           "description": "Keuken – wandcontactdozen aanrecht",
           "items": ["Vaatwasser", "Wandcontactdozen aanrecht"],
-          "rcboId": "5eefe74d-12b8-40e6-825b-409e26c0b066",
+          "rcdId": "5eefe74d-12b8-40e6-825b-409e26c0b066",
           "phases": []
         },
         {
           "number": "2",
           "description": "Woonkamer – verlichting en wandcontactdozen",
-          "rcboId": null,
+          "rcdId": null,
           "phases": ["L2", "L3"]
         }
       ]
@@ -84,7 +84,7 @@ Voorbeeld van een exportbestand:
 
 ### Schemaversies en migraties
 
-JSON-exportbestanden en browseropslag bevatten `schemaVersion: 3`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De gedeelde gegevenstypen (`CardData`, `BoxData`, `GroupData`, `RcboData`, `PhaseCode` en `WarningCode`), validatie en migraties staan in [src/js/schema.js](src/js/schema.js).
+JSON-exportbestanden en browseropslag bevatten `schemaVersion: 3`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De gedeelde gegevenstypen (`CardData`, `BoxData`, `GroupData`, `RcdData`, `PhaseCode` en `WarningCode`), validatie en migraties staan in [src/js/schema.js](src/js/schema.js).
 
 Groepen kunnen optioneel `items` bevatten: een array van strings met de aansluitingen. Bestaande bestanden zonder dit veld blijven werken; de schemaversie blijft 3. Een leeg tekstveld wordt na bewerking opgeslagen als `items: []`.
 
@@ -94,9 +94,9 @@ Elke aardlekschakelaar heeft de verplichte velden `amountOfPoles` (2 of 4) en `p
 
 Elke groep bewaart in het verplichte veld `phases` de eigen selectie (nul tot drie fasen). Zonder koppeling of bij een 4-polige aardlekschakelaar wordt deze selectie gebruikt. Bij een 2-polige aardlekschakelaar wordt alleen de fase van de aardlekschakelaar getoond; de eigen selectie blijft bewaard voor als je de groep later ontkoppelt of aan een 4-polige aardlekschakelaar koppelt. Een niet gekozen fase wordt ook in de PDF en bij afdrukken als **Niet gekozen** vermeld.
 
-Het [JSON Schema voor versie 3](schemas/groepenkaart-v3.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v3.schema.json), zodat andere tools exportbestanden kunnen valideren. De schema's voor [versie 2](schemas/groepenkaart-v2.schema.json) en [versie 1](schemas/groepenkaart-v1.schema.json) blijven ongewijzigd gepubliceerd. Elke export bevat `$schema` met de URL van de huidige versie; browseropslag bevat dit metadataveld niet. Het veld is optioneel voor import en externe validatie. De app gebruikt `schemaVersion` voor validatie en migraties en haalt geen schema op tijdens import. Versie 3 vereist `schemaVersion`, `warnings`, `rcboEnabled`, `phaseEnabled`, `rcbos` en `boxes`, per aardlekschakelaar `amountOfPoles` en `phases`, en per groep `number`, `description`, `rcboId` en `phases`. Een groep heeft in versie 3 geen `name` meer; kasten behouden hun `name`. Een `rcboId` moet naar een bestaande aardlekschakelaar verwijzen, en `rcbos` moet leeg zijn als `rcboEnabled` uit staat. De persistente `id` van een aardlekschakelaar wordt wel opgeslagen; interne UI-ID's van kasten en groepen niet.
+Het [JSON Schema voor versie 3](schemas/groepenkaart-v3.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v3.schema.json), zodat andere tools exportbestanden kunnen valideren. De schema's voor [versie 2](schemas/groepenkaart-v2.schema.json) en [versie 1](schemas/groepenkaart-v1.schema.json) blijven ongewijzigd gepubliceerd. Elke export bevat `$schema` met de URL van de huidige versie; browseropslag bevat dit metadataveld niet. Het veld is optioneel voor import en externe validatie. De app gebruikt `schemaVersion` voor validatie en migraties en haalt geen schema op tijdens import. Versie 3 vereist `schemaVersion`, `warnings`, `rcdEnabled`, `phaseEnabled`, `rcds` en `boxes`, per aardlekschakelaar `amountOfPoles` en `phases`, en per groep `number`, `description`, `rcdId` en `phases`. Een groep heeft in versie 3 geen `name` meer; kasten behouden hun `name`. Een `rcdId` moet naar een bestaande aardlekschakelaar verwijzen, en `rcds` moet leeg zijn als `rcdEnabled` uit staat. De persistente `id` van een aardlekschakelaar wordt wel opgeslagen; interne UI-ID's van kasten en groepen niet.
 
-Bestanden zonder `schemaVersion` (of met versie `0`) zijn het oude formaat en worden automatisch gemigreerd. Ontbrekende waarschuwingen worden een lege lijst; de bestaande omzetting van numerieke velden naar tekst blijft behouden. Bij de migratie van versie 1 naar 2 staat de koppeling met Aardlekschakelaars uit, zonder Aardlekschakelaars, en krijgt elke groep `rcboId: null`. Bij de migratie van versie 2 naar 3 blijven alle bestaande gegevens behouden: `phaseEnabled` wordt `false`, elke aardlekschakelaar krijgt `amountOfPoles: 2` en `phases: []`, en elke groep krijgt `phases: []`, dus niets staat vooraf op een fase. Daarnaast verdwijnt de `name` van elke groep: de naam wordt als voorvoegsel in de `description` gezet, gescheiden door ` – `. Een groep met naam `Keuken` en omschrijving `Wandcontactdozen` krijgt `Keuken – Wandcontactdozen`; is er maar één van de twee ingevuld, dan wordt dat de omschrijving, en een lege naam laat de omschrijving ongewijzigd. Aansluitingen (`items`) en de naam van de kast veranderen niet. Fasevelden die al in een versie 2-bestand staan blijven behouden, en een ontbrekende fasenlijst van een 4-polige aardlekschakelaar wordt aangevuld met alle drie de fasen. Apps van vóór versie 3 weigeren versie 3-bestanden, zodat fasegegevens niet ongemerkt verloren gaan. Browseropslag blijft dezelfde sleutel `groepenkaart:v1` gebruiken om bestaande gegevens terug te vinden en wordt na succesvol laden in het huidige formaat opgeslagen.
+Bestanden zonder `schemaVersion` (of met versie `0`) zijn het oude formaat en worden automatisch gemigreerd. Ontbrekende waarschuwingen worden een lege lijst; de bestaande omzetting van numerieke velden naar tekst blijft behouden. Bij de migratie van versie 1 naar 2 staat de koppeling met Aardlekschakelaars uit, zonder Aardlekschakelaars, en krijgt elke groep `rcboId: null` (versie 1 en 2 gebruiken de veldnamen `rcboEnabled`, `rcbos` en `rcboId`, naar de oude term RCBO). Bij de migratie van versie 2 naar 3 blijven alle bestaande gegevens behouden: de velden worden hernoemd naar RCD (`rcboEnabled` wordt `rcdEnabled`, `rcbos` wordt `rcds` en `rcboId` van elke groep wordt `rcdId`, met dezelfde waarden en volgorde, en de oude velden verdwijnen), `phaseEnabled` wordt `false`, elke aardlekschakelaar krijgt `amountOfPoles: 2` en `phases: []`, en elke groep krijgt `phases: []`, dus niets staat vooraf op een fase. Daarnaast verdwijnt de `name` van elke groep: de naam wordt als voorvoegsel in de `description` gezet, gescheiden door ` – `. Een groep met naam `Keuken` en omschrijving `Wandcontactdozen` krijgt `Keuken – Wandcontactdozen`; is er maar één van de twee ingevuld, dan wordt dat de omschrijving, en een lege naam laat de omschrijving ongewijzigd. Aansluitingen (`items`) en de naam van de kast veranderen niet. Fasevelden die al in een versie 2-bestand staan blijven behouden, en een ontbrekende fasenlijst van een 4-polige aardlekschakelaar wordt aangevuld met alle drie de fasen. Apps van vóór versie 3 weigeren versie 3-bestanden, zodat fasegegevens niet ongemerkt verloren gaan. Browseropslag blijft dezelfde sleutel `groepenkaart:v1` gebruiken om bestaande gegevens terug te vinden en wordt na succesvol laden in het huidige formaat opgeslagen.
 
 Een onbekende nieuwere versie wordt geweigerd met een melding. Bij een mislukte import blijven de huidige gegevens intact. Als browseropslag niet kan worden geladen, blijft die bewaard en schrijven bewerkingen er niet overheen totdat je bewust een geldig bestand importeert of **Alles wissen** bevestigt.
 
@@ -150,7 +150,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── index.html                # Pagina en werkbalk (met placeholders)
 │   ├── css/style.css             # Opmaak voor scherm en print
 │   ├── js/warnings.js             # Gedeelde installatiewaarschuwingen en pictogrammen
-│   ├── js/rcbo.js                # Gedeelde hulpfuncties voor Aardlekschakelaars (kleuren, labels)
+│   ├── js/rcd.js                 # Gedeelde hulpfuncties voor Aardlekschakelaars (kleuren, labels)
 │   ├── js/schema.js              # Gegevenstypen, schemaversies, validatie en migraties
 │   ├── js/app.js                 # Gegevens, invoer, opslag, import/export
 │   └── js/pdf.js                 # PDF genereren met jsPDF

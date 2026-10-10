@@ -294,11 +294,11 @@ textarea {
   margin-top: 0.75rem;
 }
 
-.rcbo-panel {
+.rcd-panel {
   margin-top: 0.75rem;
 }
 
-.rcbo-list {
+.rcd-list {
   display: grid;
   gap: 2.5rem;
   margin: 0 0 0.75rem;
@@ -306,14 +306,14 @@ textarea {
   list-style: none;
 }
 
-.rcbo-item {
+.rcd-item {
   display: grid;
   grid-template-columns: 2.75rem 6rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
 }
 
-.rcbo-color {
+.rcd-color {
   width: 2.75rem;
   height: 2.25rem;
   padding: 2px;
@@ -323,18 +323,18 @@ textarea {
   cursor: pointer;
 }
 
-.groups-table .col-rcbo {
+.groups-table .col-rcd {
   width: 12rem;
 }
 
-.rcbo-select {
+.rcd-select {
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-.rcbo-select select,
-.rcbo-phase-controls select {
+.rcd-select select,
+.rcd-phase-controls select {
   flex: 1;
   min-width: 0;
   padding: 0.4rem 0.3rem;
@@ -347,7 +347,7 @@ textarea {
   min-height: 2.25rem;
 }
 
-.rcbo-phase-controls {
+.rcd-phase-controls {
   grid-column: 1 / 4;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -356,15 +356,15 @@ textarea {
   padding: 0.5rem 0;
 }
 
-.rcbo-phase-controls .field {
+.rcd-phase-controls .field {
   min-width: 0;
 }
 
-.rcbo-phase-controls select {
+.rcd-phase-controls select {
   width: 100%;
 }
 
-.rcbo-phase-controls .phase-inherited {
+.rcd-phase-controls .phase-inherited {
   display: flex;
   align-items: center;
   min-height: 2.25rem;
@@ -426,7 +426,7 @@ textarea {
   grid-row: 2;
 }
 
-.groups-table.has-phases .group-rcbo {
+.groups-table.has-phases .group-rcd {
   grid-column: 1 / 3;
   grid-row: 3;
 }
@@ -436,7 +436,7 @@ textarea {
   grid-row: 3;
 }
 
-.groups-table.has-phases.has-rcbos .group-phases {
+.groups-table.has-phases.has-rcds .group-phases {
   grid-column: 3;
 }
 
@@ -483,7 +483,7 @@ textarea {
   display: block;
 }
 
-.rcbo-swatch {
+.rcd-swatch {
   flex: 0 0 auto;
   width: 1rem;
   height: 1rem;
@@ -491,7 +491,7 @@ textarea {
   border-radius: 3px;
 }
 
-.rcbo-swatch.is-empty {
+.rcd-swatch.is-empty {
   background: repeating-linear-gradient(
     45deg,
     #fff 0 3px,
@@ -500,7 +500,7 @@ textarea {
 }
 
 select:focus-visible,
-.rcbo-color:focus-visible {
+.rcd-color:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
@@ -639,35 +639,35 @@ select:focus-visible,
     grid-column: 1 / -1;
   }
 
-  .groups-table .group-rcbo,
+  .groups-table .group-rcd,
   .groups-table .group-phases {
     grid-column: 1 / -1;
   }
 
-  .rcbo-select select,
-  .rcbo-phase-controls select {
+  .rcd-select select,
+  .rcd-phase-controls select {
     min-height: 44px;
     font-size: 1rem;
   }
 
-  .rcbo-item {
+  .rcd-item {
     grid-template-columns: 44px minmax(0, 1fr);
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
   }
 
-  .rcbo-color {
+  .rcd-color {
     width: 44px;
     height: 44px;
   }
 
-  .rcbo-item > input[type="text"]:not(.input-number),
-  .rcbo-item .row-actions,
-  .rcbo-phase-controls {
+  .rcd-item > input[type="text"]:not(.input-number),
+  .rcd-item .row-actions,
+  .rcd-phase-controls {
     grid-column: 1 / -1;
   }
 
-  .rcbo-panel .btn-primary {
+  .rcd-panel .btn-primary {
     width: 100%;
   }
 
@@ -690,9 +690,9 @@ select:focus-visible,
   }
 
   .groups-table.has-phases .group-items,
-  .groups-table.has-phases .group-rcbo,
+  .groups-table.has-phases .group-rcd,
   .groups-table.has-phases .group-phases,
-  .groups-table.has-phases.has-rcbos .group-phases,
+  .groups-table.has-phases.has-rcds .group-phases,
   .groups-table.has-phases .group-actions {
     grid-column: 1 / -1;
     grid-row: auto;
@@ -741,19 +741,19 @@ select:focus-visible,
     font-family: Helvetica, Arial, sans-serif;
   }
 
-  .print-unused-rcbos {
+  .print-unused-rcds {
     margin: 0 0 3mm;
     break-inside: avoid;
     color: #1e1e1e;
     font-size: 9pt;
   }
 
-  .print-unused-rcbos h3 {
+  .print-unused-rcds h3 {
     margin: 0 0 1mm;
     font-size: 9pt;
   }
 
-  .print-unused-rcbos ul {
+  .print-unused-rcds ul {
     display: flex;
     flex-wrap: wrap;
     gap: 1.5mm 5mm;
@@ -762,7 +762,7 @@ select:focus-visible,
     list-style: none;
   }
 
-  .print-unused-rcbos li {
+  .print-unused-rcds li {
     display: flex;
     align-items: center;
     gap: 1.5mm;
@@ -879,11 +879,11 @@ select:focus-visible,
     overflow-wrap: anywhere;
   }
 
-  .print-page td.rcbo-cell {
+  .print-page td.rcd-cell {
     font-weight: 700;
   }
 
-  .print-rcbo-key {
+  .print-rcd-key {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -894,17 +894,17 @@ select:focus-visible,
     font-size: 9pt;
   }
 
-  .print-rcbo-key li {
+  .print-rcd-key li {
     display: flex;
     align-items: center;
     gap: 1.5mm;
   }
 
-  .print-rcbo-key-title {
+  .print-rcd-key-title {
     font-weight: 700;
   }
 
-  .print-rcbo-swatch {
+  .print-rcd-swatch {
     width: 4mm;
     height: 4mm;
     border: 0.2mm solid #1e1e1e;

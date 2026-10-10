@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
-const sources = await Promise.all(['warnings', 'rcbo', 'pdf'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'pdf'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 
 function setup() {
@@ -113,18 +113,18 @@ test('PDF without warnings retains the original table position and 15 rows', () 
 
 test('PDF shows effective phases, pole counts and unassigned selections only when enabled', () => {
    const harness = setup();
-   const rcbos = [
+   const rcds = [
       { id: 'two', number: 'A1', name: 'Keuken', color: '#ed8c01', amountOfPoles: 2, phases: ['L2'] },
       { id: 'four', number: 'A2', name: 'Garage', color: '#009fe3', amountOfPoles: 4, phases: ['L1', 'L2', 'L3'] },
       { id: 'unused', number: 'A3', name: 'Reserve', color: '#95be1a', amountOfPoles: 2, phases: [] }
    ];
    const data = box('1', 5);
-   data.groups[0] = { ...data.groups[0], rcboId: 'two', phases: ['L3'] };
-   data.groups[1] = { ...data.groups[1], rcboId: 'four', phases: ['L1', 'L3'] };
-   data.groups[2] = { ...data.groups[2], rcboId: null, phases: ['L1', 'L2', 'L3'] };
-   data.groups[3] = { ...data.groups[3], rcboId: 'four', phases: [] };
-   data.groups[4] = { ...data.groups[4], rcboId: null, phases: ['L2'] };
-   assert.equal(harness.pdf.download([data], 15, [], rcbos, true), true);
+   data.groups[0] = { ...data.groups[0], rcdId: 'two', phases: ['L3'] };
+   data.groups[1] = { ...data.groups[1], rcdId: 'four', phases: ['L1', 'L3'] };
+   data.groups[2] = { ...data.groups[2], rcdId: null, phases: ['L1', 'L2', 'L3'] };
+   data.groups[3] = { ...data.groups[3], rcdId: 'four', phases: [] };
+   data.groups[4] = { ...data.groups[4], rcdId: null, phases: ['L2'] };
+   assert.equal(harness.pdf.download([data], 15, [], rcds, true), true);
    const document = harness.document();
    const table = document.lastAutoTable;
    assert.equal(table.columns.length, 3);
@@ -156,7 +156,7 @@ test('PDF shows effective phases, pole counts and unassigned selections only whe
       });
    });
    harness.lines.length = 0;
-   harness.pdf.download([data], 15, [], rcbos, false);
+   harness.pdf.download([data], 15, [], rcds, false);
    assert.equal(harness.document().lastAutoTable.columns.length, 2);
    assert.ok(!pageText(harness.document(), 1).includes('Fasen'));
    assert.ok(!pageText(harness.document(), 1).includes('2P;'));
@@ -179,12 +179,12 @@ test('phase borders are drawn on every fragment of a group split across PDF page
    }
 });
 
-test('phase PDF columns and long RCBO labels fit inside the page and survive overflow', () => {
+test('phase PDF columns and long RCD labels fit inside the page and survive overflow', () => {
    const harness = setup();
-   const rcbos = [{ id: 'r1', number: 'A1', name: 'Lange omschrijving '.repeat(9), color: '#ed8c01', amountOfPoles: 4 }];
+   const rcds = [{ id: 'r1', number: 'A1', name: 'Lange omschrijving '.repeat(9), color: '#ed8c01', amountOfPoles: 4 }];
    const data = box('1', 65);
-   data.groups.forEach((group) => { group.rcboId = 'r1'; group.phases = ['L1', 'L2', 'L3']; });
-   harness.pdf.download([data, box('2')], 15, ['pv'], rcbos, true);
+   data.groups.forEach((group) => { group.rcdId = 'r1'; group.phases = ['L1', 'L2', 'L3']; });
+   harness.pdf.download([data, box('2')], 15, ['pv'], rcds, true);
    const document = harness.document();
    assert.ok(document.getNumberOfPages() > 2);
    const output = Array.from({ length: document.getNumberOfPages() }, (_, i) => pageText(document, i + 1)).join('\n');
@@ -288,20 +288,20 @@ test('missing PDF dependencies still trigger the existing print fallback', () =>
    assert.equal(harness.pdf.download([box()], 15, ids), false);
 });
 
-const rcbos = [
+const rcds = [
    { id: 'r1', number: 'A1', name: 'Keuken en badkamer', color: '#003f7d' },
    { id: 'r2', number: '', name: '', color: '#fdd835' },
    { id: 'r3', number: 'A3', name: 'Ongebruikt', color: '#43a047' }
 ];
 function linkedBox(number = '1', links = ['r1', null, 'r2']) {
    const result = box(number, links.length);
-   result.groups.forEach((group, index) => { group.rcboId = links[index]; });
+   result.groups.forEach((group, index) => { group.rcdId = links[index]; });
    return result;
 }
 
-test('linked groups get a colored group-number cell with the RCBO code and readable text', () => {
+test('linked groups get a colored group-number cell with the RCD code and readable text', () => {
    const harness = setup();
-   assert.equal(harness.pdf.download([linkedBox()], 15, [], rcbos), true);
+   assert.equal(harness.pdf.download([linkedBox()], 15, [], rcds), true);
    const document = harness.document();
    const cells = document.lastAutoTable.body.map((row) => row.cells[0]);
    assert.equal(cells[0].text.join(' '), '1 · A1');
@@ -309,24 +309,24 @@ test('linked groups get a colored group-number cell with the RCBO code and reada
    assert.deepEqual(Array.from(cells[0].styles.textColor), [255, 255, 255]);
    assert.equal(cells[1].text.join(' '), '2');
    assert.ok(!Array.isArray(cells[1].styles.fillColor), 'unlinked groups keep the default fill');
-   assert.equal(cells[2].text.join(' '), '3 · A2', 'empty RCBO codes fall back to their position');
+   assert.equal(cells[2].text.join(' '), '3 · A2', 'empty RCD codes fall back to their position');
    assert.deepEqual(Array.from(cells[2].styles.textColor), [0, 0, 0]);
    assert.ok(!Array.isArray(cells[3].styles.fillColor), 'padding rows stay unmarked');
    const text = pageText(document, 1);
    assert.ok(text.includes('Aardlekschakelaars:'));
    assert.ok(text.includes('(A1 \x96 Keuken en badkamer)'), 'en dash uses WinAnsi encoding');
    assert.ok(text.includes('Aardlekschakelaars niet in gebruik'));
-   assert.ok(text.includes('(A3 \x96 Ongebruikt)'), 'unused RCBOs are listed separately from the key');
+   assert.ok(text.includes('(A3 \x96 Ongebruikt)'), 'unused RCDs are listed separately from the key');
    assert.ok(document.lastAutoTable.settings.startY > 46);
 });
 
-test('unused RCBOs are listed below warnings once across all boxes', () => {
+test('unused RCDs are listed below warnings once across all boxes', () => {
    const harness = setup();
    const boxes = [
       linkedBox('1', ['r1']),
       linkedBox('2', ['r2'])
    ];
-   assert.equal(harness.pdf.download(boxes, 15, ['pv'], rcbos), true);
+   assert.equal(harness.pdf.download(boxes, 15, ['pv'], rcds), true);
    const firstPage = pageText(harness.document(), 1);
    const unusedHeading = 'Aardlekschakelaars niet in gebruik';
    const unusedStart = firstPage.indexOf(unusedHeading);
@@ -334,12 +334,12 @@ test('unused RCBOs are listed below warnings once across all boxes', () => {
    const usedLabel = firstPage.indexOf('(A1 \x96 Keuken en badkamer)');
    assert.notEqual(unusedStart, -1);
    assert.notEqual(unusedLabel, -1);
-   assert.ok(unusedLabel < usedLabel, 'unused RCBOs appear before the used RCBO key');
+   assert.ok(unusedLabel < usedLabel, 'unused RCDs appear before the used RCD key');
    assert.ok(unusedStart > firstPage.indexOf('LET OP!'));
    assert.ok(!pageText(harness.document(), 2).includes('Aardlekschakelaars niet in gebruik'));
 });
 
-test('the RCBO key is per page and the table still fits with warnings and a wrapped key', () => {
+test('the RCD key is per page and the table still fits with warnings and a wrapped key', () => {
    const many = Array.from({ length: 8 }, (_, i) => ({
       id: `r${i}`, number: `A${i + 1}`, name: `Aardlekschakelaar met lange naam ${i + 1}`, color: '#e53935'
    }));
@@ -356,7 +356,7 @@ test('the RCBO key is per page and the table still fits with warnings and a wrap
    assert.equal(document.lastAutoTable.settings.startY, 46);
 });
 
-test('without RCBOs the PDF output is unchanged', () => {
+test('without RCDs the PDF output is unchanged', () => {
    const harness = setup();
    harness.pdf.download([box()], 15, [], []);
    const document = harness.document();

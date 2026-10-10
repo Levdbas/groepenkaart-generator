@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v3.schema.json",
   "title": "JSON schema for groepenkaart v3",
-  "description": "Group rcboId values must refer to the id of an entry in rcbos. When rcboEnabled is false, rcbos must be empty. A 2-pole RCBO has zero or one phase and a 4-pole RCBO has all three phases. Groups linked to a 2-pole RCBO use its phase; all other groups use their own phases.",
+  "description": "Group rcdId values must refer to the id of an entry in rcds. When rcdEnabled is false, rcds must be empty. A 2-pole RCD has zero or one phase and a 4-pole RCD has all three phases. Groups linked to a 2-pole RCD use its phase; all other groups use their own phases.",
   "type": "object",
-  "required": ["schemaVersion", "warnings", "rcboEnabled", "phaseEnabled", "rcbos", "boxes"],
+  "required": ["schemaVersion", "warnings", "rcdEnabled", "phaseEnabled", "rcds", "boxes"],
   "properties": {
     "$schema": {
       "type": "string",
@@ -20,25 +20,25 @@
       "type": "array",
       "items": { "enum": ["pv", "ev", "battery", "heat-pump"] }
     },
-    "rcboEnabled": {
-      "description": "Whether groups can be linked to RCBOs (Aardlekschakelaars).",
+    "rcdEnabled": {
+      "description": "Whether groups can be linked to RCDs (Aardlekschakelaars).",
       "type": "boolean"
     },
     "phaseEnabled": {
       "description": "Whether phase selection and phase display on the groups card are enabled for a three-phase installation.",
       "type": "boolean"
     },
-    "rcbos": {
+    "rcds": {
       "type": "array",
-      "items": { "$ref": "#/$defs/rcbo" }
+      "items": { "$ref": "#/$defs/rcd" }
     },
     "boxes": {
       "type": "array",
       "items": { "$ref": "#/$defs/box" }
     }
   },
-  "if": { "properties": { "rcboEnabled": { "const": false } } },
-  "then": { "properties": { "rcbos": { "maxItems": 0 } } },
+  "if": { "properties": { "rcdEnabled": { "const": false } } },
+  "then": { "properties": { "rcds": { "maxItems": 0 } } },
   "$defs": {
     "phases": {
       "type": "array",
@@ -46,7 +46,7 @@
       "uniqueItems": true,
       "maxItems": 3
     },
-    "rcbo": {
+    "rcd": {
       "type": "object",
       "required": ["id", "number", "name", "color", "amountOfPoles", "phases"],
       "properties": {
@@ -57,7 +57,7 @@
         "amountOfPoles": { "type": "integer", "enum": [2, 4] },
         "phases": {
           "$ref": "#/$defs/phases",
-          "description": "A 2-pole RCBO has zero or one selected phase (empty means not chosen). A 4-pole RCBO has all three phases."
+          "description": "A 2-pole RCD has zero or one selected phase (empty means not chosen). A 4-pole RCD has all three phases."
         }
       },
       "if": { "properties": { "amountOfPoles": { "const": 4 } } },
@@ -78,7 +78,7 @@
     },
     "group": {
       "type": "object",
-      "required": ["number", "description", "rcboId", "phases"],
+      "required": ["number", "description", "rcdId", "phases"],
       "properties": {
         "number": { "type": "string" },
         "description": { "type": "string" },
@@ -87,10 +87,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "rcboId": { "type": ["string", "null"] },
+        "rcdId": { "type": ["string", "null"] },
         "phases": {
           "$ref": "#/$defs/phases",
-          "description": "The group's own phase selection (empty means not chosen). It is ignored while the group is linked to a 2-pole RCBO, which supplies the phase instead, but it is kept so it is available again when the group is unlinked."
+          "description": "The group's own phase selection (empty means not chosen). It is ignored while the group is linked to a 2-pole RCD, which supplies the phase instead, but it is kept so it is available again when the group is unlinked."
         }
       }
     }
