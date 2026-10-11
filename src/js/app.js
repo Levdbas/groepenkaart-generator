@@ -2,6 +2,7 @@
    'use strict';
 
    const STORAGE_KEY = 'groepenkaart:v1';
+   const FILL_ROWS_KEY = 'groepenkaart:fill-rows';
    const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
@@ -12,11 +13,13 @@
    let loadedFromStorage = false;
    let qrStatusTimer;
    let state = load();
+   let fillRows = loadFillRows();
 
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
    const printEl = document.getElementById('print-area');
    const qrEnabledEl = document.getElementById('qr-enabled');
+   const fillRowsEl = document.getElementById('fill-rows');
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
    const phaseEnabledEl = document.getElementById('phase-enabled');
@@ -61,6 +64,27 @@
             ' De opgeslagen gegevens blijven bewaard. Importeer een geldig bestand of kies Alles wissen om ze te vervangen.');
       }
       return schema.empty();
+   }
+
+   // Padding with empty rows is a print preference of this device, not part of the card data.
+   function loadFillRows() {
+      try {
+         return localStorage.getItem(FILL_ROWS_KEY) === 'true';
+      } catch (e) {
+         return false;
+      }
+   }
+
+   function saveFillRows() {
+      try {
+         localStorage.setItem(FILL_ROWS_KEY, String(fillRows));
+      } catch (e) {
+         console.warn('Opslaan mislukt', e);
+      }
+   }
+
+   function minRows() {
+      return fillRows ? MIN_ROWS : 0;
    }
 
    // Building the QR code takes a moment, so after typing it only runs once the typing pauses.
@@ -434,7 +458,7 @@
                ]) : null
             ]);
          });
-         for (let i = box.groups.length; i < MIN_ROWS; i++) {
+         for (let i = box.groups.length; i < minRows(); i++) {
             rows.push(el('tr', null, [el('td'), el('td'), state.phaseEnabled ? el('td') : null]));
          }
          return el('article', { className: 'print-page' }, [
@@ -506,6 +530,7 @@
       warningInputs.forEach(function (node) { node.checked = state.warnings.includes(node.value); });
       phaseEnabledEl.checked = state.phaseEnabled;
       qrEnabledEl.checked = state.qrEnabled;
+      fillRowsEl.checked = fillRows;
       renderQrStatus();
       renderRcds();
       renderBoxes();
@@ -594,7 +619,7 @@
          return;
       }
       const qr = state.qrEnabled ? share.qr(shareUrl()) : null;
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, MIN_ROWS, state.warnings, state.rcds, state.phaseEnabled, qr)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), state.warnings, state.rcds, state.phaseEnabled, qr)) {
          window.print();
       }
    });
@@ -613,6 +638,12 @@
    qrEnabledEl.addEventListener('change', function () {
       state.qrEnabled = qrEnabledEl.checked;
       update();
+   });
+
+   fillRowsEl.addEventListener('change', function () {
+      fillRows = fillRowsEl.checked;
+      saveFillRows();
+      renderPrint();
    });
 
    phaseEnabledEl.addEventListener('change', function () {

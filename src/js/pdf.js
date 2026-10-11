@@ -2,6 +2,15 @@
    'use strict';
 
    const BLUE = [0, 63, 125];
+   const MARGIN_X = 15;
+   const MARGIN_Y = 10;
+   const CELL_PADDING = 2;
+   const GROUP_WIDTH = 22;
+   const PHASE_WIDTH = 30;
+   const DESCRIPTION_SIZE = 8.5;
+   const ITEM_SIZE = 9;
+   const ITEM_INDENT = 2.5;
+   const LINE_FACTOR = 1.2;
 
    function today() {
       const d = new Date();
@@ -13,36 +22,39 @@
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
    }
 
+   // Draws one compact, rectangular card per selected warning and returns the vertical space they take.
    function drawWarnings(doc, ids, margin, top) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
       if (!selected.length) return 0;
 
-      const width = 42;
-      const height = 42;
-      const gap = 4;
+      const gap = 3;
+      const width = (doc.internal.pageSize.getWidth() - margin * 2 - gap * 2) / 3;
+      const height = 24;
+      const scale = doc.internal.scaleFactor;
+      const iconWidth = 17;
+      const textLeft = 3 + iconWidth + 3;
       selected.forEach(function (warning, index) {
          const x = margin + index * (width + gap);
-         const center = x + width / 2;
          doc.setDrawColor(180, 35, 24);
-         doc.setLineWidth(1.2);
-         doc.roundedRect(x, top, width, height, 3, 3);
+         doc.setLineWidth(0.8);
+         doc.roundedRect(x, top, width, height, 2, 2);
          doc.setTextColor(0, 0, 0);
          doc.setFont('helvetica', 'bold');
-         doc.setFontSize(8);
-         doc.text('LET OP!', center, top + 5, { align: 'center' });
-         doc.setFontSize(7.4);
-         doc.text(warning.heading[0], center, top + 10, { align: 'center' });
-         doc.text(warning.heading[1], center, top + 14, { align: 'center' });
+         doc.setFontSize(7.5);
+         doc.text('LET OP!', x + width / 2, top + 4.8, { align: 'center' });
+         doc.setFontSize(7);
+         doc.text(warning.heading.join(' '), x + width / 2, top + 8.8, { align: 'center' });
          doc.setFont('helvetica', 'normal');
          const message = warning.message || warnings.message;
-         doc.setFontSize(warning.message ? 5.8 : 6.8);
-         doc.text(doc.splitTextToSize(message.toUpperCase(), width - 6), center, top + 19, {
-            align: 'center', lineHeightFactor: 1.2
-         });
-         warnings.drawIcon(doc, warning.icon, center - 12, top + 28, 24);
+         const fontSize = warning.message ? 5.8 : 6.4;
+         doc.setFontSize(fontSize);
+         const lines = doc.splitTextToSize(message.toUpperCase(), width - textLeft - 3);
+         const textHeight = lines.length * fontSize * 1.2 / scale;
+         doc.text(lines, x + textLeft, top + 16.5 - textHeight / 2, { baseline: 'top', lineHeightFactor: 1.2 });
+         warnings.drawIcon(doc, warning.icon, x + 3, top + 12.2, iconWidth);
       });
-      return height + 5;
+      return height + 4;
    }
 
    function drawUnusedRcds(doc, entries, margin, top, phaseEnabled) {
@@ -112,9 +124,9 @@
       const gap = 8;
       const pageHeight = doc.internal.pageSize.getHeight();
       let top = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 40) + gap;
-      if (top + size > pageHeight - margin) {
+      if (top + size > pageHeight - MARGIN_Y) {
          doc.addPage();
-         top = margin;
+         top = MARGIN_Y;
       }
 
       const count = qr.getModuleCount();
@@ -138,6 +150,52 @@
          margin + size + 8, top + 8);
    }
 
+   // Lays out a group's bold description and small bullet list for a cell of the given inner width. The height
+   // includes the cell padding; the table row is made exactly this tall so the text can be drawn inside it.
+   function layoutGroup(doc, group, innerWidth) {
+      const scale = doc.internal.scaleFactor;
+      const descriptionStep = DESCRIPTION_SIZE * LINE_FACTOR / scale;
+      const itemStep = ITEM_SIZE * LINE_FACTOR / scale;
+      const hasDescription = !!group.description;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(DESCRIPTION_SIZE);
+      const description = hasDescription ? doc.splitTextToSize(group.description, innerWidth) : [];
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(ITEM_SIZE);
+      const items = (group.items || []).map(function (item) {
+         return doc.splitTextToSize(item, innerWidth - ITEM_INDENT);
+      });
+      const itemLines = items.reduce(function (sum, lines) { return sum + lines.length; }, 0);
+      const itemsGap = description.length && itemLines ? 0.8 : 0;
+      const textHeight = description.length * descriptionStep + itemsGap + itemLines * itemStep;
+      return {
+         description: description, items: items, descriptionStep: descriptionStep, itemStep: itemStep,
+         itemsGap: itemsGap, textHeight: textHeight, height: textHeight + CELL_PADDING * 2
+      };
+   }
+
+   function drawGroup(doc, layout, cell) {
+      const x = cell.x + CELL_PADDING;
+      let y = cell.y + (cell.height - layout.textHeight) / 2;
+      doc.setTextColor(30, 30, 30);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(DESCRIPTION_SIZE);
+      layout.description.forEach(function (line) {
+         doc.text(line, x, y, { baseline: 'top' });
+         y += layout.descriptionStep;
+      });
+      y += layout.itemsGap;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(ITEM_SIZE);
+      layout.items.forEach(function (lines) {
+         doc.text('\u2022', x, y, { baseline: 'top' });
+         lines.forEach(function (line) {
+            doc.text(line, x + ITEM_INDENT, y, { baseline: 'top' });
+            y += layout.itemStep;
+         });
+      });
+   }
+
    // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
    function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr) {
@@ -150,7 +208,9 @@
       const lookup = rcd.index(rcds);
       const allGroups = boxes.flatMap(function (box) { return box.groups; });
       const unusedRcds = rcd.unused(rcds, allGroups);
-      const margin = 15;
+      const margin = MARGIN_X;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const maxRowHeight = doc.internal.pageSize.getHeight() - MARGIN_Y * 2 - 12;
       const date = 'Afgedrukt op ' + today();
 
       boxes.forEach(function (box, index) {
@@ -158,24 +218,33 @@
 
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
-         doc.setFontSize(24);
-         doc.text('Groepenindeling', margin, 25);
+         doc.setFontSize(16);
+         doc.text('Groepenindeling', margin, 17);
          doc.setFont('helvetica', 'normal');
-         doc.setFontSize(10);
+         doc.setFontSize(9);
          doc.setTextColor(91, 101, 115);
-         doc.text(date, margin, 31);
-         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 36) : 0;
-         if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 36 + offset, phaseEnabled);
+         doc.text(date, margin, 22);
+         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 26) : 0;
+         if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 26 + offset, phaseEnabled);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(13);
-         doc.text(title(box), margin, 40 + offset);
-         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 43 + offset, phaseEnabled);
+         doc.text(title(box), margin, 31 + offset);
+         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 34 + offset, phaseEnabled);
 
          const entries = box.groups.map(function (g) { return lookup[g.rcdId]; });
+         const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
+         // Groups are drawn by hand (bold description, small bullets) unless one is taller than a page: that one
+         // stays plain text so the table can still split it and no text is lost.
+         const layouts = box.groups.map(function (g) {
+            const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2);
+            return layout.height <= maxRowHeight ? layout : null;
+         });
          const body = box.groups.map(function (g, i) {
-            const description = [g.description].filter(Boolean).concat((g.items || []).map(function (item) {
-               return '• ' + item;
-            })).join('\n');
+            const description = layouts[i]
+               ? { content: '', styles: { minCellHeight: Math.max(10, layouts[i].height) } }
+               : [g.description].filter(Boolean).concat((g.items || []).map(function (item) {
+                  return '\u2022 ' + item;
+               })).join('\n');
             const row = [rcd.cellText(g.number, entries[i]), description];
             if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, entries[i] && entries[i].rcd)));
             return row;
@@ -183,8 +252,9 @@
          for (let i = box.groups.length; i < minRows; i++) body.push(phaseEnabled ? ['', '', ''] : ['', '']);
 
          doc.autoTable({
-            startY: 46 + offset + keyHeight,
-            margin: { left: margin, right: margin },
+            startY: 37 + offset + keyHeight,
+            margin: { top: MARGIN_Y, bottom: MARGIN_Y, left: margin, right: margin },
+            rowPageBreak: 'avoid',
             head: [phaseEnabled ? ['Groep', 'Omschrijving', 'Fasen'] : ['Groep', 'Omschrijving']],
             body: body,
             theme: 'grid',
@@ -206,8 +276,9 @@
                halign: 'center'
             },
             columnStyles: {
-               0: { cellWidth: 22, halign: 'center' },
-               ...(phaseEnabled ? { 2: { cellWidth: 30, cellPadding: { top: 2, right: 2, bottom: 3, left: 2 } } } : {})
+               0: { cellWidth: GROUP_WIDTH, halign: 'center' },
+               1: { cellWidth: descriptionWidth },
+               ...(phaseEnabled ? { 2: { cellWidth: PHASE_WIDTH, cellPadding: { top: 2, right: 2, bottom: 3, left: 2 } } } : {})
             },
             didParseCell: function (data) {
                const entry = data.section === 'body' && data.column.index === 0 && entries[data.row.index];
@@ -217,6 +288,9 @@
                data.cell.styles.fontStyle = 'bold';
             },
             didDrawCell: function (data) {
+               if (data.section === 'body' && data.column.index === 1 && layouts[data.row.index]) {
+                  drawGroup(doc, layouts[data.row.index], data.cell);
+               }
                if (!phaseEnabled || data.section !== 'body' || data.column.index !== 2) return;
                // Use the raw cell value so split rows on overflow pages retain their phase border.
                const phases = rcd.phaseCodes.filter(function (phase) {

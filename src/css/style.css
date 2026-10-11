@@ -835,6 +835,10 @@ select:focus-visible,
     font-size: 10pt;
   }
 
+  .print-page tr {
+    break-inside: avoid;
+  }
+
   .print-page th,
   .print-page td {
     border: 1px solid var(--blue);

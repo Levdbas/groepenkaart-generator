@@ -105,7 +105,7 @@ function setupSchema() {
    return { schema: window.GroepenkaartSchema, context };
 }
 
-function setupApp(stored = null, hash = '', confirmAnswer = true) {
+function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl,
       'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v4.schema.json');
@@ -130,6 +130,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true) {
    const messages = [];
    const confirms = [];
    let storage = stored;
+   let fillRowsStorage = fillRows;
    let exported;
    let confirmation = confirmAnswer;
    const pdfCalls = [];
@@ -149,8 +150,16 @@ function setupApp(stored = null, hash = '', confirmAnswer = true) {
    Object.assign(context, {
       document, Blob,
       localStorage: {
-         getItem(key) { assert.equal(key, 'groepenkaart:v1'); return storage; },
-         setItem(key, value) { assert.equal(key, 'groepenkaart:v1'); storage = value; }
+         getItem(key) {
+            if (key === 'groepenkaart:fill-rows') return fillRowsStorage;
+            assert.equal(key, 'groepenkaart:v1');
+            return storage;
+         },
+         setItem(key, value) {
+            if (key === 'groepenkaart:fill-rows') { fillRowsStorage = value; return; }
+            assert.equal(key, 'groepenkaart:v1');
+            storage = value;
+         }
       },
       console: { warn(...args) { messages.push(args); } },
       alert(message) { messages.push(message); },
@@ -1056,6 +1065,24 @@ test('the PDF only receives a QR code when the option is on, with a link that re
    assert.match(link, /^https:\/\/example\.test\/app\/\?x=1#c1=[0-9A-Z$*+-]+$/);
    const decoded = share.decode(new URL(link).hash);
    assert.deepEqual(plain(app.schema.normalize(decoded)), JSON.parse(app.storage()));
+});
+
+test('empty rows are only added when the device preference is on, and the preference is not part of the data', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   const fillRows = app.nodes.get('fill-rows');
+   assert.equal(fillRows.checked, false);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][1], 0);
+   fillRows.checked = true;
+   fillRows.listeners.change();
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[1][1], 15);
+   assert.ok(!('fillRows' in JSON.parse(app.storage())));
+
+   const reloaded = setupApp(app.storage(), '', true, 'true');
+   assert.equal(reloaded.nodes.get('fill-rows').checked, true);
+   reloaded.nodes.get('download-pdf').listeners.click();
+   assert.equal(reloaded.pdfCalls[0][1], 15);
 });
 
 test('a QR code is skipped with a visible message when the data does not fit', () => {
