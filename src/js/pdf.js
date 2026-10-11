@@ -7,7 +7,7 @@
    const CELL_PADDING = 2;
    const GROUP_WIDTH = 22;
    const PHASE_WIDTH = 30;
-   const DESCRIPTION_SIZE = 8.5;
+   const DESCRIPTION_SIZE = 9;
    const ITEM_SIZE = 9;
    const ITEM_INDENT = 2.5;
    const LINE_FACTOR = 1.2;
@@ -218,18 +218,18 @@
 
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
-         doc.setFontSize(16);
-         doc.text('Groepenindeling', margin, 17);
-         doc.setFont('helvetica', 'normal');
-         doc.setFontSize(9);
-         doc.setTextColor(91, 101, 115);
-         doc.text(date, margin, 22);
-         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 26) : 0;
-         if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 26 + offset, phaseEnabled);
-         doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(13);
-         doc.text(title(box), margin, 31 + offset);
-         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 34 + offset, phaseEnabled);
+         doc.text('Groepenindeling', margin, 15);
+         doc.setFont('helvetica', 'normal');
+         doc.setFontSize(8);
+         doc.setTextColor(91, 101, 115);
+         doc.text(date, pageWidth - margin, 15, { align: 'right' });
+         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 19) : 0;
+         if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
+         doc.setTextColor.apply(doc, BLUE);
+         doc.setFontSize(11);
+         doc.text(title(box), margin, 24 + offset);
+         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset, phaseEnabled);
 
          const entries = box.groups.map(function (g) { return lookup[g.rcdId]; });
          const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
@@ -252,7 +252,7 @@
          for (let i = box.groups.length; i < minRows; i++) body.push(phaseEnabled ? ['', '', ''] : ['', '']);
 
          doc.autoTable({
-            startY: 37 + offset + keyHeight,
+            startY: 30 + offset + keyHeight,
             margin: { top: MARGIN_Y, bottom: MARGIN_Y, left: margin, right: margin },
             rowPageBreak: 'avoid',
             head: [phaseEnabled ? ['Groep', 'Omschrijving', 'Fasen'] : ['Groep', 'Omschrijving']],
@@ -264,15 +264,17 @@
                textColor: [30, 30, 30],
                lineColor: BLUE,
                lineWidth: 0.3,
-               minCellHeight: 10,
+               minCellHeight: 6,
                valign: 'middle',
-               cellPadding: 2
+               cellPadding: 1
             },
             headStyles: {
                fillColor: BLUE,
+               cellPadding: 0.2,
                textColor: [255, 255, 255],
                fontStyle: 'bold',
-               fontSize: 11,
+               fontSize: 6,
+               minCellHeight: 4,
                halign: 'center'
             },
             columnStyles: {

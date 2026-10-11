@@ -114,7 +114,7 @@ test('PDF without warnings starts the table high on the page and fills 15 rows',
    assert.equal(harness.pdf.download([box()], 15), true);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 1);
-   assert.equal(document.lastAutoTable.settings.startY, 37);
+   assert.equal(document.lastAutoTable.settings.startY, 30);
    assert.equal(document.lastAutoTable.settings.margin.top, 10);
    assert.equal(document.lastAutoTable.settings.margin.bottom, 10);
    assert.equal(document.lastAutoTable.body.length, 15);
@@ -226,14 +226,14 @@ test('PDF group descriptions are bold and items are small bullets that wrap with
    const document = harness.document();
    const description = drawn.find((entry) => entry.value === data.groups[0].description);
    assert.equal(description.font, 'helvetica-bold');
-   assert.equal(description.size, 10);
-   const items = drawn.filter((entry) => entry.size === 8.5 && entry.font === 'helvetica-normal');
+   assert.equal(description.size, 9);
+   const items = drawn.filter((entry) => entry.size === 9 && entry.font === 'helvetica-normal');
    assert.ok(items.some((entry) => entry.value === 'Vaatwasser'));
    assert.ok(items.some((entry) => entry.value === 'Stopcontacten'));
    assert.equal(items.filter((entry) => entry.value === '\u2022').length, 3);
    const cell = document.lastAutoTable.body[0].cells[1];
    document.setFont('helvetica', 'normal');
-   document.setFontSize(8.5);
+   document.setFontSize(9);
    const wrapped = items.filter((entry) => entry.value.startsWith('Lange'));
    assert.ok(wrapped.length > 1, 'long items wrap');
    for (const entry of wrapped) assert.ok(document.getTextWidth(entry.value) <= cell.width - 4 - 2.5 + 0.1);
@@ -282,7 +282,7 @@ test('warning cards fit below the print date and above the standard table on A4'
       assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
       assert.ok(text.indexOf('LET OP!') > text.indexOf('Groepenindeling'));
       assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
-      assert.equal(document.lastAutoTable.settings.startY, 65);
+      assert.equal(document.lastAutoTable.settings.startY, 58);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('GEVAARLIJKE DC-SPANNING'));
       if (selected.includes('heat-pump')) {
@@ -304,7 +304,7 @@ test('warnings appear only on the first page with multiple kasten', () => {
    assert.equal((pageText(document, 1).match(/LET OP!/g) || []).length, 3);
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
-   assert.equal(document.lastAutoTable.settings.startY, 37);
+   assert.equal(document.lastAutoTable.settings.startY, 30);
 });
 
 test('overflow pages preserve all groups without repeating warning cards', () => {
@@ -361,7 +361,7 @@ test('linked groups get a colored group-number cell with the RCD code and readab
    assert.ok(text.includes('(A1 \x96 Keuken en badkamer)'), 'en dash uses WinAnsi encoding');
    assert.ok(text.includes('Aardlekschakelaars niet in gebruik'));
    assert.ok(text.includes('(A3 \x96 Ongebruikt)'), 'unused RCDs are listed separately from the key');
-   assert.ok(document.lastAutoTable.settings.startY > 37);
+   assert.ok(document.lastAutoTable.settings.startY > 30);
 });
 
 test('unused RCDs are listed below warnings once across all boxes', () => {
@@ -397,13 +397,13 @@ test('the RCD key is per page and the table still fits with warnings and a wrapp
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
    assert.ok(!pageText(document, 2).includes('Aardlekschakelaars:'));
-   assert.equal(document.lastAutoTable.settings.startY, 37);
+   assert.equal(document.lastAutoTable.settings.startY, 30);
 });
 
 test('without RCDs the PDF output is unchanged', () => {
    const harness = setup();
    harness.pdf.download([box()], 15, [], []);
    const document = harness.document();
-   assert.equal(document.lastAutoTable.settings.startY, 37);
+   assert.equal(document.lastAutoTable.settings.startY, 30);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
 });
