@@ -78,34 +78,45 @@ test('JSON round-trip preserves selections', () => {
    assert.deepEqual(Array.from(warnings.normalize(data.warnings)), ids);
 });
 
-test('all warning labels and text fit inside the 42 mm cards', () => {
+test('all warning labels and text fit inside the compact cards', () => {
    const { warnings } = setup();
    const document = new jsPDF({ unit: 'mm', format: 'a4' });
+   const width = (180 - 6) / 3;
    document.setFont('helvetica', 'bold');
-   document.setFontSize(7.4);
+   document.setFontSize(7);
    for (const warning of warnings.definitions) {
-      for (const line of warning.heading) {
-         assert.ok(document.getTextWidth(line) <= 36, `${line} must fit within the card padding`);
-      }
+      assert.ok(document.getTextWidth(warning.heading.join(' ')) <= width - 6, `${warning.id} heading must fit within the card padding`);
    }
    document.setFont('helvetica', 'normal');
    for (const warning of warnings.definitions) {
       const message = warning.message || warnings.message;
-      const fontSize = warning.message ? 5.8 : 6.8;
+      const fontSize = warning.message ? 5.8 : 6.4;
       document.setFontSize(fontSize);
-      const lines = document.splitTextToSize(message.toUpperCase(), 36);
-      assert.ok(lines.length * fontSize * 1.2 / document.internal.scaleFactor < 9,
-         `${warning.id} warning text must fit above the pictogram`);
-      for (const line of lines) assert.ok(document.getTextWidth(line) <= 36);
+      const lines = document.splitTextToSize(message.toUpperCase(), width - 26);
+      assert.ok(lines.length * fontSize * 1.2 / document.internal.scaleFactor <= 10,
+         `${warning.id} warning text must fit beside the pictogram`);
+      for (const line of lines) assert.ok(document.getTextWidth(line) <= width - 26);
    }
 });
 
-test('PDF without warnings retains the original table position and 15 rows', () => {
+test('PDF only pads the table to 15 rows when asked to', () => {
+   const harness = setup();
+   assert.equal(harness.pdf.download([box('1', 3)], 0), true);
+   assert.equal(harness.document().lastAutoTable.body.length, 3);
+   assert.equal(harness.pdf.download([box('1', 3)]), true);
+   assert.equal(harness.document().lastAutoTable.body.length, 3);
+   assert.equal(harness.pdf.download([box('1', 20)], 15), true);
+   assert.equal(harness.document().lastAutoTable.body.length, 20);
+});
+
+test('PDF without warnings starts the table high on the page and fills 15 rows', () => {
    const harness = setup();
    assert.equal(harness.pdf.download([box()], 15), true);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 1);
-   assert.equal(document.lastAutoTable.settings.startY, 46);
+   assert.equal(document.lastAutoTable.settings.startY, 37);
+   assert.equal(document.lastAutoTable.settings.margin.top, 10);
+   assert.equal(document.lastAutoTable.settings.margin.bottom, 10);
    assert.equal(document.lastAutoTable.body.length, 15);
    assert.equal(document.savedFilename, 'groepenkaart.pdf');
    assert.ok(!pageText(document, 1).includes('LET OP!'));
@@ -196,24 +207,57 @@ test('phase PDF columns and long RCD labels fit inside the page and survive over
    assert.ok(table.columns.reduce((sum, column) => sum + column.width, 0) <= 180.01);
 });
 
-test('PDF group items render as bullets under the description and wrap within the cell', () => {
+test('PDF group descriptions are bold and items are small bullets that wrap within the cell', () => {
    const harness = setup();
    const data = box();
    data.groups[0].items = ['Vaatwasser', 'Stopcontacten', 'Lange aansluiting '.repeat(20)];
+   const drawn = [];
+   const create = harness.window.jspdf.jsPDF;
+   harness.window.jspdf.jsPDF = function (options) {
+      const document = create(options);
+      const text = document.text;
+      document.text = function (value, ...rest) {
+         drawn.push({ value, font: document.getFont().fontName + '-' + document.getFont().fontStyle, size: document.getFontSize() });
+         return text.call(document, value, ...rest);
+      };
+      return document;
+   };
    harness.pdf.download([data], 15);
    const document = harness.document();
+   const description = drawn.find((entry) => entry.value === data.groups[0].description);
+   assert.equal(description.font, 'helvetica-bold');
+   assert.equal(description.size, 10);
+   const items = drawn.filter((entry) => entry.size === 8.5 && entry.font === 'helvetica-normal');
+   assert.ok(items.some((entry) => entry.value === 'Vaatwasser'));
+   assert.ok(items.some((entry) => entry.value === 'Stopcontacten'));
+   assert.equal(items.filter((entry) => entry.value === '\u2022').length, 3);
    const cell = document.lastAutoTable.body[0].cells[1];
-   assert.equal(cell.text[0], data.groups[0].description);
-   assert.equal(cell.text[1], '• Vaatwasser');
-   assert.equal(cell.text[2], '• Stopcontacten');
-   assert.ok(cell.text.length > 4, 'long items wrap');
    document.setFont('helvetica', 'normal');
-   document.setFontSize(10);
-   for (const line of cell.text) {
-      assert.ok(document.getTextWidth(line) <= cell.width - 4 + 0.1, 'item lines stay within cell padding');
-   }
+   document.setFontSize(8.5);
+   const wrapped = items.filter((entry) => entry.value.startsWith('Lange'));
+   assert.ok(wrapped.length > 1, 'long items wrap');
+   for (const entry of wrapped) assert.ok(document.getTextWidth(entry.value) <= cell.width - 4 - 2.5 + 0.1);
    assert.equal(document.lastAutoTable.body.length, 15);
    assert.ok(document.output().startsWith('%PDF-'));
+});
+
+test('a group is never split over two pages', () => {
+   const harness = setup();
+   const data = box('1', 40);
+   data.groups.forEach((group, index) => { group.items = index % 2 ? ['A', 'B', 'C'] : ['A']; });
+   harness.pdf.download([data], 0);
+   const document = harness.document();
+   assert.ok(document.getNumberOfPages() > 1);
+   const table = document.lastAutoTable;
+   assert.equal(table.settings.rowPageBreak, 'avoid');
+   const output = Array.from({ length: document.getNumberOfPages() }, (_, i) => pageText(document, i + 1));
+   for (let group = 1; group <= 40; group++) {
+      const pages = output.filter((text) => text.includes(`(Group-1-${group})`));
+      assert.equal(pages.length, 1, `Group ${group} appears on exactly one page`);
+   }
+   for (const row of table.body) {
+      assert.ok(row.cells[1].y + row.height <= 297 - 10 + 0.01, 'rows stay above the bottom margin');
+   }
 });
 
 test('long group item lists preserve all items across PDF overflow pages', () => {
@@ -238,8 +282,8 @@ test('warning cards fit below the print date and above the standard table on A4'
       assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
       assert.ok(text.indexOf('LET OP!') > text.indexOf('Groepenindeling'));
       assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
-      assert.equal(document.lastAutoTable.settings.startY, 93);
-      assert.ok(document.lastAutoTable.finalY < 282, '15 rows must fit within the bottom margin');
+      assert.equal(document.lastAutoTable.settings.startY, 65);
+      assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('GEVAARLIJKE DC-SPANNING'));
       if (selected.includes('heat-pump')) {
          assert.ok(text.includes('OMVORMER:'));
@@ -260,7 +304,7 @@ test('warnings appear only on the first page with multiple kasten', () => {
    assert.equal((pageText(document, 1).match(/LET OP!/g) || []).length, 3);
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
-   assert.equal(document.lastAutoTable.settings.startY, 46);
+   assert.equal(document.lastAutoTable.settings.startY, 37);
 });
 
 test('overflow pages preserve all groups without repeating warning cards', () => {
@@ -317,7 +361,7 @@ test('linked groups get a colored group-number cell with the RCD code and readab
    assert.ok(text.includes('(A1 \x96 Keuken en badkamer)'), 'en dash uses WinAnsi encoding');
    assert.ok(text.includes('Aardlekschakelaars niet in gebruik'));
    assert.ok(text.includes('(A3 \x96 Ongebruikt)'), 'unused RCDs are listed separately from the key');
-   assert.ok(document.lastAutoTable.settings.startY > 46);
+   assert.ok(document.lastAutoTable.settings.startY > 37);
 });
 
 test('unused RCDs are listed below warnings once across all boxes', () => {
@@ -346,20 +390,20 @@ test('the RCD key is per page and the table still fits with warnings and a wrapp
    const harness = setup();
    harness.pdf.download([linkedBox('1', many.map((r) => r.id).concat(Array(7).fill(null)))], 15, ids, many);
    assert.equal(harness.document().getNumberOfPages(), 1);
-   assert.ok(harness.document().lastAutoTable.finalY < 282, '15 rows must fit with warnings and a wrapped key');
+   assert.ok(harness.document().lastAutoTable.finalY < 287, '15 rows must fit with warnings and a wrapped key');
    assert.ok(pageText(harness.document(), 1).includes('lange naam 8'));
 
    harness.pdf.download([linkedBox('1', many.map((r) => r.id)), box('2')], 15, ids, many);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
    assert.ok(!pageText(document, 2).includes('Aardlekschakelaars:'));
-   assert.equal(document.lastAutoTable.settings.startY, 46);
+   assert.equal(document.lastAutoTable.settings.startY, 37);
 });
 
 test('without RCDs the PDF output is unchanged', () => {
    const harness = setup();
    harness.pdf.download([box()], 15, [], []);
    const document = harness.document();
-   assert.equal(document.lastAutoTable.settings.startY, 46);
+   assert.equal(document.lastAutoTable.settings.startY, 37);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
 });

@@ -11,11 +11,11 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 - Meerdere **kasten** toevoegen, elk met een nummer en een naam
 - Per kast **groepen** toevoegen met een nummer, een omschrijving en een optionele opsomming van aansluitingen
 - Kasten en groepen verplaatsen (↑ ↓) en verwijderen (✕)
-- **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als grote rode kaarten met pictogrammen op de eerste pagina, in de PDF.
+- **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als compacte rode kaarten met pictogram op de eerste pagina, in de PDF. Alle drie passen naast elkaar.
 - **Aardlekschakelaars** (aardlekschakelaar: Residual Current Device, RCD): zet **Groepen koppelen aan Aardlekschakelaars** aan, voeg Aardlekschakelaars toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF krijgt het groepnummer de kleur en code van de gekoppelde aardlekschakelaar, met een legenda per pagina.
 - **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke aardlekschakelaar 2 of 4 polen. Een 2-polige aardlekschakelaar heeft één te kiezen fase (L1, L2 of L3); gekoppelde groepen nemen die fase over. Een 4-polige aardlekschakelaar heeft alle drie de fasen; groepen hierop kiezen zelf één of meer fasen, net als groepen zonder koppeling. De fasen verschijnen in de PDF.
 - **QR-code**: zet **QR-code toevoegen aan de PDF** aan (de bovenste optie) en de laatste pagina van de PDF krijgt een QR-code. Scannen opent de app met alle gegevens, zodat je de groepenkaart op een andere telefoon of computer kunt aanpassen. Zie [QR-code en deellink](#qr-code-en-deellink).
-- **PDF downloaden**: één A4-pagina per kast, in de stijl van een standaard groepenkaart. Lege regels worden aangevuld tot 15 rijen, zodat je later nog met de hand kunt aanvullen.
+- **PDF downloaden**: in de stijl van een standaard groepenkaart. De omschrijving staat vet, de aansluitingen eronder als kleine opsomming. Een groep wordt nooit over twee pagina's verdeeld en past een kast niet op één pagina, dan gaat de volgende hele groep naar een nieuwe pagina. Met de instelling **Tabel aanvullen tot 15 regels** (standaard uit) worden lege regels toegevoegd, zodat je later nog met de hand kunt aanvullen. Deze instelling wordt per browser bewaard en zit niet in de groepenkaartgegevens.
 - Automatisch **opslaan in de browser** (localStorage)
 - **Exporteren en importeren** als JSON-bestand, voor een back-up of om op een andere computer verder te werken
 
