@@ -186,3 +186,13 @@ Voer `npm test` uit voor regressietests van schemaversies, migraties, browserops
 - [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) (MIT)
 - [fflate](https://github.com/101arrowz/fflate) (MIT)
 - [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT)
+
+## Bugs melden en functies aanvragen
+
+Maak een [nieuwe melding](https://github.com/Levdbas/groepenkaart-generator/issues/new/choose) en kies **Bug melden** of **Functie aanvragen**. Beide sjablonen zijn in het Nederlands. Je kunt optioneel een met **Exporteren** opgeslagen `groepenkaart.json` als bijlage toevoegen door het naar het tekstveld te slepen of de bijlageknop te gebruiken. Accepteert GitHub het JSON-bestand niet, voeg het dan toe als `.zip`.
+
+Meldingen en bijlagen zijn openbaar. Je kunt je gegevens vóór het uploaden **anonimiseren**: werk in een kopie en vervang herkenbare kastnamen, omschrijvingen, aansluitingen en namen van aardlekschakelaars door fictieve gegevens. Deel geen namen, adressen of andere persoonlijke informatie, ook niet in schermafbeeldingen. Behoud de JSON-structuur, instellingen, ID's en verwijzingen, zodat het bestand bruikbaar blijft. Controleer de kopie met **Importeren** in een aparte browser of een privévenster om je oorspronkelijke gegevens te behouden.
+
+## Licentie
+
+Dit project is beschikbaar onder de [MIT-licentie](LICENSE), overeenkomstig de licentie in `package.json`. Je mag de software gebruiken, aanpassen en verspreiden, ook commercieel, zolang je de auteursrechtvermelding en licentietekst behoudt. De software wordt geleverd zonder garantie. Het bestand `LICENSE` bevat de officiële Engelstalige licentietekst; de uitleg en meldingssjablonen blijven in het Nederlands.
