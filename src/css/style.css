@@ -402,9 +402,9 @@ textarea {
   min-width: 0;
   padding: 0.4rem 0.3rem;
   font: inherit;
-  color: #fff;
-  background: var(--blue);
-  border: 1px solid var(--blue);
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: 4px;
   height: 2.25rem;
   min-height: 2.25rem;
