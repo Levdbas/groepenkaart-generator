@@ -68,8 +68,8 @@
          .filter(function (entry) { return !groups.some(function (g) { return g.rcdId === entry.rcd.id; }); });
    }
 
-   function cellText(groupNumber, entry) {
-      return entry ? [groupNumber, entry.label].filter(Boolean).join(' · ') : groupNumber;
+   function cellText(groupNumber, entry, rcdFirst) {
+      return entry ? (rcdFirst === false ? [groupNumber, entry.label] : [entry.label, groupNumber]).filter(Boolean).join(' · ') : groupNumber;
    }
 
    function keyText(entry, phaseEnabled) {

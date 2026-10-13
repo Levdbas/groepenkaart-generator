@@ -88,41 +88,74 @@
       </button>
     </nav>
 
-    <fieldset
-      class="installation-options no-print"
-      aria-describedby="qr-help"
-    >
-      <legend>QR-code</legend>
-      <p id="qr-help">
-        Zet onderaan de laatste pagina van de PDF een QR-code met een link naar
-        deze app. Scannen opent de groepenkaart met alle gegevens, zodat je
-        hem kunt aanpassen. De gegevens zitten in de link zelf en gaan niet naar
-        een server. Dit geldt alleen voor de PDF.
-      </p>
-      <div class="installation-checkboxes">
+    <fieldset class="installation-options no-print">
+      <legend>PDF opties</legend>
+      <div class="installation-checkboxes pdf-option">
         <label>
           <input type="checkbox" id="qr-enabled" />
           <span>QR-code toevoegen aan de PDF</span>
         </label>
+        <span class="tooltip-anchor">
+          <button
+            type="button"
+            class="tooltip-trigger"
+            aria-label="Meer informatie over de QR-code"
+            aria-describedby="qr-help"
+          >
+            i
+          </button>
+          <span id="qr-help" class="tooltip-content" role="tooltip">
+            Zet onderaan de laatste PDF-pagina een QR-code met een link naar
+            deze app. Scannen opent de groepenkaart met alle gegevens om aan te
+            passen. De gegevens zitten in de link en gaan niet naar een server.
+          </span>
+        </span>
       </div>
       <p id="qr-status" class="qr-status" role="status" hidden></p>
-    </fieldset>
 
-    <fieldset
-      class="installation-options no-print"
-      aria-describedby="fill-rows-help"
-    >
-      <legend>Lege regels</legend>
-      <p id="fill-rows-help">
-        Vul de tabel van elke kast aan tot 15 regels, zodat je later nog met de
-        hand groepen kunt toevoegen. Dit is een instelling van deze browser en
-        wordt niet met de groepenkaart opgeslagen of gedeeld.
-      </p>
-      <div class="installation-checkboxes">
+      <div class="installation-checkboxes pdf-option">
         <label>
           <input type="checkbox" id="fill-rows" />
           <span>Tabel aanvullen tot 15 regels</span>
         </label>
+        <span class="tooltip-anchor">
+          <button
+            type="button"
+            class="tooltip-trigger"
+            aria-label="Meer informatie over lege regels"
+            aria-describedby="fill-rows-help"
+          >
+            i
+          </button>
+          <span id="fill-rows-help" class="tooltip-content" role="tooltip">
+            Vul elke kast aan tot 15 regels om later met de hand groepen toe te
+            voegen. Deze instelling is alleen voor deze browser en wordt niet
+            opgeslagen met of gedeeld via de groepenkaart.
+          </span>
+        </span>
+      </div>
+
+      <div class="installation-checkboxes pdf-option">
+        <label>
+          <input type="checkbox" id="rcd-first" checked />
+          <span>Aardlekschakelaar vóór groepsnummer</span>
+        </label>
+        <span class="tooltip-anchor">
+          <button
+            type="button"
+            class="tooltip-trigger"
+            aria-label="Meer informatie over de volgorde in de groepkolom"
+            aria-describedby="rcd-first-help"
+          >
+            i
+          </button>
+          <span id="rcd-first-help" class="tooltip-content" role="tooltip">
+            Bepaalt de volgorde in de groepskolom van de PDF en afdruk.
+            Aangevinkt: aardlekschakelaar vóór groepsnummer (A1 · 1).
+            Uitgevinkt: groepsnummer vóór aardlekschakelaar (1 · A1). Geldt
+            alleen voor gekoppelde groepen.
+          </span>
+        </span>
       </div>
     </fieldset>
 
@@ -145,10 +178,10 @@
       <legend>Fasen</legend>
       <p id="phase-help">
         Documenteer de fasen van een 3-faseninstallatie. Kies bij een 2-polige
-        aardlekschakelaar één fase; gekoppelde groepen nemen die over.
-        Een 4-polige aardlekschakelaar heeft alle drie de fasen. Kies bij
-        groepen hierop, of zonder koppeling, zelf één of meer fasen.
-        De fasen verschijnen ook in de PDF.
+        aardlekschakelaar één fase; gekoppelde groepen nemen die over. Een
+        4-polige aardlekschakelaar heeft alle drie de fasen. Kies bij groepen
+        hierop, of zonder koppeling, zelf één of meer fasen. De fasen
+        verschijnen ook in de PDF.
       </p>
       <div class="installation-checkboxes">
         <label>

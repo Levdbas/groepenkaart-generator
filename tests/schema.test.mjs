@@ -105,7 +105,7 @@ function setupSchema() {
    return { schema: window.GroepenkaartSchema, context };
 }
 
-function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null) {
+function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null, rcdFirst = null) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl,
       'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v4.schema.json');
@@ -131,6 +131,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
    const confirms = [];
    let storage = stored;
    let fillRowsStorage = fillRows;
+   let rcdFirstStorage = rcdFirst;
    let exported;
    let confirmation = confirmAnswer;
    const pdfCalls = [];
@@ -152,11 +153,13 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
       localStorage: {
          getItem(key) {
             if (key === 'groepenkaart:fill-rows') return fillRowsStorage;
+            if (key === 'groepenkaart:rcd-first') return rcdFirstStorage;
             assert.equal(key, 'groepenkaart:v1');
             return storage;
          },
          setItem(key, value) {
             if (key === 'groepenkaart:fill-rows') { fillRowsStorage = value; return; }
+            if (key === 'groepenkaart:rcd-first') { rcdFirstStorage = value; return; }
             assert.equal(key, 'groepenkaart:v1');
             storage = value;
          }
@@ -215,6 +218,11 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
       },
       setQrEnabled(value) {
          const checkbox = nodes.get('qr-enabled');
+         checkbox.checked = value;
+         checkbox.listeners.change();
+      },
+      setRcdFirst(value) {
+         const checkbox = nodes.get('rcd-first');
          checkbox.checked = value;
          checkbox.listeners.change();
       },
@@ -377,9 +385,11 @@ test('v1 and legacy files merge group names into descriptions through the whole 
       boxes: [{ number: 1, groups: [{ number: 2, name: 'Keuken', description: 7 }, { name: 'Hal' }] }]
    });
    assert.deepEqual(data.boxes[0].groups.map((g) => g.description), ['Keuken – 7', 'Hal']);
-   assert.deepEqual(plain(schema.normalize({ schemaVersion: 1, warnings: [], boxes: [
-      { number: '1', name: '', groups: [{ number: '1', name: 'Garage', description: 'Lichten' }] }
-   ] })).boxes[0].groups[0].description, 'Garage – Lichten');
+   assert.deepEqual(plain(schema.normalize({
+      schemaVersion: 1, warnings: [], boxes: [
+         { number: '1', name: '', groups: [{ number: '1', name: 'Garage', description: 'Lichten' }] }
+      ]
+   })).boxes[0].groups[0].description, 'Garage – Lichten');
 });
 
 test('v3 groups have no name: a leftover name is ignored and the description is required', () => {
@@ -885,10 +895,28 @@ test('RCDs can be added and linked to groups in any box, and linked groups are c
    assert.deepEqual(linked.boxes[0].groups.map((g) => g.rcdId), [null, state.rcds[1].id]);
    const cells = app.printCells();
    assert.equal(cells.length, 1);
-   assert.equal(cells[0].textContent, '2 · A2');
+   assert.equal(cells[0].textContent, 'A2 · 2');
    assert.match(cells[0].attrs.style, /background-color: #009fe3; color: #000000/);
    const key = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-rcd-key');
    assert.equal(key.length, 1);
+});
+
+test('the group column puts the RCD first by default and remembers the previous order option', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   assert.equal(app.nodes.get('rcd-first').checked, true);
+   assert.equal(app.printCells()[0].textContent, 'A1 · 1');
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][6], true);
+
+   app.setRcdFirst(false);
+   assert.equal(app.printCells()[0].textContent, '1 · A1');
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[1][6], false);
+   assert.equal(app.storage().includes('rcd-first'), false);
+
+   const reloaded = setupApp(app.storage(), '', true, null, 'false');
+   assert.equal(reloaded.nodes.get('rcd-first').checked, false);
+   assert.equal(reloaded.printCells()[0].textContent, '1 · A1');
 });
 
 test('unused RCDs appear below warnings in the browser print output', () => {

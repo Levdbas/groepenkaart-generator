@@ -348,12 +348,12 @@ test('linked groups get a colored group-number cell with the RCD code and readab
    assert.equal(harness.pdf.download([linkedBox()], 15, [], rcds), true);
    const document = harness.document();
    const cells = document.lastAutoTable.body.map((row) => row.cells[0]);
-   assert.equal(cells[0].text.join(' '), '1 · A1');
+   assert.equal(cells[0].text.join(' '), 'A1 · 1');
    assert.deepEqual(Array.from(cells[0].styles.fillColor), [0, 63, 125]);
    assert.deepEqual(Array.from(cells[0].styles.textColor), [255, 255, 255]);
    assert.equal(cells[1].text.join(' '), '2');
    assert.ok(!Array.isArray(cells[1].styles.fillColor), 'unlinked groups keep the default fill');
-   assert.equal(cells[2].text.join(' '), '3 · A2', 'empty RCD codes fall back to their position');
+   assert.equal(cells[2].text.join(' '), 'A2 · 3', 'empty RCD codes fall back to their position');
    assert.deepEqual(Array.from(cells[2].styles.textColor), [0, 0, 0]);
    assert.ok(!Array.isArray(cells[3].styles.fillColor), 'padding rows stay unmarked');
    const text = pageText(document, 1);

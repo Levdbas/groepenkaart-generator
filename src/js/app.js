@@ -3,6 +3,7 @@
 
    const STORAGE_KEY = 'groepenkaart:v1';
    const FILL_ROWS_KEY = 'groepenkaart:fill-rows';
+   const RCD_FIRST_KEY = 'groepenkaart:rcd-first';
    const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
@@ -14,12 +15,15 @@
    let qrStatusTimer;
    let state = load();
    let fillRows = loadFillRows();
+   let rcdFirst = loadRcdFirst();
 
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
    const printEl = document.getElementById('print-area');
    const qrEnabledEl = document.getElementById('qr-enabled');
    const fillRowsEl = document.getElementById('fill-rows');
+   const rcdFirstEl = document.getElementById('rcd-first');
+   rcdFirstEl.checked = rcdFirst;
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
    const phaseEnabledEl = document.getElementById('phase-enabled');
@@ -78,6 +82,22 @@
    function saveFillRows() {
       try {
          localStorage.setItem(FILL_ROWS_KEY, String(fillRows));
+      } catch (e) {
+         console.warn('Opslaan mislukt', e);
+      }
+   }
+
+   function loadRcdFirst() {
+      try {
+         return localStorage.getItem(RCD_FIRST_KEY) !== 'false';
+      } catch (e) {
+         return true;
+      }
+   }
+
+   function saveRcdFirst() {
+      try {
+         localStorage.setItem(RCD_FIRST_KEY, String(rcdFirst));
       } catch (e) {
          console.warn('Opslaan mislukt', e);
       }
@@ -443,7 +463,7 @@
                el('td', entry ? {
                   className: 'rcd-cell',
                   style: 'background-color: ' + entry.rcd.color + '; color: ' + rcdHelpers.textColor(entry.rcd.color),
-                  text: rcdHelpers.cellText(g.number, entry)
+                  text: rcdHelpers.cellText(g.number, entry, rcdFirst)
                } : { text: g.number }),
                el('td', null, [
                   g.description ? el('div', { text: g.description }) : null,
@@ -619,7 +639,7 @@
          return;
       }
       const qr = state.qrEnabled ? share.qr(shareUrl()) : null;
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), state.warnings, state.rcds, state.phaseEnabled, qr)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), state.warnings, state.rcds, state.phaseEnabled, qr, rcdFirst)) {
          window.print();
       }
    });
@@ -643,6 +663,12 @@
    fillRowsEl.addEventListener('change', function () {
       fillRows = fillRowsEl.checked;
       saveFillRows();
+      renderPrint();
+   });
+
+   rcdFirstEl.addEventListener('change', function () {
+      rcdFirst = rcdFirstEl.checked;
+      saveRcdFirst();
       renderPrint();
    });
 

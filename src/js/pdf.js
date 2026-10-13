@@ -198,7 +198,7 @@
 
    // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
-   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr) {
+   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr, rcdFirst) {
       if (!window.jspdf || !window.jspdf.jsPDF) return false;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -245,7 +245,7 @@
                : [g.description].filter(Boolean).concat((g.items || []).map(function (item) {
                   return '\u2022 ' + item;
                })).join('\n');
-            const row = [rcd.cellText(g.number, entries[i]), description];
+            const row = [rcd.cellText(g.number, entries[i], rcdFirst), description];
             if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, entries[i] && entries[i].rcd)));
             return row;
          });
