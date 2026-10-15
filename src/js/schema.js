@@ -391,10 +391,17 @@
 
    function normalizeSupply(supply, modules) {
       if (supply === null) return null;
-      if (!isObject(supply) || !['mains', 'subdistribution'].includes(supply.type)) {
-         throw new Error('Ongeldig bestand: "supply" moet mains, subdistribution of null zijn.');
+      if (!isObject(supply) || !['mains', 'subdistribution', 'linked'].includes(supply.type)) {
+         throw new Error('Ongeldig bestand: "supply" moet mains, subdistribution, linked of null zijn.');
       }
       const result = { type: supply.type };
+      if (supply.type === 'linked') {
+         if (supply.sourceBoxId !== undefined && supply.sourceBoxId !== null && typeof supply.sourceBoxId !== 'string') {
+            throw new Error('Ongeldig bestand: "sourceBoxId" moet tekst of null zijn.');
+         }
+         if (supply.sourceBoxId !== undefined) result.sourceBoxId = supply.sourceBoxId;
+         return result;
+      }
       if (supply.type === 'mains') {
          if (supply.connectionRating !== undefined) {
             if (!connectionRatings.includes(supply.connectionRating)) throw new Error('Ongeldig bestand: onbekende "connectionRating".');
@@ -575,6 +582,14 @@
       modules.forEach(function (module) {
          if (module.boxId && !boxes.some(function (box) { return box.id === module.boxId && box.moduleIds.includes(module.id); })) {
             throw new Error('Ongeldig bestand: module ontbreekt in de modulevolgorde van de kast.');
+         }
+      });
+      boxes.forEach(function (box) {
+         if (!box.supply || box.supply.type !== 'linked' || !box.supply.sourceBoxId) return;
+         const source = boxes.find(function (candidate) { return candidate.id === box.supply.sourceBoxId; });
+         if (!source) throw new Error('Ongeldig bestand: "sourceBoxId" verwijst naar een onbekende kast.');
+         if (!source.supply || source.supply.type !== 'mains') {
+            throw new Error('Ongeldig bestand: een gekoppelde kast moet verwijzen naar een kast met een hoofdaansluiting.');
          }
       });
       validateFeedGraph(boxes, modules);

@@ -921,7 +921,7 @@ test('published schemas match the current version, required fields, and warning 
    assert.deepEqual(publishedSchema.$defs.module.properties.sensitivity.enum, [10, 30, 100, 300]);
    assert.deepEqual(publishedSchema.$defs.module.properties.rcdType.enum, ['AC', 'A', 'F', 'B', 'B+']);
    assert.deepEqual(publishedSchema.$defs.box.properties.supply.oneOf.map((schema) => schema.type || schema.$ref),
-      ['null', '#/$defs/mainsSupply', '#/$defs/subdistributionSupply']);
+      ['null', '#/$defs/mainsSupply', '#/$defs/subdistributionSupply', '#/$defs/linkedSupply']);
    assert.equal(publishedSchema.$defs.box.properties.moduleIds.uniqueItems, true);
    const { boxLimits } = schema;
    assert.ok(['rails', 'railWidth'].every((field) => publishedSchema.$defs.box.required.includes(field)));
@@ -1243,6 +1243,69 @@ test('choosing a module type clears one-phase selections and locks three-phase m
    app.set('type', 'SPD');
    app.save();
    assert.deepEqual(stored(), [], 'switching between one-phase types starts empty again');
+});
+
+test('a linked supply must point at another box with a mains supply', () => {
+   const { schema } = setupSchema();
+   const data = plain(schema.normalize(withRcds));
+   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
+   const linked = variant((d) => {
+      d.boxes[0].supply = { type: 'mains', connectionRating: '3x25A' };
+      d.boxes[1].supply = { type: 'linked', sourceBoxId: d.boxes[0].id, mainSwitchCurrent: 40 };
+   });
+   assert.deepEqual(plain(schema.normalize(linked).boxes[1].supply), { type: 'linked', sourceBoxId: data.boxes[0].id });
+   assert.deepEqual(plain(schema.normalize(variant((d) => { d.boxes[1].supply = { type: 'linked' }; })).boxes[1].supply), { type: 'linked' });
+   assert.deepEqual(plain(schema.normalize(variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: null }; })).boxes[1].supply),
+      { type: 'linked', sourceBoxId: null });
+   for (const [invalid, message] of [
+      [variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: 'missing' }; }), /onbekende kast/],
+      [variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: 3 }; }), /sourceBoxId/],
+      [variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: d.boxes[1].id }; }), /hoofdaansluiting/],
+      [variant((d) => { d.boxes[0].supply = { type: 'subdistribution' }; d.boxes[1].supply = { type: 'linked', sourceBoxId: d.boxes[0].id }; }), /hoofdaansluiting/]
+   ]) assert.throws(() => schema.normalize(invalid), message);
+});
+
+test('c2 compact links round-trip a linked supply', () => {
+   const { schema, context } = setupSchema();
+   context.window.fflate = require('fflate');
+   vm.runInContext(sources[4], context);
+   const share = context.window.GroepenkaartShare;
+   const data = plain(schema.normalize(withRcds));
+   data.boxes[0].supply = { type: 'mains' };
+   data.boxes[1].supply = { type: 'linked', sourceBoxId: data.boxes[0].id };
+   const decoded = plain(schema.normalize(share.decode(share.url('https://example.test/app/', data).replace(/^[^#]*/, ''))));
+   assert.deepEqual(decoded.boxes[1].supply, { type: 'linked', sourceBoxId: decoded.boxes[0].id });
+   data.boxes[1].supply = { type: 'linked' };
+   const open = plain(schema.normalize(share.decode(share.url('https://example.test/app/', data).replace(/^[^#]*/, ''))));
+   assert.deepEqual(open.boxes[1].supply, { type: 'linked' });
+});
+
+test('a linked box is attached to a mains box and prints that connection', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   const boxes = app.nodes.get('boxes');
+   const supplyType = (number) => app.findAll(boxes, (node) => node.attrs['aria-label'] === 'Soort voeding kast ' + number)[0];
+   const linkedTo = (number) => app.findAll(boxes, (node) => node.attrs['aria-label'] === 'Gekoppeld aan kast ' + number)[0];
+   assert.deepEqual(Array.from(supplyType('2').children, (option) => option.value), ['', 'mains', 'subdistribution', 'linked']);
+   supplyType('2').value = 'linked';
+   supplyType('2').listeners.change();
+   assert.deepEqual(Array.from(linkedTo('2').children, (option) => option.value), [''], 'no box has a mains supply yet');
+
+   supplyType('1').value = 'mains';
+   supplyType('1').listeners.change();
+   const mainsBoxId = JSON.parse(app.storage()).boxes[0].id;
+   assert.deepEqual(Array.from(linkedTo('2').children, (option) => option.value), ['', mainsBoxId]);
+   linkedTo('2').value = mainsBoxId;
+   linkedTo('2').listeners.change();
+   assert.deepEqual(JSON.parse(app.storage()).boxes[1].supply, { type: 'linked', sourceBoxId: mainsBoxId });
+   const summaries = app.findAll(app.nodes.get('print-area'), (node) => node.className === 'print-supply');
+   assert.ok(summaries[1].textContent.includes('hoofdaansluiting van kast 1'));
+
+   const count = app.confirms.length;
+   supplyType('1').value = '';
+   supplyType('1').listeners.change();
+   assert.equal(app.confirms.length, count + 1);
+   assert.match(app.confirms.at(-1), /gekoppelde kast verliest/);
+   assert.deepEqual(JSON.parse(app.storage()).boxes[1].supply, { type: 'linked' });
 });
 
 test('sub-distribution supply references stable modules and renders inverse feed details', () => {

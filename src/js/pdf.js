@@ -168,7 +168,10 @@
       const supply = box.supply;
       if (!supply) return '';
       const details = [];
-      if (supply.type === 'mains') {
+      if (supply.type === 'linked') {
+         const source = boxes.find(function (candidate) { return candidate.id === supply.sourceBoxId; });
+         details.push(source ? 'gekoppeld aan de hoofdaansluiting van kast ' + source.number : 'gekoppeld aan een hoofdaansluiting');
+      } else if (supply.type === 'mains') {
          details.push('hoofdaansluiting');
          if (supply.connectionRating) details.push(supply.connectionRating);
          if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {

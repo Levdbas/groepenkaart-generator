@@ -992,12 +992,15 @@
          return candidate !== box && candidate.supply && ids.has(candidate.supply.sourceModuleId);
       });
       const linked = state.modules.filter(function (module) { return !ids.has(module.id) && ids.has(module.protectedByModuleId); });
+      const linkedBoxes = boxesLinkedTo(box);
       const consequences = [];
       if (ids.size) consequences.push(ids.size + (ids.size === 1 ? ' module wordt verwijderd' : ' modules worden verwijderd'));
       if (linked.length) consequences.push(linked.length + (linked.length === 1 ? ' module in een andere kast wordt ontkoppeld' : ' modules in andere kasten worden ontkoppeld'));
       if (dependents.length) consequences.push(dependents.length + ' voeding(en) verliezen de bronmodule');
+      if (linkedBoxes.length) consequences.push(linkedBoxes.length + ' gekoppelde kast(en) verliezen de hoofdaansluiting');
       if (!confirm('Kast "' + (box.name || box.number) + '" verwijderen?' + (consequences.length ? ' ' + consequences.join('; ') + '.' : ''))) return;
       dependents.forEach(function (candidate) { candidate.supply.sourceModuleId = null; });
+      linkedBoxes.forEach(function (candidate) { delete candidate.supply.sourceBoxId; });
       linked.forEach(function (module) { module.protectedByModuleId = null; });
       state.modules = state.modules.filter(function (module) { return !ids.has(module.id); });
       if (ids.has(selectedId)) selectedId = null;
@@ -1024,6 +1027,12 @@
    }
 
    /* ---------- Supply ---------- */
+
+   function boxesLinkedTo(box) {
+      return state.boxes.filter(function (candidate) {
+         return candidate.supply && candidate.supply.type === 'linked' && candidate.supply.sourceBoxId === box.id;
+      });
+   }
 
    function supplySourceModules(box) {
       return state.boxes.filter(function (candidate) { return candidate !== box; }).flatMap(function (candidate) {
@@ -1104,15 +1113,39 @@
       const type = el('select', { 'aria-label': 'Soort voeding kast ' + box.number }, [
          el('option', { value: '', text: 'Niet ingesteld' }),
          el('option', { value: 'mains', text: 'Hoofdaansluiting' }),
-         el('option', { value: 'subdistribution', text: 'Onderverdeler' })
+         el('option', { value: 'subdistribution', text: 'Onderverdeler' }),
+         el('option', { value: 'linked', text: 'Gekoppeld aan hoofdaansluiting' })
       ]);
       type.value = supply ? supply.type : '';
       type.addEventListener('change', function () {
+         const dependents = type.value === 'mains' ? [] : boxesLinkedTo(box);
+         if (dependents.length && !confirm('Kast ' + box.number + ' is niet langer een hoofdaansluiting. ' + dependents.length +
+            (dependents.length === 1 ? ' gekoppelde kast verliest' : ' gekoppelde kasten verliezen') + ' de hoofdaansluiting. Doorgaan?')) {
+            type.value = supply.type;
+            return;
+         }
+         dependents.forEach(function (candidate) { delete candidate.supply.sourceBoxId; });
          box.supply = type.value ? { type: type.value } : null;
          update();
       });
       const fields = [];
-      if (supply && supply.type === 'mains') {
+      if (supply && supply.type === 'linked') {
+         const source = el('select', { 'aria-label': 'Gekoppeld aan kast ' + box.number }, [
+            el('option', { value: '', text: 'Kies kast met hoofdaansluiting' })
+         ].concat(state.boxes.filter(function (candidate) {
+            return candidate !== box && candidate.supply && candidate.supply.type === 'mains';
+         }).map(function (candidate) {
+            return el('option', { value: candidate.id, text: boxTitle(candidate) });
+         })));
+         source.value = supply.sourceBoxId || '';
+         source.addEventListener('change', function () {
+            if (source.value) supply.sourceBoxId = source.value;
+            else delete supply.sourceBoxId;
+            save();
+            renderPrint();
+         });
+         fields.push(el('label', { className: 'field' }, [el('span', { text: 'Gekoppeld aan' }), source]));
+      } else if (supply && supply.type === 'mains') {
          fields.push(...supplyRatingField(supply));
          fields.push(supplyTextField(supply, 'supplier', 'Netbeheerder', 'Bijv. Stedin'));
          fields.push(supplyNumberField(supply, 'mainSwitchCurrent', 'Nominale stroom hoofdschakelaar'));
@@ -1170,7 +1203,10 @@
       const supply = box.supply;
       if (!supply) return null;
       const details = [];
-      if (supply.type === 'mains') {
+      if (supply.type === 'linked') {
+         const source = supply.sourceBoxId && findBox(supply.sourceBoxId);
+         details.push(source ? 'gekoppeld aan de hoofdaansluiting van kast ' + source.number : 'gekoppeld aan een hoofdaansluiting');
+      } else if (supply.type === 'mains') {
          details.push('hoofdaansluiting');
          if (supply.connectionRating === 'Anders') details.push(supply.customConnectionRating || 'Anders');
          else if (supply.connectionRating) details.push(supply.connectionRating);
