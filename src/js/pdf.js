@@ -23,7 +23,7 @@
    }
 
    // Draws one compact, rectangular card per selected warning and returns the vertical space they take.
-   function drawWarnings(doc, ids, margin, top) {
+   function drawWarnings(doc, ids, margin, top, images) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
       if (!selected.length) return 0;
@@ -31,28 +31,22 @@
       const gap = 3;
       const width = (doc.internal.pageSize.getWidth() - margin * 2 - gap * 2) / 3;
       const height = 24;
-      const scale = doc.internal.scaleFactor;
-      const iconWidth = 17;
-      const textLeft = 3 + iconWidth + 3;
       selected.forEach(function (warning, index) {
          const x = margin + index * (width + gap);
          doc.setDrawColor(180, 35, 24);
          doc.setLineWidth(0.8);
          doc.roundedRect(x, top, width, height, 2, 2);
-         doc.setTextColor(0, 0, 0);
-         doc.setFont('helvetica', 'bold');
-         doc.setFontSize(7.5);
-         doc.text('LET OP!', x + width / 2, top + 4.8, { align: 'center' });
-         doc.setFontSize(7);
-         doc.text(warning.heading.join(' '), x + width / 2, top + 8.8, { align: 'center' });
-         doc.setFont('helvetica', 'normal');
-         const message = warning.message || warnings.message;
-         const fontSize = warning.message ? 5.8 : 6.4;
-         doc.setFontSize(fontSize);
-         const lines = doc.splitTextToSize(message.toUpperCase(), width - textLeft - 3);
-         const textHeight = lines.length * fontSize * 1.2 / scale;
-         doc.text(lines, x + textLeft, top + 16.5 - textHeight / 2, { baseline: 'top', lineHeightFactor: 1.2 });
-         warnings.drawIcon(doc, warning.icon, x + 3, top + 12.2, iconWidth);
+         const image = images && images[index];
+         const naturalWidth = image && (image.naturalWidth || image.width);
+         const naturalHeight = image && (image.naturalHeight || image.height);
+         if (naturalWidth && naturalHeight) {
+            const maxWidth = 18;
+            const maxHeight = 18;
+            const ratio = naturalWidth / naturalHeight;
+            const imageWidth = Math.min(maxWidth, maxHeight * ratio);
+            const imageHeight = imageWidth / ratio;
+            doc.addImage(image, 'PNG', x + (width - imageWidth) / 2, top + (height - imageHeight) / 2, imageWidth, imageHeight);
+         }
       });
       return height + 4;
    }
@@ -198,7 +192,7 @@
 
    // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
-   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr, rcdFirst) {
+   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
       if (!window.jspdf || !window.jspdf.jsPDF) return false;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -224,7 +218,7 @@
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);
          doc.text(date, pageWidth - margin, 15, { align: 'right' });
-         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 19) : 0;
+         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 19, warningImages) : 0;
          if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(11);
