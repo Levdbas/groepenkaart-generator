@@ -1062,7 +1062,7 @@ select:focus-visible,
 
   .print-warnings {
     display: flex;
-    gap: 4mm;
+    gap: 2mm;
     margin-bottom: 5mm;
     break-inside: avoid;
     break-after: avoid;
@@ -1098,19 +1098,19 @@ select:focus-visible,
   }
 
   .print-warning {
-    flex: 0 0 42mm;
-    height: 42mm;
-    border: 1.2mm solid var(--red);
-    border-radius: 3mm;
-    padding: 2mm;
+    flex: 0 0 21mm;
+    height: 21mm;
+    border: 0.6mm solid var(--red);
+    border-radius: 1.5mm;
+    padding: 1mm;
     text-align: center;
     break-inside: avoid;
   }
 
   .print-warning img {
     display: block;
-    width: 34mm;
-    height: 34mm;
+    width: 17mm;
+    height: 17mm;
     margin: 0 auto;
     object-fit: contain;
   }
@@ -1145,6 +1145,22 @@ select:focus-visible,
     color: var(--muted);
     font-size: 7.5pt;
     line-height: 1.15;
+  }
+
+  .print-badges {
+    display: flex;
+    gap: 1mm;
+    margin: 0.5mm 0;
+  }
+
+  .print-badge {
+    padding: 0 1mm;
+    color: #fff;
+    font-size: 7pt;
+    font-weight: 700;
+    line-height: 1.4;
+    background: var(--red);
+    border-radius: 0.8mm;
   }
 
   .print-page table {

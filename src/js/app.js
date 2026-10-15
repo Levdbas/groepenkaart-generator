@@ -17,7 +17,6 @@
    const circuitTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const mcbLinkTargets = circuitTypes;
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
-   const warningBadges = { pv: 'PV', ev: 'EV', battery: 'EOS' };
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
 
    let storageWritable = true;
@@ -881,7 +880,7 @@
          el('span', { className: 'din-module-lever', 'aria-hidden': 'true' }),
          width > 1 ? el('span', { className: 'din-module-type', text: module.type, 'aria-hidden': 'true' }) : null,
          ...flagged.map(function (warning) {
-            return el('span', { className: 'din-module-badge', text: warningBadges[warning.id], 'aria-hidden': 'true' });
+            return el('span', { className: 'din-module-badge', text: warning.badge, 'aria-hidden': 'true' });
          })
       ]);
    }
@@ -1245,6 +1244,7 @@
       const rcds = rcdViews();
       const lookup = rcdHelpers.index(rcds);
       const boxes = printBoxes();
+      const allWarnings = activeWarnings();
       printEl.replaceChildren.apply(printEl, boxes.map(function (box, index) {
          const rows = box.groups.map(function (g) {
             const entry = lookup[g.rcdId];
@@ -1258,6 +1258,10 @@
                } : { text: g.number }),
                el('td', null, [
                   g.description ? el('div', { text: g.description }) : null,
+                  g.warnings && g.warnings.length ? el('div', { className: 'print-badges' },
+                     warnings.selected(g.warnings).map(function (warning) {
+                        return el('span', { className: 'print-badge', text: warning.badge });
+                     })) : null,
                   el('div', { className: 'print-module-meta', text: moduleMeta(g) }),
                   ...feedReferences(g),
                   g.items && g.items.length ? el('ul', { className: 'print-group-items' },
@@ -1275,9 +1279,9 @@
             rows.push(el('tr', null, [el('td'), el('td'), state.phaseEnabled ? el('td') : null]));
          }
          return el('article', { className: 'print-page' }, [
-            el('h1', { text: 'Module-indeling' }),
+            el('h1', { text: 'Groepenkaart' }),
             el('p', { className: 'print-date', text: date }),
-            index === 0 ? renderWarnings() : null,
+            renderWarnings(warnings.forPage(box, index, allWarnings, boxes)),
             index === 0 ? renderUnusedRcds(rcds, boxes) : null,
             el('h2', { text: boxTitle(box) }),
             supplySummary(box),
@@ -1307,12 +1311,12 @@
       })));
    }
 
-   function renderWarnings() {
-      const selected = warnings.selected(activeWarnings());
+   function renderWarnings(ids) {
+      const selected = warnings.selected(ids);
       if (!selected.length) return null;
       return el('div', { className: 'print-warnings' }, selected.map(function (warning) {
          return el('div', { className: 'print-warning' }, [
-            el('img', { src: warning.image, alt: warning.label })
+            el('img', { src: warning.image, alt: warning.label, 'data-warning': warning.id })
          ]);
       }));
    }
@@ -1424,22 +1428,29 @@
          return;
       }
       const qr = state.qrEnabled ? share.qr(shareUrl()) : null;
-      const imageElements = typeof document.querySelectorAll === 'function'
-         ? Array.from(document.querySelectorAll('.print-warning img'))
-         : [];
-      const warningImages = imageElements.map(function (image) {
-         if (!image.complete || !image.naturalWidth) return null;
+      const active = activeWarnings();
+      let missingImage = false;
+      // One canvas per warning definition, so every page can draw the cards it needs.
+      const warningImages = typeof document.querySelectorAll !== 'function' ? [] : warnings.definitions.map(function (definition) {
+         if (!active.includes(definition.id)) return null;
+         const image = document.querySelector('.print-warning img[data-warning="' + definition.id + '"]');
+         if (!image || !image.complete || !image.naturalWidth) {
+            missingImage = true;
+            return null;
+         }
          const canvas = document.createElement('canvas');
-         canvas.width = image.naturalWidth;
-         canvas.height = image.naturalHeight;
-         canvas.getContext('2d').drawImage(image, 0, 0);
+         // The SVGs are small; rasterize at about 800px so they stay sharp at 34 mm.
+         const scale = Math.max(1, Math.round(800 / Math.max(image.naturalWidth, image.naturalHeight)));
+         canvas.width = image.naturalWidth * scale;
+         canvas.height = image.naturalHeight * scale;
+         canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
          return canvas;
       });
-      if (warningImages.some(function (image) { return !image; })) {
+      if (missingImage) {
          window.print();
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(printBoxes(), minRows(), activeWarnings(), rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(printBoxes(), minRows(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages)) {
          window.print();
       }
    });

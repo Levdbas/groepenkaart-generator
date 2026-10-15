@@ -11,6 +11,10 @@
    const ITEM_SIZE = 9;
    const ITEM_INDENT = 2.5;
    const LINE_FACTOR = 1.2;
+   const BADGE_SIZE = 6;
+   const BADGE_HEIGHT = 3.4;
+   const BADGE_PADDING = 1;
+   const BADGE_GAP = 1;
 
    function today() {
       const d = new Date();
@@ -22,26 +26,27 @@
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
    }
 
-   // Draws one compact, rectangular card per selected warning and returns the vertical space they take.
+   // Draws one square card per warning, matching the browser print, and returns the vertical space they take.
+   // images are indexed like the warning definitions.
    function drawWarnings(doc, ids, margin, top, images) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
       if (!selected.length) return 0;
 
-      const gap = 3;
-      const width = (doc.internal.pageSize.getWidth() - margin * 2 - gap * 2) / 3;
-      const height = 24;
+      const gap = 2;
+      const width = 21;
+      const height = 21;
       selected.forEach(function (warning, index) {
          const x = margin + index * (width + gap);
          doc.setDrawColor(180, 35, 24);
-         doc.setLineWidth(0.8);
-         doc.roundedRect(x, top, width, height, 2, 2);
-         const image = images && images[index];
+         doc.setLineWidth(0.6);
+         doc.roundedRect(x, top, width, height, 1.5, 1.5);
+         const image = images && images[warnings.definitions.indexOf(warning)];
          const naturalWidth = image && (image.naturalWidth || image.width);
          const naturalHeight = image && (image.naturalHeight || image.height);
          if (naturalWidth && naturalHeight) {
-            const maxWidth = 18;
-            const maxHeight = 18;
+            const maxWidth = 17;
+            const maxHeight = 17;
             const ratio = naturalWidth / naturalHeight;
             const imageWidth = Math.min(maxWidth, maxHeight * ratio);
             const imageHeight = imageWidth / ratio;
@@ -200,12 +205,20 @@
       const itemStep = ITEM_SIZE * LINE_FACTOR / scale;
       const hasDescription = !!group.description;
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(BADGE_SIZE);
+      const badges = window.GroepenkaartWarnings.selected(group.warnings || []).map(function (warning) {
+         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2 };
+      });
+      // The first lines leave room for the badges at the right edge of the cell.
+      const badgeWidth = badges.reduce(function (sum, badge) { return sum + badge.width + BADGE_GAP; }, 0);
+      const headWidth = innerWidth - badgeWidth;
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
-      const description = hasDescription ? doc.splitTextToSize(group.description, innerWidth) : [];
+      const description = hasDescription ? doc.splitTextToSize(group.description, headWidth) : [];
       const metadataText = moduleMetadata(group, boxes);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(metadataSize);
-      const metadata = metadataText ? doc.splitTextToSize(metadataText, innerWidth) : [];
+      const metadata = metadataText ? doc.splitTextToSize(metadataText, headWidth) : [];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(ITEM_SIZE);
       const items = (group.items || []).map(function (item) {
@@ -216,7 +229,7 @@
       const itemsGap = description.length && itemLines ? 0.8 : 0;
       const textHeight = description.length * descriptionStep + metadataGap + metadata.length * metadataStep + itemsGap + itemLines * itemStep;
       return {
-         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep,
+         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep, badges: badges,
          metadataStep: metadataStep, metadataGap: metadataGap, itemStep: itemStep,
          itemsGap: itemsGap, textHeight: textHeight, height: textHeight + CELL_PADDING * 2
       };
@@ -225,6 +238,18 @@
    function drawGroup(doc, layout, cell) {
       const x = cell.x + CELL_PADDING;
       let y = cell.y + (cell.height - layout.textHeight) / 2;
+      let badgeX = cell.x + cell.width - CELL_PADDING;
+      for (let i = layout.badges.length - 1; i >= 0; i--) {
+         const badge = layout.badges[i];
+         badgeX -= badge.width;
+         doc.setFillColor(180, 35, 24);
+         doc.roundedRect(badgeX, y, badge.width, BADGE_HEIGHT, 0.7, 0.7, 'F');
+         doc.setFont('helvetica', 'bold');
+         doc.setFontSize(BADGE_SIZE);
+         doc.setTextColor(255, 255, 255);
+         doc.text(badge.text, badgeX + BADGE_PADDING, y + BADGE_HEIGHT / 2, { baseline: 'middle' });
+         badgeX -= BADGE_GAP;
+      }
       doc.setTextColor(30, 30, 30);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
@@ -261,6 +286,7 @@
       if (typeof doc.autoTable !== 'function') return false;
 
       const rcd = window.GroepenkaartRcd;
+      const warningModule = window.GroepenkaartWarnings;
       const lookup = rcd.index(rcds);
       const allGroups = boxes.flatMap(function (box) { return box.groups; });
       const unusedRcds = rcd.unused(rcds, allGroups);
@@ -275,12 +301,12 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(13);
-         doc.text('Module-indeling', margin, 15);
+         doc.text('Groepenkaart', margin, 15); // keep this title as it is.
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);
          doc.text(date, pageWidth - margin, 15, { align: 'right' });
-         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 19, warningImages) : 0;
+         let offset = drawWarnings(doc, warningModule.forPage(box, index, warningIds || [], boxes), margin, 19, warningImages);
          if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(11);

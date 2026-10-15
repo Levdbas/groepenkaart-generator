@@ -283,7 +283,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       assert.equal(harness.warningCards.length, displayedCount);
       assert.equal(harness.warningImages.length, displayedCount);
       assert.ok(!text.includes('LET OP!'));
-      assert.equal(document.lastAutoTable.settings.startY, 58);
+      assert.equal(document.lastAutoTable.settings.startY, 55);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('Group-1-1'));
       assert.ok(document.output().startsWith('%PDF-'));
@@ -299,6 +299,51 @@ test('warnings appear only on the first page with multiple kasten', () => {
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
    assert.equal(document.lastAutoTable.settings.startY, 30);
+});
+
+test('a sub-distribution page shows its own warnings, a linked page none, and the first page all of them', () => {
+   const flagged = (number, warnings) => {
+      const data = box(number);
+      data.groups[0].warnings = warnings;
+      return data;
+   };
+   const harness = setup();
+   const first = { ...flagged('1', ['pv']), supply: { type: 'mains' } };
+   const sub = { ...flagged('2', ['ev', 'battery']), supply: { type: 'subdistribution' } };
+   const linked = { ...flagged('3', ['pv']), supply: { type: 'linked', sourceBoxId: 'x' } };
+   harness.pdf.download([first, sub, linked], 15, ['pv', 'ev', 'battery']);
+   assert.equal(harness.document().getNumberOfPages(), 3);
+   // Three cards on the first page, two on the sub-distribution page, none on the linked page.
+   assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, 5);
+   assert.deepEqual(Array.from(harness.warnings.forPage(sub, 1, ['pv', 'ev', 'battery'])), ['ev', 'battery']);
+   assert.deepEqual(Array.from(harness.warnings.forPage(linked, 2, ['pv'])), []);
+});
+
+test('a sub-distribution page also shows the warnings of boxes it feeds', () => {
+   const harness = setup();
+   const make = (number, id, supply, warnings) => ({
+      number, name: '', supply, groups: [{ id, number: '1', description: 'G', ...(warnings ? { warnings } : {}) }]
+   });
+   const boxes = [
+      make('1', 'a', { type: 'mains' }),
+      make('2', 'b', { type: 'subdistribution', sourceModuleId: 'a' }, ['ev']),
+      make('3', 'c', { type: 'subdistribution', sourceModuleId: 'b' }, ['pv']),
+      make('4', 'd', { type: 'subdistribution', sourceModuleId: 'a' })
+   ];
+   const forPage = (index) => Array.from(harness.warnings.forPage(boxes[index], index, ['pv', 'ev'], boxes));
+   assert.deepEqual(forPage(1), ['pv', 'ev']);
+   assert.deepEqual(forPage(2), ['pv']);
+   assert.deepEqual(forPage(3), [], 'a sibling box does not inherit warnings');
+});
+
+test('flagged modules get a small red badge text in their row', () => {
+   const harness = setup();
+   const data = box('1', 2);
+   data.groups[0].warnings = ['pv', 'battery'];
+   harness.pdf.download([data], 15, ['pv', 'battery']);
+   const text = pageText(harness.document(), 1);
+   assert.equal((text.match(/\(EOS\) Tj/g) || []).length, 1);
+   assert.equal((text.match(/\(PV\) Tj/g) || []).length, 1);
 });
 
 test('overflow pages preserve all groups without repeating warning cards', () => {
