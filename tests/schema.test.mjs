@@ -776,6 +776,7 @@ test('v5 validates module types, protection references, box order and phase card
       [variant((d) => { d.modules[0].type = 'unknown'; }), /onbekend moduletype/],
       [variant((d) => { d.modules[0].protectedByModuleId = 'missing'; }), /verwijst niet naar een RCD/],
       [variant((d) => { d.modules[0].protectedByModuleId = d.modules[0].id; }), /niet naar zichzelf/],
+      [variant((d) => { d.modules[0].type = 'MAINS-2P'; d.modules[0].protectedByModuleId = d.modules[4].id; }), /staat voor de aardlekschakelaar/],
       [variant((d) => { d.modules[4].phases = ['L1', 'L2']; }), /2-polige/],
       [variant((d) => { d.modules[4].type = 'RCD-4P'; d.modules[4].phases = ['L1', 'L2']; }), /4-polige/],
       [variant((d) => { d.modules[4].phases = ['L1', 'L1']; }), /unieke fasen/],

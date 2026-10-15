@@ -118,7 +118,17 @@
           "if": { "properties": { "boxId": { "type": "string" } } },
           "then": { "required": ["rail", "slot"] },
           "else": {
-            "not": { "anyOf": [{ "required": ["rail"] }, { "required": ["slot"] }] }
+            "not": {
+              "anyOf": [{ "required": ["rail"] }, { "required": ["slot"] }]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "enum": ["MAINS-2P", "MAINS-4P"] } }
+          },
+          "then": {
+            "properties": { "protectedByModuleId": { "type": "null" } }
           }
         },
         {

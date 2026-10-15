@@ -13,15 +13,15 @@
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
-   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag.
+   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD.
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-2P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-3P', label: 'Fornuisgroep', description: 'Range circuit', phases: 2, width: 2 },
       { slug: 'RCD-2P', label: 'Aardlekschakelaar 2P', description: 'Residual Current Device', phases: null, width: 2 },
       { slug: 'RCD-4P', label: 'Aardlekschakelaar 4P', description: 'Residual Current Device', phases: null, width: 4, phaseMode: 'three' },
-      { slug: 'MAINS-2P', label: 'Hoofdschakelaar 2P', description: 'Switch-disconnector or main isolator', phases: 1, width: 2, phaseMode: 'single' },
-      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three' },
+      { slug: 'MAINS-2P', label: 'Hoofdschakelaar 2P', description: 'Switch-disconnector or main isolator', phases: 1, width: 2, phaseMode: 'single', protectable: false },
+      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three', protectable: false },
       { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1 },
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three' },
       { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3 },
@@ -34,6 +34,10 @@
    const moduleTypes = {
       definitions: typeDefinitions,
       get: function (slug) { return typesBySlug[slug] || null; },
+      protectable: function (slug) {
+         const definition = typesBySlug[slug];
+         return !definition || definition.protectable !== false;
+      },
       available: function (slug, phaseEnabled) {
          const definition = typesBySlug[slug];
          if (!definition) return false;
@@ -514,6 +518,9 @@
          if (module.protectedByModuleId !== null) {
             const protection = moduleById[module.protectedByModuleId];
             if (module.id === module.protectedByModuleId) throw new Error('Ongeldig bestand: een module kan niet naar zichzelf verwijzen als beveiliging.');
+            if (!moduleTypes.protectable(module.type)) {
+               throw new Error('Ongeldig bestand: moduletype ' + module.type + ' staat voor de aardlekschakelaar en kan er niet aan gekoppeld zijn.');
+            }
             if (!protection || !protectiveTypes.includes(protection.type)) {
                throw new Error('Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
             }

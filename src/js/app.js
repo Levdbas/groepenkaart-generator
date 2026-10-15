@@ -397,6 +397,7 @@
          else if (moduleTypes.allPhases(type)) draft.phases = rcdHelpers.phaseCodes.slice();
       }
       if (draft.warning && (definition.warnings || []).indexOf(draft.warning) === -1) delete draft.warning;
+      if (!moduleTypes.protectable(type)) draft.protectedByModuleId = null;
       draft.type = type;
    }
 
@@ -588,7 +589,7 @@
          isProtective(draft) ? colorField(draft) : null,
          warningField(draft),
          dialogText(draft, 'characteristic', 'Vrij kenmerk', 'Bijv. B16'),
-         state.rcdEnabled && (!isProtective(draft) || draft.protectedByModuleId) ? protectionField(draft) : null,
+         state.rcdEnabled && moduleTypes.protectable(draft.type) && (!isProtective(draft) || draft.protectedByModuleId) ? protectionField(draft) : null,
          state.phaseEnabled ? phaseField(draft) : null,
          expertMode ? technicalFields(draft) : null,
          itemsField(draft)
