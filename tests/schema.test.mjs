@@ -1361,6 +1361,29 @@ test('sub-distribution supply references stable modules and renders inverse feed
    assert.equal(JSON.parse(app.storage()).boxes[1].supply.sourceModuleId, null);
 });
 
+test('a sub-distribution box can be fed from an RCD, not from any module', () => {
+   const module = (id, boxId, type, extra = {}) => ({
+      id, boxId, rail: 1, slot: 1, type, number: '1', description: '', characteristic: '', phases: [], protectedByModuleId: null, ...extra
+   });
+   const data = (sourceType) => ({
+      schemaVersion: 5, qrEnabled: false, rcdEnabled: true, phaseEnabled: false,
+      modules: [module('src', 'b1', sourceType, sourceType.startsWith('RCD') ? { color: '#ed8c01', phases: sourceType === 'RCD-4P' ? ['L1', 'L2', 'L3'] : [] } : {}), module('m2', 'b2', 'MCB')],
+      boxes: [
+         { id: 'b1', number: '1', name: '', rails: 1, railWidth: 12, moduleIds: ['src'], supply: { type: 'mains' } },
+         { id: 'b2', number: '2', name: '', rails: 1, railWidth: 12, moduleIds: ['m2'], supply: { type: 'subdistribution', sourceModuleId: 'src' } }
+      ]
+   });
+   const { schema } = setupSchema();
+   for (const type of ['RCD-2P', 'RCD-4P', 'MCB']) {
+      assert.equal(schema.normalize(data(type)).boxes[1].supply.sourceModuleId, 'src');
+   }
+   assert.throws(() => schema.normalize(data('KWH-2P')), /circuitmodule of aardlekschakelaar/);
+
+   const app = setupApp(JSON.stringify(data('RCD-2P')));
+   const source = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Voeding vanuit module kast 2')[0];
+   assert.deepEqual(Array.from(source.children, (option) => option.value), ['', 'src']);
+});
+
 test('phase editing applies inheritance immediately across boxes and preserves independent group selections', async () => {
    const app = setupApp(JSON.stringify(withRcds));
    app.setPhaseEnabled(true);
