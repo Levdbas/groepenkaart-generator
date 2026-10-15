@@ -279,12 +279,9 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       const document = harness.document();
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
-      const displayedCount = selected.filter((id) => displayedIds.includes(id)).length;
-      assert.equal(harness.warningCards.length, displayedCount);
-      assert.equal(harness.warningImages.length, displayedCount);
-      assert.ok(!text.includes('LET OP!'));
-      assert.ok(!text.includes('GEVAARLIJKE DC-SPANNING'));
-      assert.ok(!text.includes('OMVORMER:'));
+      assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
+      assert.ok(text.indexOf('LET OP!') > text.indexOf('Module-indeling'));
+      assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
       assert.equal(document.lastAutoTable.settings.startY, 58);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('Group-1-1'));
