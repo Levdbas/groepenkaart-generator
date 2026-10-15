@@ -24,7 +24,6 @@
   "include-component-in-tag": false,
   "include-v-in-tag": false,
   "include-v-in-release-name": false,
-  "bootstrap-sha": "598958c88007c72ea67c92d373f2153d9625822c",
   "packages": {
     ".": {
       "changelog-path": "CHANGELOG.md"
