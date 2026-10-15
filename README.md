@@ -8,31 +8,33 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 
 ## Functies
 
-- Meerdere **kasten** toevoegen, elk met een nummer en een naam
-- Per kast **DIN-modules** toevoegen met een type, nummer, omschrijving, kenmerk en optionele aansluitingen. De breedte volgt uit het gekozen moduletype.
-- Modules binnen een kast verplaatsen (↑ ↓) en verwijderen (✕)
+- Meerdere **kasten** toevoegen, elk met een nummer, een naam en een maat: het aantal DIN-rails en het aantal modules per rail (bijvoorbeeld 2 × 12)
+- Een **visuele kast**: een grijze kast met de rails en een plek per module. Een lege plek toont een **+**; klik erop om in een venster een module toe te voegen met type, nummer, omschrijving, kenmerk en optionele aansluitingen. De breedte volgt uit het gekozen moduletype; typen die op die plek niet passen, zijn niet te kiezen.
+- Een module **selecteren** (klik) en daarna naar links of rechts verplaatsen, bewerken of verwijderen. Rechts voorbij het einde van een rail gaat de module naar het begin van de volgende rail; links voorbij het begin naar het einde van de vorige rail. Op een bezette plek wisselt de module van plek met de buurmodule. Met het toetsenbord werken ← en → ook, Delete verwijdert en Esc heft de selectie op.
 - **Bijzondere installaties**: kies bij een installatieautomaat of krachtgroep een zonnepanelen-, EV-lader- of thuisbatterij-installatie. Elke gekozen installatie geeft een compacte rode kaart met pictogram op de eerste pagina, in de PDF. Alle drie passen naast elkaar.
-- **Aardlekbeveiliging**: voeg RCD- of RCBO-modules toe met een kleur. Andere modules kunnen aan een RCD-module worden gekoppeld; de nummerkleur en legenda volgen die beveiliging.
+- **Aardlekbeveiliging**: plaats RCD- of RCBO-modules in de kast, net als andere modules, en geef ze een kleur. Andere modules kunnen aan een RCD-module worden gekoppeld; de kleurstreep op de module, de nummerkleur en de legenda volgen die beveiliging. Modules zonder plek, zoals aardlekschakelaars uit oudere bestanden, staan onder **Niet geplaatst** en kunnen via een lege plek (+) alsnog in een kast worden geplaatst.
 - **Expertmodus** (standaard uit): toont de technische velden gevoeligheid, aardlektype en nominale stroom bij aardlekschakelaars, en aardlektype en nominale stroom bij modules. Staat de expertmodus uit, dan blijven ingevulde waarden bewaard en in de PDF staan. Deze instelling wordt per browser bewaard en zit niet in de kaartgegevens.
-- **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke RCD-module 2 of 4 polen. Een 2-polige beveiliging heeft één te kiezen fase (L1, L2 of L3); gekoppelde modules nemen die fase over. Een 4-polige beveiliging heeft alle drie de fasen; modules hierop kiezen zelf één of meer fasen, net als modules zonder koppeling. De fasen verschijnen in de PDF.
+- **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke RCD-module het 2- of 4-polige type. Een 2-polige beveiliging heeft één te kiezen fase (L1, L2 of L3); gekoppelde modules nemen die fase over. Een 4-polige beveiliging heeft alle drie de fasen; modules hierop kiezen zelf één of meer fasen, net als modules zonder koppeling. De fasen verschijnen in de PDF.
 - **Voeding per kast**: leg een hoofdaansluiting of onderverdeler vast. Een onderverdeler verwijst met een stabiele module-ID naar de bronbeveiliging; voorbeveiliging en kabelgegevens verschijnen in de PDF.
 - **QR-code**: zet **QR-code toevoegen aan de PDF** aan (de bovenste optie) en de laatste pagina van de PDF krijgt een QR-code. Scannen opent de app met alle gegevens, zodat je de groepenkaart op een andere telefoon of computer kunt aanpassen. Zie [QR-code en deellink](#qr-code-en-deellink).
-- **PDF downloaden**: in de stijl van een standaard groepenkaart. De moduleomschrijving staat vet, het type, de DIN-breedte en het kenmerk eronder; aansluitingen verschijnen als kleine opsomming. Een module wordt nooit over twee pagina's verdeeld. Met **Tabel aanvullen tot 15 regels** (standaard uit) worden lege regels toegevoegd. Deze instelling wordt per browser bewaard en zit niet in de kaartgegevens.
+- **PDF downloaden**: in de stijl van een standaard groepenkaart, met de modules in de fysieke volgorde (rail 1 van links naar rechts, dan rail 2, enzovoort). De moduleomschrijving staat vet, het type, de DIN-breedte en het kenmerk eronder; aansluitingen verschijnen als kleine opsomming. Een module wordt nooit over twee pagina's verdeeld. Met **Tabel aanvullen tot 15 regels** (standaard uit) worden lege regels toegevoegd. Deze instelling wordt per browser bewaard en zit niet in de kaartgegevens.
 - Automatisch **opslaan in de browser** (localStorage)
 - **Exporteren en importeren** als JSON-bestand, voor een back-up of om op een andere computer verder te werken
 
-De optie **Fasen** staat boven **Aardlekschakelaars**. Met faseregistratie aan worden modules als ruimere invoerkaarten getoond, met de omschrijving naast het modulenummer, de aansluitingen op een eigen regel en de aardlek- en fasekeuze op een aparte regel daaronder.
+De optie **Fasen** staat boven **Aardlekschakelaars**. Met faseregistratie aan toont het modulevenster de fasekeuze; met koppelen aan aardlekschakelaars aan de keuze van de aardlekschakelaar.
+
+Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot genoeg blijft om aan te tikken.
 
 In de PDF krijgt de fasekolom een gekleurde onderrand binnen de cel: L1 bruin (`#8B4513`), L2 zwart (`#000000`) en L3 grijs (`#808080`). Bij meerdere actieve fasen wordt de rand in gelijke delen verdeeld. Niet gekozen fasen en lege aanvulregels krijgen geen gekleurde rand.
 
 ## Gebruik
 
 1. Open de [web app](https://levdbas.github.io/groepenkaart-generator/) of [draai de app lokaal](#lokaal-draaien).
-2. Klik onderaan de pagina op **+ Kast toevoegen** en vul een kastnummer en een naam in, bijvoorbeeld `1` en `Meterkast begane grond`.
-3. Elke nieuwe kast begint automatisch met module `1`. Klik op **+ Module toevoegen** voor extra modules. Het modulenummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`.
-4. Kies per module het type. De DIN-breedte en beschikbare fasen volgen uit het type. Kies je een type met één fase, dan worden de gekozen fasen gewist; een type met drie fasen heeft altijd L1, L2 en L3, die vooraf zijn aangevinkt en niet te wijzigen zijn. Vul de omschrijving en eventueel een vrij kenmerk in. Bij **Aansluitingen** kun je per regel een apparaat of aansluiting invullen. Lege regels worden genegeerd; aansluitingen verschijnen als opsomming onder de omschrijving in de PDF.
+2. Klik onderaan de pagina op **+ Kast toevoegen**. Kies een veelgebruikte maat (1 × 12 tot 4 × 12) of vul zelf het aantal rails (1 tot 99) en modules per rail (4 tot 48) in. Vul daarna boven de kast een kastnummer en een naam in, bijvoorbeeld `1` en `Meterkast begane grond`. De maat kun je later nog wijzigen; kleiner maken kan alleen als alle modules blijven passen.
+3. Klik op een lege plek (**+**) om daar een module toe te voegen. Het modulenummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`. Een module begint op de gekozen plek en neemt naar rechts zoveel plekken in als het type breed is. Klik op een module om hem te selecteren; onder de kast verschijnen dan knoppen om hem te verplaatsen (◀ ▶), te bewerken of te verwijderen. Klik nog een keer op een geselecteerde module om hem te bewerken.
+4. Kies in het venster het type. De DIN-breedte en beschikbare fasen volgen uit het type. Kies je een type met één fase, dan worden de gekozen fasen gewist; een type met drie fasen heeft altijd L1, L2 en L3, die vooraf zijn aangevinkt en niet te wijzigen zijn. Vul de omschrijving en eventueel een vrij kenmerk in. Bij **Aansluitingen** kun je per regel een apparaat of aansluiting invullen. Lege regels worden genegeerd; aansluitingen verschijnen als opsomming onder de omschrijving in de PDF. Wijzigingen worden opgeslagen met **Toevoegen** of **Opslaan**; **Annuleren** laat de module ongewijzigd.
 5. Hangt er een PV-installatie, EV-lader of thuisbatterij achter een module? Kies dan bij **Bijzondere installatie** van die installatieautomaat (`MCB`) of krachtgroep (`MCB-2P`) de installatie. Dat kan per module en bij meerdere modules; dezelfde installatie geeft maar één kaart. De kaarten tonen alleen het pictogram met een rode rand.
-6. Wil je modules aan aardlekschakelaars koppelen? Zet **Modules koppelen aan aardlekschakelaars** aan en voeg een Aardlekschakelaar toe. Geef deze een code, naam en kleur; de kleur wordt ook gebruikt voor gekoppelde modulenummers. Gevoeligheid, aardlektype en nominale stroom zijn optioneel en zichtbaar met **Expertmodus** aan. De Aardlekschakelaars gelden voor de hele installatie.
+6. Wil je modules aan aardlekschakelaars koppelen? Plaats een aardlekschakelaar (`RCD-2P` of `RCD-4P`) of aardlekautomaat in de kast; **Modules koppelen aan aardlekschakelaars** gaat dan vanzelf aan. Een nieuwe aardlekschakelaar krijgt automatisch een code (`A1`, `A2`, …) en kleur; pas code, omschrijving en kleur naar wens aan. Kies daarna bij andere modules de **Aardlekschakelaar**. Gevoeligheid, aardlektype en nominale stroom zijn optioneel en zichtbaar met **Expertmodus** aan. Een aardlekschakelaar kan modules in elke kast beveiligen. Zet je het koppelen uit, dan worden de koppelingen en de niet-geplaatste aardlekschakelaars gewist; geplaatste aardlekschakelaars en aardlekautomaten worden installatieautomaten, zodat hun plek behouden blijft.
 7. Wil je dat de PDF een QR-code met alle gegevens bevat? Vink dan bovenaan **QR-code toevoegen aan de PDF** aan.
 8. Klik op **PDF downloaden** voor een PDF-bestand. Print die PDF als je een papieren kaart wilt.
 
@@ -65,6 +67,8 @@ Voorbeeld van een exportbestand:
     {
       "id": "module-1",
       "boxId": "box-1",
+      "rail": 1,
+      "slot": 3,
       "type": "MCB",
       "number": "1",
       "description": "Keuken – wandcontactdozen aanrecht",
@@ -76,7 +80,9 @@ Voorbeeld van een exportbestand:
     },
     {
       "id": "rcd-1",
-      "boxId": null,
+      "boxId": "box-1",
+      "rail": 1,
+      "slot": 1,
       "type": "RCD-2P",
       "number": "A1",
       "name": "Keuken en badkamer",
@@ -95,7 +101,9 @@ Voorbeeld van een exportbestand:
       "id": "box-1",
       "number": "1",
       "name": "Meterkast begane grond",
-      "moduleIds": ["module-1"],
+      "rails": 2,
+      "railWidth": 12,
+      "moduleIds": ["rcd-1", "module-1"],
       "supply": {
         "type": "mains",
         "connectionRating": "3x25A",
@@ -112,15 +120,15 @@ Voorbeeld van een exportbestand:
 
 JSON-exportbestanden en browseropslag bevatten `schemaVersion: 5`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De typecatalogus, de gedeelde gegevenstypen, validatie en migraties staan samen in [src/js/schema.js](src/js/schema.js).
 
-Elke box bewaart een stabiele `id`, de geordende `moduleIds` en een `supply`-object of `null`. Modules staan één keer in `modules`; `boxId` legt hun fysieke kast vast. `boxId: null` betekent dat de locatie nog onbekend is. `protectedByModuleId` verwijst naar een RCD- of RCBO-module. Een onderverdeler verwijst met `sourceModuleId` naar de bronmodule; het omgekeerde “voedt kast” wordt afgeleid. Verwijzingen gebruiken IDs, niet de bewerkbare kast- of modulenummers.
+Elke box bewaart een stabiele `id`, het aantal DIN-rails `rails` (1 tot 99), het aantal modules per rail `railWidth` (4 tot 48), de `moduleIds` en een `supply`-object of `null`. Modules staan één keer in `modules`; `boxId` legt hun fysieke kast vast en `rail` en `slot` (beide vanaf 1) de rail en de eerste plek die de module inneemt. Vanaf die plek neemt de module de breedte van zijn type in; modules moeten binnen de rail vallen en mogen elkaar niet overlappen. `moduleIds` staat in fysieke volgorde: rail voor rail, van links naar rechts. `boxId: null` betekent dat de locatie nog onbekend is; zo'n module heeft geen `rail` en `slot`. `protectedByModuleId` verwijst naar een RCD- of RCBO-module. Een onderverdeler verwijst met `sourceModuleId` naar de bronmodule; het omgekeerde “voedt kast” wordt afgeleid. Verwijzingen gebruiken IDs, niet de bewerkbare kast- of modulenummers.
 
 `supply.type` is `mains` of `subdistribution`. Een hoofdaansluiting kan een standaard `connectionRating` of `Anders` met `customConnectionRating`, netbeheerder en hoofdschakelaargegevens bevatten. Een onderverdeler kan een bronmodule, voorbeveiliging, aantal kabeladers, kabeldoorsnede en hoofdschakelaargegevens bevatten. Niet-ingevulde eigenschappen worden weggelaten.
 
-RCD-modules kunnen optioneel `sensitivity` (10, 30, 100 of 300 mA), `rcdType` (AC, A, F, B of B+) en `ratedCurrent` bevatten. `ratedCurrent` is een getal in ampère. `characteristic` is een vrije notitie. Moduletype bepaalt de DIN-breedte; breedte en railcoördinaten worden niet opgeslagen. Fasen blijven een lijst met unieke codes `L1`, `L2`, `L3`; een 2-polige RCD heeft maximaal één fase en een 4-polige RCD alle drie.
+RCD-modules kunnen optioneel `sensitivity` (10, 30, 100 of 300 mA), `rcdType` (AC, A, F, B of B+) en `ratedCurrent` bevatten. `ratedCurrent` is een getal in ampère. `characteristic` is een vrije notitie. Moduletype bepaalt de DIN-breedte; de breedte wordt niet per module opgeslagen. Fasen blijven een lijst met unieke codes `L1`, `L2`, `L3`; een 2-polige RCD heeft maximaal één fase en een 4-polige RCD alle drie.
 
-Het [JSON Schema voor versie 5](schemas/groepenkaart-v5.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v5.schema.json). Schema's v1-v4 blijven ongewijzigd gepubliceerd en oude JSON-bestanden worden automatisch gemigreerd. Elke voormalige groep wordt een `MCB`-module met nummer, omschrijving, aansluitingen, fasen en bescherming behouden. Oude RCD-ID's blijven behouden als RCD-module-ID's; omdat v4 geen fysieke kastlocatie voor RCD's vastlegde, worden die modules gemigreerd met `boxId: null`. `qrEnabled` en `phaseEnabled` blijven behouden. De globale lijst `warnings` bestaat niet meer: elke oude waarschuwing `pv`, `ev` of `battery` wordt een `MCB`-module in de eerste kast met de bijbehorende `warning` (bijvoorbeeld "PV-installatie (zonnepanelen)") en blijft dus zichtbaar; de verouderde code `heat-pump` had geen kaart meer en vervalt. Heeft het bestand geen kasten, dan is er geen eerste pagina en vervallen de waarschuwingen.
+Het [JSON Schema voor versie 5](schemas/groepenkaart-v5.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v5.schema.json). Schema's v1-v4 blijven ongewijzigd gepubliceerd en oude JSON-bestanden worden automatisch gemigreerd. Elke voormalige groep wordt een `MCB`-module met nummer, omschrijving, aansluitingen, fasen en bescherming behouden. Oude RCD-ID's blijven behouden als RCD-module-ID's; omdat v4 geen fysieke kastlocatie voor RCD's vastlegde, worden die modules gemigreerd met `boxId: null` en staan ze in de app onder **Niet geplaatst**. Kasten krijgen rails van 12 modules; de modules worden in hun oude volgorde van links naar rechts geplaatst, en zoveel rails als nodig (minimaal één). `qrEnabled` en `phaseEnabled` blijven behouden. De globale lijst `warnings` bestaat niet meer: elke oude waarschuwing `pv`, `ev` of `battery` wordt een `MCB`-module in de eerste kast met de bijbehorende `warning` (bijvoorbeeld "PV-installatie (zonnepanelen)") en blijft dus zichtbaar; de verouderde code `heat-pump` had geen kaart meer en vervalt. Heeft het bestand geen kasten, dan is er geen eerste pagina en vervallen de waarschuwingen.
 
-Compacte deellinks gebruiken `c2` voor v5. Bestaande `c1`-links voor v4 en `#data=`-links blijven leesbaar. In een compact link worden stabiele IDs vervangen door lijstposities en bij openen opnieuw aangemaakt; alle module-, bescherming- en voedingsrelaties blijven intact. Dezelfde browseropslagsleutel `groepenkaart:v1` blijft in gebruik; oude versies van de app weigeren v5-bestanden in plaats van gegevens stilzwijgend te verliezen.
+Compacte deellinks gebruiken `c2` voor v5. Bestaande `c1`-links voor v4 en `#data=`-links blijven leesbaar. In een compact link worden stabiele IDs vervangen door lijstposities en bij openen opnieuw aangemaakt; alle module-, bescherming- en voedingsrelaties blijven intact, net als de maat van elke kast en de plek van elke module. Dezelfde browseropslagsleutel `groepenkaart:v1` blijft in gebruik; oude versies van de app weigeren v5-bestanden in plaats van gegevens stilzwijgend te verliezen.
 
 Een onbekende nieuwere versie wordt geweigerd met een melding. Bij een mislukte import blijven de huidige gegevens intact. Als browseropslag niet kan worden geladen, blijft die bewaard en schrijven bewerkingen er niet overheen totdat je bewust een geldig bestand importeert of **Alles wissen** bevestigt.
 
@@ -177,8 +185,9 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── js/warnings.js             # Gedeelde installatiewaarschuwingen en pictogrammen
 │   ├── js/rcd.js                 # Gedeelde hulpfuncties voor Aardlekschakelaars (kleuren, labels)
 │   ├── js/schema.js              # Moduletypecatalogus, gegevenstypen, schemaversies, validatie en migraties
+│   ├── js/layout.js              # Plekken in een kast: passen, vrije ruimte en verplaatsen tussen rails
 │   ├── js/share.js               # Deellink en QR-code: comprimeren, coderen en lezen van de gegevens
-│   ├── js/app.js                 # Gegevens, invoer, opslag, import/export
+│   ├── js/app.js                 # Gegevens, visuele kast, modulevenster, opslag, import/export
 │   └── js/pdf.js                 # PDF genereren met jsPDF
 ├── public/                       # Wordt ongewijzigd naar dist/ gekopieerd
 ├── schemas/                      # JSON Schemas per gegevensversie (via raw GitHub)
@@ -189,7 +198,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 
 ## Tests
 
-Voer `npm test` uit voor regressietests van schemaversies en migraties, modules en voedingsverwijzingen, browseropslag, import/export, c1/c2/legacy-deellinks, waarschuwingselectie, RCD-attributen en echte PDF-uitvoer. De tests gebruiken de ingebouwde Node.js-testrunner.
+Voer `npm test` uit voor regressietests van schemaversies en migraties, modules en voedingsverwijzingen, de kastindeling (passen, verplaatsen en terugloop naar een andere rail), browseropslag, import/export, c1/c2/legacy-deellinks, waarschuwingselectie, RCD-attributen en echte PDF-uitvoer. De tests gebruiken de ingebouwde Node.js-testrunner.
 
 ## Bibliotheken
 

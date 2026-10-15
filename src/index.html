@@ -212,8 +212,9 @@
     >
       <legend>Aardlekschakelaars</legend>
       <p id="rcd-help">
-        Koppel modules aan een aardlekschakelaar. Op de groepenkaart krijgt het
-        modulenummer de kleur en code van de gekoppelde aardlekschakelaar.
+        Plaats aardlekschakelaars en aardlekautomaten als module in de kast en
+        koppel andere modules eraan. Op de groepenkaart krijgt het modulenummer
+        de kleur en code van de gekoppelde aardlekschakelaar.
       </p>
       <div class="installation-checkboxes">
         <label>
@@ -221,18 +222,27 @@
           <span>Modules koppelen aan aardlekschakelaars</span>
         </label>
       </div>
-      <div id="rcd-panel" class="rcd-panel" hidden>
-        <ul id="rcd-list" class="rcd-list"></ul>
-        <button type="button" id="add-rcd" class="btn btn-primary">
-          + Aardlekschakelaar toevoegen
-        </button>
-      </div>
     </fieldset>
+
+    <section
+      id="unplaced"
+      class="unplaced no-print"
+      aria-labelledby="unplaced-title"
+      hidden
+    >
+      <h2 id="unplaced-title">Niet geplaatst</h2>
+      <p>
+        Deze modules hebben nog geen plek in een kast. Klik in een kast op een
+        lege plek (+) om ze daar te plaatsen.
+      </p>
+      <ul id="unplaced-list" class="unplaced-list"></ul>
+    </section>
 
     <main id="boxes" class="boxes no-print"></main>
 
     <p id="empty-state" class="empty-state no-print" hidden>
-      Nog geen kasten. Klik op <strong>+ Kast toevoegen</strong> om te beginnen.
+      Nog geen kasten. Klik op <strong>+ Kast toevoegen</strong> en kies het
+      aantal rails en modules per rail om te beginnen.
     </p>
 
     <div class="add-box-action no-print">
@@ -240,6 +250,17 @@
         + Kast toevoegen
       </button>
     </div>
+
+    <dialog
+      id="module-dialog"
+      class="app-dialog no-print"
+      aria-label="Module"
+    ></dialog>
+    <dialog
+      id="box-dialog"
+      class="app-dialog no-print"
+      aria-label="Kast toevoegen"
+    ></dialog>
 
     <section id="print-area" class="print-area" aria-hidden="true"></section>
 

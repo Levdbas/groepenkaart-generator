@@ -146,11 +146,13 @@
                module.characteristic, phaseMask(module.phases),
                module.protectedByModuleId === null ? -1 : moduleIndex[module.protectedByModuleId],
                module.name === undefined ? null : module.name, module.color || null, module.items || null,
-               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warning || null
+               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warning || null,
+               module.rail === undefined ? null : module.rail, module.slot === undefined ? null : module.slot
             ];
          }),
          data.boxes.map(function (box) {
-            return [box.number, box.name, box.moduleIds.map(function (id) { return moduleIndex[id]; }), packSupply(box.supply)];
+            return [box.number, box.name, box.moduleIds.map(function (id) { return moduleIndex[id]; }), packSupply(box.supply),
+               box.rails, box.railWidth];
          })
       ];
    }
@@ -189,6 +191,8 @@
             return {
                id: moduleIds[index],
                boxId: row[0] < 0 ? null : boxIds[row[0]],
+               ...(row[14] != null ? { rail: row[14] } : {}),
+               ...(row[15] != null ? { slot: row[15] } : {}),
                type: MODULE_TYPES[row[1]],
                number: row[2],
                description: row[3],
@@ -209,6 +213,8 @@
                id: boxIds[index],
                number: row[0],
                name: row[1],
+               ...(row[4] != null ? { rails: row[4] } : {}),
+               ...(row[5] != null ? { railWidth: row[5] } : {}),
                moduleIds: row[2].map(function (moduleIndex) { return moduleIds[moduleIndex]; }),
                supply: unpackSupply(row[3])
             };

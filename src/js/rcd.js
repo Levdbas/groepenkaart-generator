@@ -76,7 +76,9 @@
          });
    }
 
+   // A placed RCD is colored as its own protection; its code is then shown once instead of "A1 · A1".
    function cellText(groupNumber, entry, rcdFirst) {
+      if (entry && entry.label === groupNumber) return groupNumber;
       return entry ? (rcdFirst === false ? [groupNumber, entry.label] : [entry.label, groupNumber]).filter(Boolean).join(' · ') : groupNumber;
    }
 

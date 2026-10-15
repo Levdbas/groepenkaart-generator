@@ -9,9 +9,15 @@
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
    const moduleTypes = schema.moduleTypes;
+   const limits = schema.boxLimits;
+   const layout = window.GroepenkaartLayout;
    const rcdHelpers = window.GroepenkaartRcd;
    const share = window.GroepenkaartShare;
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
+   const circuitTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
+   const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
+   const warningBadges = { pv: 'PV', ev: 'EV', battery: 'EOS' };
+   const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
 
    let storageWritable = true;
    let loadedFromStorage = false;
@@ -20,6 +26,8 @@
    let fillRows = loadFillRows();
    let rcdFirst = loadRcdFirst();
    let expertMode = loadExpertMode();
+   let selectedId = null;
+   let dialogState = null;
 
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
@@ -32,14 +40,20 @@
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
    const phaseEnabledEl = document.getElementById('phase-enabled');
-   const rcdPanelEl = document.getElementById('rcd-panel');
-   const rcdListEl = document.getElementById('rcd-list');
+   const unplacedEl = document.getElementById('unplaced');
+   const unplacedListEl = document.getElementById('unplaced-list');
+   const moduleDialogEl = document.getElementById('module-dialog');
+   const boxDialogEl = document.getElementById('box-dialog');
 
    function uid() {
       if (window.crypto && typeof window.crypto.randomUUID === 'function') {
          return window.crypto.randomUUID();
       }
       return Date.now().toString(36) + Math.random().toString(36).slice(2);
+   }
+
+   function clone(value) {
+      return JSON.parse(JSON.stringify(value));
    }
 
    function load() {
@@ -129,95 +143,13 @@
       }
    }
 
+   // The editor works directly on the v5 data: modules plus boxes that list their placed modules.
    function normalize(data) {
-      const normalized = schema.normalize(data);
-      const modulesById = Object.fromEntries(normalized.modules.map(function (module) { return [module.id, module]; }));
-      return {
-         schemaVersion: normalized.schemaVersion,
-         qrEnabled: normalized.qrEnabled,
-         rcdEnabled: normalized.rcdEnabled,
-         phaseEnabled: normalized.phaseEnabled,
-         rcds: normalized.modules.filter(function (module) { return protectiveTypes.includes(module.type); }).map(function (module) {
-            return {
-               ...module,
-               name: module.name || '',
-               amountOfPoles: module.type.endsWith('4P') ? 4 : 2,
-               phases: module.phases.slice()
-            };
-         }),
-         boxes: normalized.boxes.map(function (box) {
-            return {
-               id: box.id,
-               number: box.number,
-               name: box.name,
-               supply: box.supply,
-               groups: box.moduleIds.map(function (id) {
-                  const module = modulesById[id];
-                  return {
-                     ...module,
-                     rcdId: module.protectedByModuleId,
-                     phases: moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
-                     ...(module.items ? { items: module.items.slice() } : {})
-                  };
-               })
-            };
-         })
-      };
+      return schema.normalize(data);
    }
 
    function serializeState(data) {
-      const modulesById = new Map();
-      const boxes = data.boxes.map(function (box) {
-         const moduleIds = box.groups.map(function (group) {
-            modulesById.set(group.id, {
-               id: group.id,
-               boxId: box.id,
-               type: group.type || 'MCB',
-               number: group.number,
-               description: group.description,
-               characteristic: group.characteristic || '',
-               phases: group.phases.slice(),
-               protectedByModuleId: group.rcdId || null,
-               ...(group.items ? { items: group.items.slice() } : {}),
-               ...(group.sensitivity !== undefined ? { sensitivity: group.sensitivity } : {}),
-               ...(group.rcdType !== undefined ? { rcdType: group.rcdType } : {}),
-               ...(group.ratedCurrent !== undefined ? { ratedCurrent: group.ratedCurrent } : {}),
-               ...(group.color !== undefined ? { color: group.color } : {}),
-               ...(group.warning ? { warning: group.warning } : {})
-            });
-            return group.id;
-         });
-         return { id: box.id, number: box.number, name: box.name, moduleIds: moduleIds, supply: box.supply || null };
-      });
-      data.rcds.forEach(function (rcd) {
-         const type = rcd.type && rcd.type.startsWith('RCBO')
-            ? rcd.type : (rcd.amountOfPoles === 4 ? 'RCD-4P' : 'RCD-2P');
-         const existing = modulesById.get(rcd.id);
-         const module = {
-            id: rcd.id,
-            boxId: existing ? existing.boxId : null,
-            type: type,
-            number: rcd.number,
-            name: rcd.name,
-            color: rcd.color,
-            description: existing ? existing.description : '',
-            characteristic: rcd.characteristic || (existing && existing.characteristic) || '',
-            phases: rcd.phases.slice(),
-            protectedByModuleId: null,
-            ...(rcd.sensitivity !== undefined ? { sensitivity: rcd.sensitivity } : {}),
-            ...(rcd.rcdType !== undefined ? { rcdType: rcd.rcdType } : {}),
-            ...(rcd.ratedCurrent !== undefined ? { ratedCurrent: rcd.ratedCurrent } : {})
-         };
-         modulesById.set(rcd.id, Object.assign({}, existing || {}, module));
-      });
-      return schema.normalize({
-         schemaVersion: 5,
-         qrEnabled: data.qrEnabled,
-         rcdEnabled: data.rcdEnabled,
-         phaseEnabled: data.phaseEnabled,
-         modules: Array.from(modulesById.values()),
-         boxes: boxes
-      });
+      return schema.normalize(data);
    }
 
    function nextNumber(items) {
@@ -225,8 +157,95 @@
       return String(nums.length ? Math.max.apply(null, nums) + 1 : items.length + 1);
    }
 
+   function isProtective(module) {
+      return protectiveTypes.includes(module.type);
+   }
+
    function findBox(id) {
-      return state.boxes.find(function (b) { return b.id === id; });
+      return state.boxes.find(function (b) { return b.id === id; }) || null;
+   }
+
+   function findModule(id) {
+      return state.modules.find(function (m) { return m.id === id; }) || null;
+   }
+
+   function boxModules(box) {
+      return box.moduleIds.map(findModule).filter(Boolean);
+   }
+
+   function unplacedModules() {
+      return state.modules.filter(function (module) { return module.boxId === null; });
+   }
+
+   function typeWidth(type) {
+      return (moduleTypes.get(type) || { width: 1 }).width;
+   }
+
+   function widthText(width) {
+      return width + (width === 1 ? ' DIN-module' : ' DIN-modules');
+   }
+
+   function layoutItems(box) {
+      return boxModules(box).map(function (module) {
+         return { id: module.id, rail: module.rail, slot: module.slot, width: typeWidth(module.type) };
+      });
+   }
+
+   // Keeps the module list of a box in physical order: rail by rail, left to right.
+   function sortBox(box) {
+      box.moduleIds = layout.sortByPosition(layoutItems(box)).map(function (item) { return item.id; });
+   }
+
+   function nextModuleNumber(box) {
+      return nextNumber(box ? boxModules(box).filter(function (module) { return !isProtective(module); }) : []);
+   }
+
+   // RCDs and RCBOs in physical order across the boxes, then the ones without a place.
+   function protectiveModules() {
+      return state.boxes.flatMap(boxModules).concat(unplacedModules()).filter(isProtective);
+   }
+
+   // The RCD shape used by the legend, the print output and the PDF.
+   function rcdView(module) {
+      return {
+         ...module,
+         name: module.name || module.description || '',
+         amountOfPoles: module.type.endsWith('4P') ? 4 : 2,
+         phases: module.phases.slice()
+      };
+   }
+
+   function rcdViews() {
+      return protectiveModules().map(rcdView);
+   }
+
+   function groupView(module) {
+      return {
+         ...module,
+         // RCDs migrated from v4 only carry a name.
+         description: module.description || (isProtective(module) && module.name) || '',
+         rcdId: module.protectedByModuleId,
+         phases: moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
+         ...(module.items ? { items: module.items.slice() } : {})
+      };
+   }
+
+   // Boxes with their modules in physical order, as used by the print output and the PDF.
+   function printBoxes() {
+      return state.boxes.map(function (box) {
+         return { id: box.id, number: box.number, name: box.name, supply: box.supply, groups: boxModules(box).map(groupView) };
+      });
+   }
+
+   function moduleColor(module) {
+      if (isProtective(module)) return module.color;
+      const protection = module.protectedByModuleId && findModule(module.protectedByModuleId);
+      return protection ? protection.color : null;
+   }
+
+   function moduleLabel(module) {
+      return (module.number ? 'module ' + module.number : 'module zonder nummer') +
+         (module.description ? ' (' + module.description + ')' : '');
    }
 
    function move(list, index, delta) {
@@ -255,6 +274,10 @@
       return node;
    }
 
+   function gridColumn(slot, width) {
+      return 'grid-column: ' + slot + ' / span ' + width;
+   }
+
    // Inputs only save (no re-render) so focus and caret position are kept while typing.
    function input(value, placeholder, label, onInput, className) {
       const node = el('input', { type: 'text', placeholder: placeholder, 'aria-label': label, className: className || '' });
@@ -275,204 +298,210 @@
       return el('label', { className: 'field' + (className ? ' ' + className : '') }, [el('span', { text: text }), control]);
    }
 
-   function groupItemsInput(group) {
-      const node = el('textarea', {
-         rows: '3', placeholder: 'Eén aansluiting per regel',
-         'aria-label': 'Aansluitingen voor module ' + group.number
-      });
-      node.value = (group.items || []).join('\n');
-      node.addEventListener('input', function () {
-         group.items = node.value.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
-         save();
-         renderPrint();
-      });
-      return labelField('Aansluitingen (één per regel)', node, 'field-wide');
+   function swatch(color) {
+      return el('span', { className: 'rcd-swatch' + (color ? '' : ' is-empty'), style: color ? 'background-color: ' + color : '', 'aria-hidden': 'true' });
    }
 
-   function moduleTypeControl(module) {
-      const current = moduleTypes.get(module.type) || moduleTypes.get('MCB');
-      const select = el('select', { className: 'module-type-select', 'aria-label': 'Moduletype voor module ' + module.number },
-         moduleTypes.definitions.filter(function (type) {
-            return moduleTypes.available(type.slug, state.phaseEnabled) || type.slug === module.type;
-         }).map(function (type) {
-            return el('option', { value: type.slug, text: type.label + ' · ' + type.slug });
-         }));
-      select.value = current.slug;
-      select.addEventListener('change', function () {
-         changeModuleType(module, select.value);
-      });
-      return labelField('Moduletype', el('div', { className: 'module-type-control' }, [
-         select,
-         el('span', { className: 'module-width', text: current.width + (current.width === 1 ? ' DIN-module' : ' DIN-modules') })
-      ]), 'field-wide');
+   function showDialog(dialog) {
+      if (typeof dialog.showModal === 'function') {
+         if (!dialog.open) dialog.showModal();
+      } else {
+         dialog.open = true;
+      }
    }
 
-   function moduleWarningControl(module) {
-      const allowed = (moduleTypes.get(module.type) || {}).warnings;
-      if (!allowed || !allowed.length) return null;
-      const select = el('select', { 'aria-label': 'Bijzondere installatie voor module ' + module.number }, [
-         el('option', { value: '', text: 'Geen bijzondere installatie' })
-      ].concat(warnings.definitions.filter(function (warning) { return allowed.includes(warning.id); }).map(function (warning) {
-         return el('option', { value: warning.id, text: warning.label });
-      })));
-      select.value = module.warning || '';
-      select.addEventListener('change', function () {
-         if (select.value) module.warning = select.value;
-         else delete module.warning;
-         save();
-         renderPrint();
-      });
-      return labelField('Bijzondere installatie (waarschuwing)', select, 'field-wide');
+   function hideDialog(dialog) {
+      if (typeof dialog.close === 'function') {
+         if (dialog.open) dialog.close();
+      } else {
+         dialog.open = false;
+      }
+   }
+
+   function focusIn(root, selector) {
+      if (!root || typeof root.querySelector !== 'function') return;
+      const node = root.querySelector(selector);
+      if (node) node.focus();
+   }
+
+   function focusModule(id) {
+      focusIn(boxesEl, '[data-module-id="' + id + '"]');
    }
 
    // Warning cards follow the modules that flag an installation, in the fixed card order.
    function activeWarnings() {
-      const flagged = state.boxes.flatMap(function (box) { return box.groups.map(function (module) { return module.warning; }); });
+      const flagged = state.modules.map(function (module) { return module.warning; });
       return warnings.codes.filter(function (code) { return flagged.includes(code); });
-   }
-
-   function moduleTechnicalControls(module) {
-      if (!expertMode) return null;
-      const rcdType = el('select', { 'aria-label': 'Aardlektype voor module ' + module.number }, [
-         el('option', { value: '', text: 'Niet ingesteld' }),
-         ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
-      ]);
-      rcdType.value = module.rcdType || '';
-      rcdType.addEventListener('change', function () {
-         if (rcdType.value) module.rcdType = rcdType.value;
-         else delete module.rcdType;
-         save();
-         renderPrint();
-      });
-      const ratedCurrent = el('input', {
-         type: 'number', min: '1', step: '1', placeholder: 'A',
-         'aria-label': 'Nominale stroom module ' + module.number
-      });
-      ratedCurrent.value = module.ratedCurrent === undefined ? '' : String(module.ratedCurrent);
-      ratedCurrent.addEventListener('input', function () {
-         const value = Number(ratedCurrent.value);
-         if (ratedCurrent.value && Number.isFinite(value) && value > 0) module.ratedCurrent = value;
-         else delete module.ratedCurrent;
-         save();
-         renderPrint();
-      });
-      return el('div', { className: 'module-technical-controls' }, [
-         labelField('Aardlektype', rcdType), labelField('Nominale stroom (A)', ratedCurrent)
-      ]);
-   }
-
-   function changeModuleType(module, type) {
-      const previous = module.type;
-      if (previous === type) return;
-      const existing = state.rcds.find(function (rcd) { return rcd.id === module.id; });
-      const isProtective = protectiveTypes.includes(type);
-      if (isProtective) {
-         const amountOfPoles = type.endsWith('4P') ? 4 : 2;
-         const phases = amountOfPoles === 4 ? rcdHelpers.phaseCodes.slice() : module.phases.slice(0, 1);
-         const rcd = existing || {
-            id: module.id, number: module.number, name: module.name || '',
-            color: module.color || rcdHelpers.defaultColor(module.number), phases: phases
-         };
-         rcd.type = type;
-         rcd.amountOfPoles = amountOfPoles;
-         rcd.number = module.number;
-         rcd.name = module.name || rcd.name || '';
-         rcd.color = rcd.color || rcdHelpers.defaultColor(module.number);
-         rcd.phases = phases;
-         if (!existing) state.rcds.push(rcd);
-         module.color = rcd.color;
-         module.phases = phases.slice();
-         state.rcdEnabled = true;
-         rcdEnabledEl.checked = true;
-      } else if (existing) {
-         const dependents = state.boxes.reduce(function (total, box) {
-            return total + box.groups.filter(function (item) { return item.rcdId === module.id; }).length;
-         }, 0);
-         if (dependents && !confirm('Dit moduletype levert geen aardlekbeveiliging meer. ' + dependents +
-            (dependents === 1 ? ' gekoppelde module wordt ontkoppeld. Doorgaan?' : ' gekoppelde modules worden ontkoppeld. Doorgaan?'))) {
-            module.type = previous;
-            return;
-         }
-         state.rcds = state.rcds.filter(function (rcd) { return rcd.id !== module.id; });
-         state.boxes.forEach(function (box) {
-            box.groups.forEach(function (item) { if (item.rcdId === module.id) item.rcdId = null; });
-         });
-         ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'].forEach(function (key) { delete module[key]; });
-      }
-      const definition = moduleTypes.get(type);
-      if (!isProtective) {
-         // One-phase types start without a phase; three-phase types always use all three.
-         if (definition.phases === 1) module.phases = [];
-         else if (definition.phases === 2) module.phases = module.phases.slice(0, 2);
-         else if (moduleTypes.allPhases(type)) module.phases = rcdHelpers.phaseCodes.slice();
-      }
-      if (module.warning && (definition.warnings || []).indexOf(module.warning) === -1) delete module.warning;
-      module.type = type;
-      update();
    }
 
    function rcdOptionText(rcd, index) {
       return rcd.name.trim() ? rcdHelpers.label(rcd, index) + ' – ' + rcd.name.trim() : rcdHelpers.label(rcd, index);
    }
 
-   function swatchStyle(color) {
-      return color ? 'background-color: ' + color : '';
+   /* ---------- Module dialog ---------- */
+
+   // The widest module that fits where the draft sits, ignoring the draft itself. Unplaced modules have no limit.
+   function maxWidth(draft) {
+      const box = draft.boxId && findBox(draft.boxId);
+      if (!box) return Infinity;
+      return layout.freeRun(box, layoutItems(box), draft.rail, draft.slot, draft.id);
    }
 
-   function rcdSelect(group, onChange) {
-      const linked = state.rcds.find(function (r) { return r.id === group.rcdId; });
-      const swatch = el('span', { className: 'rcd-swatch' + (linked ? '' : ' is-empty'), style: swatchStyle(linked && linked.color), 'aria-hidden': 'true' });
-      const select = el('select', { 'aria-label': 'Aardlekschakelaar voor module ' + group.number }, [
-         el('option', { value: '', text: 'Geen koppeling' })
-      ].concat(state.rcds.filter(function (rcd) { return rcd.id !== group.id; }).map(function (rcd) {
-         const i = state.rcds.indexOf(rcd);
-         return el('option', { value: rcd.id, text: rcdOptionText(rcd, i) });
-      })));
-      select.value = group.rcdId || '';
-      // Updates in place instead of re-rendering, so keyboard focus stays on the select.
-      select.addEventListener('change', function () {
-         group.rcdId = select.value || null;
-         const rcd = state.rcds.find(function (r) { return r.id === group.rcdId; });
-         swatch.className = 'rcd-swatch' + (rcd ? '' : ' is-empty');
-         swatch.setAttribute('style', swatchStyle(rcd && rcd.color));
-         onChange();
-         save();
-         renderPrint();
+   function openModuleDialog(module, target) {
+      const draft = module ? clone(module) : {
+         id: uid(), boxId: target.box.id, rail: target.rail, slot: target.slot, type: 'MCB',
+         number: nextModuleNumber(target.box), description: '', characteristic: '', phases: [], protectedByModuleId: null
+      };
+      // RCDs migrated from v4 only have a name; the dialog edits it as the description.
+      if (isProtective(draft) && !draft.description && draft.name) draft.description = draft.name;
+      dialogState = { draft: draft, original: module || null, autoNumber: !module };
+      renderModuleDialog();
+      showDialog(moduleDialogEl);
+      focusIn(moduleDialogEl, '[data-field="description"]');
+   }
+
+   function closeModuleDialog() {
+      dialogState = null;
+      hideDialog(moduleDialogEl);
+   }
+
+   function rerenderModuleDialog(field) {
+      renderModuleDialog();
+      if (field) focusIn(moduleDialogEl, '[data-field="' + field + '"]');
+   }
+
+   function applyTypeChange(draft, type) {
+      const previous = draft.type;
+      if (previous === type) return;
+      const definition = moduleTypes.get(type);
+      const box = draft.boxId && findBox(draft.boxId);
+      if (protectiveTypes.includes(type)) {
+         // A 2-pole device has one phase: keep a single chosen phase, but do not pick one out of a former three.
+         draft.phases = type.endsWith('4P') ? rcdHelpers.phaseCodes.slice()
+            : moduleTypes.allPhases(previous) ? [] : draft.phases.slice(0, 1);
+         if (!protectiveTypes.includes(previous)) {
+            if (dialogState.autoNumber) {
+               draft.number = rcdHelpers.nextNumber(rcdViews().filter(function (rcd) { return rcd.id !== draft.id; }));
+            }
+            draft.color = draft.color || rcdHelpers.defaultColor(draft.number);
+         }
+         if (draft.protectedByModuleId === draft.id) draft.protectedByModuleId = null;
+      } else {
+         if (protectiveTypes.includes(previous)) {
+            protectiveKeys.forEach(function (key) { delete draft[key]; });
+            if (dialogState.autoNumber) draft.number = nextModuleNumber(box);
+         }
+         // One-phase types start without a phase; three-phase types always use all three.
+         if (definition.phases === 1) draft.phases = [];
+         else if (definition.phases === 2) draft.phases = draft.phases.slice(0, 2);
+         else if (moduleTypes.allPhases(type)) draft.phases = rcdHelpers.phaseCodes.slice();
+      }
+      if (draft.warning && (definition.warnings || []).indexOf(draft.warning) === -1) delete draft.warning;
+      draft.type = type;
+   }
+
+   function dialogText(draft, key, label, placeholder, onChange) {
+      const node = el('input', { type: 'text', placeholder: placeholder || '', 'data-field': key, 'aria-label': label });
+      node.value = draft[key] || '';
+      node.addEventListener('input', function () {
+         draft[key] = node.value;
+         if (onChange) onChange(node.value);
       });
-      return el('div', { className: 'rcd-select' }, [swatch, select]);
+      return labelField(label, node, key === 'number' ? 'field-number' : '');
    }
 
-   function groupPhaseInput(group) {
-      if (moduleTypes.allPhases(group.type)) {
-         return el('fieldset', { className: 'phase-choices' }, [
-            el('legend', { text: 'Fasen voor module ' + group.number }),
-            ...rcdHelpers.phaseCodes.map(function (phase) {
-               const checkbox = el('input', { type: 'checkbox', value: phase });
-               checkbox.checked = true;
-               checkbox.disabled = true;
-               return el('label', null, [checkbox, el('span', { text: phase })]);
-            }),
-            el('span', { className: 'phase-status', text: rcdHelpers.phaseText(rcdHelpers.phaseCodes) })
+   function typeField(draft) {
+      const max = maxWidth(draft);
+      const select = el('select', { 'data-field': 'type', 'aria-label': 'Moduletype' },
+         moduleTypes.definitions.filter(function (type) {
+            return moduleTypes.available(type.slug, state.phaseEnabled) || type.slug === draft.type;
+         }).map(function (type) {
+            const tooWide = type.width > max;
+            const attrs = { value: type.slug, text: type.label + ' · ' + type.slug + ' · ' + widthText(type.width) + (tooWide ? ' (past hier niet)' : '') };
+            if (tooWide) attrs.disabled = 'disabled';
+            return el('option', attrs);
+         }));
+      select.value = draft.type;
+      select.addEventListener('change', function () {
+         applyTypeChange(draft, select.value);
+         rerenderModuleDialog('type');
+      });
+      return labelField('Moduletype', select, 'field-wide');
+   }
+
+   function warningField(draft) {
+      const allowed = (moduleTypes.get(draft.type) || {}).warnings;
+      if (!allowed || !allowed.length) return null;
+      const select = el('select', { 'data-field': 'warning', 'aria-label': 'Bijzondere installatie' }, [
+         el('option', { value: '', text: 'Geen bijzondere installatie' })
+      ].concat(warnings.definitions.filter(function (warning) { return allowed.includes(warning.id); }).map(function (warning) {
+         return el('option', { value: warning.id, text: warning.label });
+      })));
+      select.value = draft.warning || '';
+      select.addEventListener('change', function () {
+         if (select.value) draft.warning = select.value;
+         else delete draft.warning;
+      });
+      return labelField('Bijzondere installatie (waarschuwing)', select, 'field-wide');
+   }
+
+   function colorField(draft) {
+      const color = el('input', { type: 'color', className: 'rcd-color', 'data-field': 'color', 'aria-label': 'Kleur aardlekschakelaar', title: 'Kleur kiezen' });
+      color.value = draft.color;
+      color.addEventListener('input', function () {
+         if (rcdHelpers.isColor(color.value)) draft.color = color.value.toLowerCase();
+      });
+      return labelField('Kleur op de groepenkaart', color);
+   }
+
+   function protectionField(draft) {
+      const options = rcdViews().filter(function (rcd) { return rcd.id !== draft.id; });
+      const linked = options.find(function (rcd) { return rcd.id === draft.protectedByModuleId; });
+      const select = el('select', { 'data-field': 'protection', 'aria-label': 'Aardlekschakelaar' }, [
+         el('option', { value: '', text: 'Geen koppeling' })
+      ].concat(options.map(function (rcd, index) {
+         return el('option', { value: rcd.id, text: rcdOptionText(rcd, index) });
+      })));
+      select.value = draft.protectedByModuleId || '';
+      select.addEventListener('change', function () {
+         draft.protectedByModuleId = select.value || null;
+         rerenderModuleDialog('protection');
+      });
+      return labelField('Aardlekschakelaar', el('div', { className: 'rcd-select' }, [swatch(linked && linked.color), select]), 'field-wide');
+   }
+
+   function phaseField(draft) {
+      if (moduleTypes.allPhases(draft.type)) {
+         return labelField('Fasen', el('span', { className: 'phase-inherited', text: rcdHelpers.phaseText(rcdHelpers.phaseCodes) }));
+      }
+      if (['RCD-2P', 'RCBO-2P'].includes(draft.type)) {
+         const select = el('select', { 'data-field': 'phase', 'aria-label': 'Fase' }, [
+            el('option', { value: '', text: 'Kies een fase' }),
+            ...rcdHelpers.phaseCodes.map(function (phase) { return el('option', { value: phase, text: phase }); })
          ]);
+         select.value = draft.phases[0] || '';
+         select.addEventListener('change', function () {
+            draft.phases = select.value ? [select.value] : [];
+         });
+         return labelField('Fase', select);
       }
-      const rcd = state.rcds.find(function (r) { return r.id === group.rcdId; }) ||
-         (protectiveTypes.includes(group.type) ? state.rcds.find(function (r) { return r.id === group.id; }) : null);
-      if (rcd && rcd.amountOfPoles === 2) {
-         return el('div', { className: 'phase-inherited', text: rcdHelpers.phaseText(rcdHelpers.groupPhases(group, rcd)) + ' (via aardlekschakelaar)' });
+      const protection = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
+      if (protection && ['RCD-2P', 'RCBO-2P'].includes(protection.type)) {
+         return labelField('Fasen', el('span', {
+            className: 'phase-inherited', text: rcdHelpers.phaseText(protection.phases) + ' (via aardlekschakelaar)'
+         }));
       }
-      const status = el('span', { className: 'phase-status', text: rcdHelpers.phaseText(group.phases) });
+      const status = el('span', { className: 'phase-status', text: rcdHelpers.phaseText(draft.phases) });
       return el('fieldset', { className: 'phase-choices' }, [
-         el('legend', { text: 'Fasen voor module ' + group.number }),
+         el('legend', { text: 'Fasen' }),
          ...rcdHelpers.phaseCodes.map(function (phase) {
-            const checkbox = el('input', { type: 'checkbox', value: phase });
-            checkbox.checked = group.phases.includes(phase);
+            const checkbox = el('input', { type: 'checkbox', value: phase, 'data-field': 'phase-' + phase });
+            checkbox.checked = draft.phases.includes(phase);
             checkbox.addEventListener('change', function () {
-               group.phases = rcdHelpers.phaseCodes.filter(function (code) {
-                  return code === phase ? checkbox.checked : group.phases.includes(code);
+               draft.phases = rcdHelpers.phaseCodes.filter(function (code) {
+                  return code === phase ? checkbox.checked : draft.phases.includes(code);
                });
-               status.textContent = rcdHelpers.phaseText(group.phases);
-               save();
-               renderPrint();
+               status.textContent = rcdHelpers.phaseText(draft.phases);
             });
             return el('label', null, [checkbox, el('span', { text: phase })]);
          }),
@@ -480,52 +509,393 @@
       ]);
    }
 
-   function renderGroupRow(box, group, index) {
-      const phaseCell = state.phaseEnabled ? el('td', { className: 'group-phases', 'data-label': 'Fasen' }, [groupPhaseInput(group)]) : null;
-      const refreshPhase = function () {
-         if (phaseCell) phaseCell.replaceChildren(groupPhaseInput(group));
-      };
-      const description = input(group.description, 'Omschrijving', 'Omschrijving', function (v) {
-         group.description = v;
-         const rcd = state.rcds.find(function (item) { return item.id === group.id; });
-         if (rcd && protectiveTypes.includes(group.type)) rcd.name = v;
+   function technicalFields(draft) {
+      const fields = [];
+      if (isProtective(draft)) {
+         const sensitivity = el('select', { 'data-field': 'sensitivity', 'aria-label': 'Gevoeligheid' }, [
+            el('option', { value: '', text: 'Niet ingesteld' }),
+            ...[10, 30, 100, 300].map(function (value) { return el('option', { value: String(value), text: value + ' mA' }); })
+         ]);
+         sensitivity.value = draft.sensitivity === undefined ? '' : String(draft.sensitivity);
+         sensitivity.addEventListener('change', function () {
+            if (sensitivity.value) draft.sensitivity = Number(sensitivity.value);
+            else delete draft.sensitivity;
+         });
+         fields.push(labelField('Gevoeligheid', sensitivity));
+      }
+      const rcdType = el('select', { 'data-field': 'rcdType', 'aria-label': 'Aardlektype' }, [
+         el('option', { value: '', text: 'Niet ingesteld' }),
+         ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
+      ]);
+      rcdType.value = draft.rcdType || '';
+      rcdType.addEventListener('change', function () {
+         if (rcdType.value) draft.rcdType = rcdType.value;
+         else delete draft.rcdType;
       });
-      const characteristic = input(group.characteristic || '', 'Vrij kenmerk', 'Kenmerk voor module ' + group.number, function (v) {
-         group.characteristic = v;
+      const ratedCurrent = el('input', { type: 'number', min: '1', step: '1', placeholder: 'A', 'data-field': 'ratedCurrent', 'aria-label': 'Nominale stroom' });
+      ratedCurrent.value = draft.ratedCurrent === undefined ? '' : String(draft.ratedCurrent);
+      ratedCurrent.addEventListener('input', function () {
+         const value = Number(ratedCurrent.value);
+         if (ratedCurrent.value && Number.isFinite(value) && value > 0) draft.ratedCurrent = value;
+         else delete draft.ratedCurrent;
       });
-      const items = groupItemsInput(group);
-      const moduleFields = [
-         moduleTypeControl(group), moduleWarningControl(group),
-         labelField('Omschrijving', description), labelField('Vrij kenmerk', characteristic),
-         moduleTechnicalControls(group)
+      fields.push(labelField('Aardlektype', rcdType), labelField('Nominale stroom (A)', ratedCurrent));
+      return el('div', { className: 'module-technical-controls' }, fields);
+   }
+
+   function itemsField(draft) {
+      const node = el('textarea', { rows: '3', placeholder: 'Eén aansluiting per regel', 'data-field': 'items', 'aria-label': 'Aansluitingen' });
+      node.value = (draft.items || []).join('\n');
+      node.addEventListener('input', function () {
+         const items = node.value.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
+         if (items.length) draft.items = items;
+         else delete draft.items;
+      });
+      return labelField('Aansluitingen (één per regel)', node, 'field-wide');
+   }
+
+   // On an empty slot, modules without a place that fit there can be placed instead of adding a new one.
+   function unplacedChoices(draft) {
+      const box = findBox(draft.boxId);
+      if (!box) return null;
+      const max = maxWidth(draft);
+      const candidates = unplacedModules().filter(function (module) { return typeWidth(module.type) <= max; });
+      if (!candidates.length) return null;
+      return el('section', { className: 'dialog-unplaced' }, [
+         el('h3', { text: 'Niet-geplaatste module hier plaatsen' }),
+         el('ul', null, candidates.map(function (module) {
+            return el('li', null, [
+               el('button', {
+                  type: 'button', className: 'btn unplaced-choice',
+                  onclick: function () { placeModule(module, box, draft.rail, draft.slot); }
+               }, [swatch(moduleColor(module)), el('span', { text: [module.number, module.description || module.name, module.type].filter(Boolean).join(' · ') })])
+            ]);
+         })),
+         el('p', { className: 'dialog-divider', text: 'Of voeg hieronder een nieuwe module toe.' })
+      ]);
+   }
+
+   function renderModuleDialog() {
+      const draft = dialogState.draft;
+      const editing = !!dialogState.original;
+      const box = draft.boxId && findBox(draft.boxId);
+      const fields = [
+         typeField(draft),
+         dialogText(draft, 'number', isProtective(draft) ? 'Code' : 'Nummer', isProtective(draft) ? 'Bijv. A1' : 'Nr', function () {
+            dialogState.autoNumber = false;
+         }),
+         dialogText(draft, 'description', 'Omschrijving', isProtective(draft) ? 'Bijv. Keuken en badkamer' : 'Bijv. Keuken'),
+         isProtective(draft) ? colorField(draft) : null,
+         warningField(draft),
+         dialogText(draft, 'characteristic', 'Vrij kenmerk', 'Bijv. B16'),
+         state.rcdEnabled && (!isProtective(draft) || draft.protectedByModuleId) ? protectionField(draft) : null,
+         state.phaseEnabled ? phaseField(draft) : null,
+         expertMode ? technicalFields(draft) : null,
+         itemsField(draft)
       ];
-      // With phases the connections get their own row; otherwise they stay stacked under the description.
-      const descriptionCells = state.phaseEnabled ? [
-         el('td', { className: 'group-description' }, [el('div', { className: 'module-fields' }, moduleFields)]),
-         el('td', { className: 'group-items' }, [items])
-      ] : [el('td', { className: 'group-description' }, [el('div', { className: 'module-fields' }, moduleFields.concat(items))])];
-      return el('tr', null, [
-         el('td', { className: 'group-number', 'data-label': 'Module' }, [input(group.number, 'Nr', 'Modulenummer', function (v) {
-            group.number = v;
-            const rcd = state.rcds.find(function (item) { return item.id === group.id; });
-            if (rcd && protectiveTypes.includes(group.type)) rcd.number = v;
-         }, 'input-number')]),
-         ...descriptionCells,
-         state.rcdEnabled ? el('td', { className: 'group-rcd', 'data-label': 'Aardlekschakelaar' }, [rcdSelect(group, refreshPhase)]) : null,
-         phaseCell,
-         el('td', { className: 'group-actions' }, [
-            el('div', { className: 'row-actions' }, [
-               iconButton('↑', 'Module omhoog', function () { move(box.groups, index, -1); update(); }),
-               iconButton('↓', 'Module omlaag', function () { move(box.groups, index, 1); update(); }),
-               iconButton('✕', 'Module verwijderen', function () { removeModule(box, group, index); }, 'btn-danger')
-            ])
+      const form = el('form', {
+         className: 'module-form', method: 'dialog',
+         onsubmit: function (event) {
+            event.preventDefault();
+            saveModuleDialog();
+         }
+      }, [
+         el('header', { className: 'dialog-header' }, [
+            el('h2', { text: editing ? 'Module bewerken' : 'Module toevoegen' }),
+            el('p', { className: 'dialog-subtitle', text: box ? 'Kast ' + box.number + ' · rail ' + draft.rail + ' · plek ' + draft.slot : 'Niet geplaatst' })
+         ]),
+         editing ? null : unplacedChoices(draft),
+         el('div', { className: 'module-fields' }, fields),
+         el('footer', { className: 'dialog-actions' }, [
+            el('button', { type: 'button', className: 'btn', text: 'Annuleren', onclick: closeModuleDialog }),
+            el('button', { type: 'submit', className: 'btn btn-primary', text: editing ? 'Opslaan' : 'Toevoegen' })
          ])
+      ]);
+      moduleDialogEl.replaceChildren(form);
+   }
+
+   function saveModuleDialog() {
+      const draft = dialogState.draft;
+      const original = dialogState.original;
+      const snapshot = clone(state);
+      if (isProtective(draft)) {
+         draft.name = draft.description;
+      }
+      if (original && isProtective(original) && !isProtective(draft)) {
+         const dependents = state.modules.filter(function (module) { return module.protectedByModuleId === original.id; }).length;
+         if (dependents && !confirm('Dit moduletype levert geen aardlekbeveiliging meer. ' + dependents +
+            (dependents === 1 ? ' gekoppelde module wordt ontkoppeld. Doorgaan?' : ' gekoppelde modules worden ontkoppeld. Doorgaan?'))) {
+            return;
+         }
+         state.modules.forEach(function (module) {
+            if (module.protectedByModuleId === original.id) module.protectedByModuleId = null;
+         });
+      }
+      if (isProtective(draft)) state.rcdEnabled = true;
+      if (original) {
+         state.modules[state.modules.indexOf(original)] = draft;
+      } else {
+         state.modules.push(draft);
+         findBox(draft.boxId).moduleIds.push(draft.id);
+      }
+      if (draft.boxId) sortBox(findBox(draft.boxId));
+      try {
+         serializeState(state);
+      } catch (error) {
+         state = snapshot;
+         alert('Module niet opgeslagen: ' + error.message);
+         return;
+      }
+      selectedId = draft.boxId ? draft.id : null;
+      closeModuleDialog();
+      update();
+      focusModule(draft.id);
+   }
+
+   function placeModule(module, box, rail, slot) {
+      module.boxId = box.id;
+      module.rail = rail;
+      module.slot = slot;
+      box.moduleIds.push(module.id);
+      sortBox(box);
+      selectedId = module.id;
+      closeModuleDialog();
+      update();
+      focusModule(module.id);
+   }
+
+   /* ---------- Box dialog ---------- */
+
+   function boxSizeInput(key, value) {
+      const min = key === 'rails' ? limits.minRails : limits.minRailWidth;
+      const max = key === 'rails' ? limits.maxRails : limits.maxRailWidth;
+      const node = el('input', { type: 'number', min: String(min), max: String(max), step: '1', inputmode: 'numeric', 'data-field': key, className: 'input-number' });
+      node.value = String(value);
+      return node;
+   }
+
+   function sizeError(rails, railWidth) {
+      if (!Number.isInteger(rails) || rails < limits.minRails || rails > limits.maxRails) {
+         return 'Het aantal rails moet een geheel getal van ' + limits.minRails + ' tot ' + limits.maxRails + ' zijn.';
+      }
+      if (!Number.isInteger(railWidth) || railWidth < limits.minRailWidth || railWidth > limits.maxRailWidth) {
+         return 'Het aantal modules per rail moet een geheel getal van ' + limits.minRailWidth + ' tot ' + limits.maxRailWidth + ' zijn.';
+      }
+      return '';
+   }
+
+   function openBoxDialog() {
+      const rails = boxSizeInput('rails', 2);
+      const railWidth = boxSizeInput('railWidth', limits.defaultRailWidth);
+      rails.setAttribute('aria-label', 'Aantal rails');
+      railWidth.setAttribute('aria-label', 'Modules per rail');
+      const summary = el('p', { className: 'dialog-subtitle', 'aria-live': 'polite' });
+      const presets = boxPresets.map(function (preset) {
+         return el('button', {
+            type: 'button', className: 'btn box-preset', text: preset[0] + ' × ' + preset[1],
+            onclick: function () {
+               rails.value = String(preset[0]);
+               railWidth.value = String(preset[1]);
+               refresh();
+            }
+         });
+      });
+      function refresh() {
+         const r = Number(rails.value);
+         const w = Number(railWidth.value);
+         summary.textContent = sizeError(r, w) || r + (r === 1 ? ' rail' : ' rails') + ' van ' + w + ' modules: ' + r * w + ' plekken.';
+         presets.forEach(function (button, index) {
+            button.className = 'btn box-preset' + (boxPresets[index][0] === r && boxPresets[index][1] === w ? ' is-active' : '');
+         });
+      }
+      rails.addEventListener('input', refresh);
+      railWidth.addEventListener('input', refresh);
+      refresh();
+      const form = el('form', {
+         className: 'box-form', method: 'dialog',
+         onsubmit: function (event) {
+            event.preventDefault();
+            const r = Number(rails.value);
+            const w = Number(railWidth.value);
+            const error = sizeError(r, w);
+            if (error) {
+               alert(error);
+               return;
+            }
+            hideDialog(boxDialogEl);
+            addBox(r, w);
+         }
+      }, [
+         el('header', { className: 'dialog-header' }, [
+            el('h2', { text: 'Kast toevoegen' }),
+            el('p', { text: 'Kies hoeveel DIN-rails de kast heeft en hoeveel modules er op één rail passen.' })
+         ]),
+         el('div', { className: 'box-presets', role: 'group', 'aria-label': 'Veelgebruikte maten' }, presets),
+         el('div', { className: 'box-size-fields' }, [labelField('Rails', rails), el('span', { className: 'box-size-times', text: '×' }), labelField('Modules per rail', railWidth)]),
+         summary,
+         el('footer', { className: 'dialog-actions' }, [
+            el('button', { type: 'button', className: 'btn', text: 'Annuleren', onclick: function () { hideDialog(boxDialogEl); } }),
+            el('button', { type: 'submit', className: 'btn btn-primary', text: 'Kast toevoegen' })
+         ])
+      ]);
+      boxDialogEl.replaceChildren(form);
+      showDialog(boxDialogEl);
+   }
+
+   function addBox(rails, railWidth) {
+      state.boxes.push({
+         id: uid(), number: nextNumber(state.boxes), name: '', rails: rails, railWidth: railWidth, moduleIds: [], supply: null
+      });
+      update();
+      const last = boxesEl.lastElementChild;
+      if (last) {
+         last.scrollIntoView({ behavior: 'smooth', block: 'start' });
+         focusIn(last, '[data-field="box-name"]');
+      }
+   }
+
+   function boxSizeField(box, key, label) {
+      const node = boxSizeInput(key, box[key]);
+      node.setAttribute('aria-label', label + ' kast ' + box.number);
+      // Applied on change rather than per keystroke, so typing "18" does not first try a width of 1.
+      node.addEventListener('change', function () {
+         const size = { rails: box.rails, railWidth: box.railWidth };
+         size[key] = Number(node.value);
+         const error = sizeError(size.rails, size.railWidth);
+         const blocked = error ? [] : layout.outside(layoutItems(box), size.rails, size.railWidth).map(function (item) {
+            return moduleLabel(findModule(item.id));
+         });
+         if (error || blocked.length) {
+            alert(error || 'De kast kan niet zo klein worden: ' + blocked.join(', ') +
+               (blocked.length === 1 ? ' past dan niet meer. Verplaats of verwijder deze module eerst.' : ' passen dan niet meer. Verplaats of verwijder deze modules eerst.'));
+            node.value = String(box[key]);
+            return;
+         }
+         box[key] = size[key];
+         update();
+      });
+      return labelField(label, node, 'field-size');
+   }
+
+   /* ---------- Visual box ---------- */
+
+   function select(id) {
+      selectedId = id;
+      renderBoxes();
+      focusModule(id);
+   }
+
+   function moveModule(box, module, direction) {
+      const changes = layout.move(box, layoutItems(box), module.id, direction);
+      if (!changes) return;
+      Object.keys(changes).forEach(function (id) { Object.assign(findModule(id), changes[id]); });
+      sortBox(box);
+      selectedId = module.id;
+      update();
+      focusModule(module.id);
+   }
+
+   function moduleKeydown(box, module, event) {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+         event.preventDefault();
+         moveModule(box, module, event.key === 'ArrowRight' ? 1 : -1);
+      } else if (event.key === 'Delete' || event.key === 'Backspace') {
+         event.preventDefault();
+         removeModule(module);
+      } else if (event.key === 'Escape' && selectedId) {
+         selectedId = null;
+         renderBoxes();
+         focusModule(module.id);
+      }
+   }
+
+   function renderModule(box, module) {
+      const width = typeWidth(module.type);
+      const color = moduleColor(module);
+      const selected = module.id === selectedId;
+      const warning = module.warning && warnings.definitions.find(function (item) { return item.id === module.warning; });
+      const description = [moduleLabel(module), module.type, warning ? warning.label : ''].filter(Boolean).join(', ');
+      return el('button', {
+         type: 'button',
+         className: 'din-module' + (selected ? ' is-selected' : '') + (width > 1 ? ' is-wide' : '') + (isProtective(module) ? ' is-protective' : ''),
+         style: gridColumn(module.slot, width),
+         'data-module-id': module.id,
+         'aria-pressed': String(selected),
+         'aria-label': description.charAt(0).toUpperCase() + description.slice(1),
+         title: selected ? 'Klik om te bewerken' : 'Klik om te selecteren',
+         onclick: function () {
+            if (selectedId === module.id) openModuleDialog(module);
+            else select(module.id);
+         },
+         onkeydown: function (event) { moduleKeydown(box, module, event); }
+      }, [
+         el('span', { className: 'din-module-stripe' + (color ? '' : ' is-empty'), style: color ? 'background-color: ' + color : '', 'aria-hidden': 'true' }),
+         el('span', { className: 'din-module-number', text: module.number || '–', 'aria-hidden': 'true' }),
+         el('span', { className: 'din-module-lever', 'aria-hidden': 'true' }),
+         width > 1 ? el('span', { className: 'din-module-type', text: module.type, 'aria-hidden': 'true' }) : null,
+         warning ? el('span', { className: 'din-module-badge', text: warningBadges[warning.id], 'aria-hidden': 'true' }) : null
+      ]);
+   }
+
+   function renderRail(box, rail, modules) {
+      const cells = [];
+      const labels = [];
+      let slot = 1;
+      while (slot <= box.railWidth) {
+         const module = modules.find(function (candidate) { return candidate.rail === rail && candidate.slot === slot; });
+         if (module) {
+            const width = typeWidth(module.type);
+            cells.push(renderModule(box, module));
+            labels.push(el('span', { className: 'din-label', style: gridColumn(slot, width), title: module.description, text: module.description }));
+            slot += width;
+         } else {
+            const target = { box: box, rail: rail, slot: slot };
+            const label = 'Module toevoegen op rail ' + rail + ', plek ' + slot;
+            cells.push(el('button', {
+               type: 'button', className: 'din-slot', style: gridColumn(slot, 1), title: label, 'aria-label': label, text: '+',
+               onclick: function () { openModuleDialog(null, target); }
+            }));
+            slot += 1;
+         }
+      }
+      return el('div', { className: 'din-rail', role: 'group', 'aria-label': 'Rail ' + rail }, [
+         el('div', { className: 'din-rail-slots' }, cells),
+         el('div', { className: 'din-rail-labels', 'aria-hidden': 'true' }, labels)
+      ]);
+   }
+
+   function renderPanel(box) {
+      const modules = boxModules(box);
+      const rails = [];
+      for (let rail = 1; rail <= box.rails; rail++) rails.push(renderRail(box, rail, modules));
+      return el('div', { className: 'panel-scroll' }, [
+         el('div', { className: 'panel', style: '--rail-width: ' + box.railWidth }, rails)
+      ]);
+   }
+
+   function actionButton(text, title, onClick, disabled, className) {
+      const attrs = { type: 'button', className: 'btn' + (className ? ' ' + className : ''), text: text, title: title, 'aria-label': title, onclick: onClick };
+      if (disabled) attrs.disabled = 'disabled';
+      return el('button', attrs);
+   }
+
+   function renderActionBar(box) {
+      const module = selectedId && boxModules(box).find(function (candidate) { return candidate.id === selectedId; });
+      if (!module) {
+         return el('p', { className: 'panel-hint', text: 'Klik op + om een module toe te voegen. Klik op een module om hem te selecteren en nog een keer om hem te bewerken.' });
+      }
+      const items = layoutItems(box);
+      return el('div', { className: 'panel-actions', role: 'toolbar', 'aria-label': 'Acties voor ' + moduleLabel(module) }, [
+         el('span', { className: 'panel-actions-label', text: moduleLabel(module).replace(/^m/, 'M') }),
+         actionButton('◀', 'Naar links', function () { moveModule(box, module, -1); }, !layout.move(box, items, module.id, -1)),
+         actionButton('▶', 'Naar rechts', function () { moveModule(box, module, 1); }, !layout.move(box, items, module.id, 1)),
+         actionButton('Bewerken', 'Module bewerken', function () { openModuleDialog(module); }),
+         actionButton('Verwijderen', 'Module verwijderen', function () { removeModule(module); }, false, 'btn-danger'),
+         actionButton('Klaar', 'Selectie opheffen', function () { selectedId = null; renderBoxes(); })
       ]);
    }
 
    function renderBox(box, index) {
-      const rows = box.groups.map(function (g, i) { return renderGroupRow(box, g, i); });
-
       return el('section', { className: 'box', 'data-id': box.id }, [
          el('div', { className: 'box-header' }, [
             el('label', { className: 'field' }, [
@@ -534,57 +904,63 @@
             ]),
             el('label', { className: 'field field-grow' }, [
                el('span', { text: 'Naam kast' }),
-               input(box.name, 'Bijv. Meterkast begane grond', 'Naam kast', function (v) { box.name = v; })
+               (function () {
+                  const name = input(box.name, 'Bijv. Meterkast begane grond', 'Naam kast', function (v) { box.name = v; });
+                  name.setAttribute('data-field', 'box-name');
+                  return name;
+               })()
             ]),
+            boxSizeField(box, 'rails', 'Rails'),
+            boxSizeField(box, 'railWidth', 'Modules per rail'),
             el('div', { className: 'box-actions' }, [
                iconButton('↑', 'Kast omhoog', function () { move(state.boxes, index, -1); update(); }),
                iconButton('↓', 'Kast omlaag', function () { move(state.boxes, index, 1); update(); }),
-               iconButton('✕', 'Kast verwijderen', function () {
-                  removeBox(box, index);
-               }, 'btn-danger')
+               iconButton('✕', 'Kast verwijderen', function () { removeBox(box, index); }, 'btn-danger')
             ])
          ]),
          renderSupplyEditor(box),
-         el('table', { className: 'groups-table' + (state.phaseEnabled ? ' has-phases' : '') + (state.rcdEnabled ? ' has-rcds' : '') }, [
-            el('thead', null, [el('tr', null, [
-               el('th', { className: 'col-number', text: 'Module' }),
-               el('th', { text: 'Omschrijving' }),
-               state.rcdEnabled ? el('th', { className: 'col-rcd', text: 'Aardlekschakelaar' }) : null,
-               state.phaseEnabled ? el('th', { className: 'col-phases', text: 'Fasen' }) : null,
-               el('th', { className: 'col-actions' })
-            ])]),
-            el('tbody', null, rows)
-         ]),
-         el('button', {
-            type: 'button',
-            className: 'btn btn-primary btn-add-group',
-            text: '+ Module toevoegen',
-            onclick: function () {
-               box.groups.push({ id: uid(), type: 'MCB', number: nextNumber(box.groups), description: '', characteristic: '', rcdId: null, phases: [] });
-               update();
-               const inputs = boxesEl.querySelectorAll('[data-id="' + box.id + '"] tbody tr:last-child input');
-               if (inputs[1]) inputs[1].focus();
-            }
-         })
+         renderPanel(box),
+         renderActionBar(box)
       ]);
    }
 
+   function renderUnplaced() {
+      const modules = unplacedModules();
+      unplacedEl.hidden = !modules.length;
+      unplacedListEl.replaceChildren.apply(unplacedListEl, modules.map(function (module) {
+         return el('li', { className: 'unplaced-item', 'data-module-id': module.id }, [
+            swatch(moduleColor(module)),
+            el('span', { className: 'unplaced-text', text: [module.number, module.description || module.name].filter(Boolean).join(' · ') || 'Zonder nummer' }),
+            el('span', { className: 'module-width', text: module.type + ' · ' + widthText(typeWidth(module.type)) }),
+            el('div', { className: 'row-actions' }, [
+               iconButton('✎', 'Module bewerken', function () { openModuleDialog(module); }),
+               iconButton('✕', 'Module verwijderen', function () { removeModule(module); }, 'btn-danger')
+            ])
+         ]);
+      }));
+   }
+
    function removeBox(box, index) {
-      const moduleIds = new Set(box.groups.map(function (module) { return module.id; }));
+      const ids = new Set(box.moduleIds);
       const dependents = state.boxes.filter(function (candidate) {
-         return candidate !== box && candidate.supply && moduleIds.has(candidate.supply.sourceModuleId);
+         return candidate !== box && candidate.supply && ids.has(candidate.supply.sourceModuleId);
       });
-      const message = 'Kast "' + (box.name || box.number) + '" verwijderen?' +
-         (dependents.length ? ' ' + dependents.length + ' voeding(en) verliezen de bronmodule.' : '');
-      if (!confirm(message)) return;
+      const linked = state.modules.filter(function (module) { return !ids.has(module.id) && ids.has(module.protectedByModuleId); });
+      const consequences = [];
+      if (ids.size) consequences.push(ids.size + (ids.size === 1 ? ' module wordt verwijderd' : ' modules worden verwijderd'));
+      if (linked.length) consequences.push(linked.length + (linked.length === 1 ? ' module in een andere kast wordt ontkoppeld' : ' modules in andere kasten worden ontkoppeld'));
+      if (dependents.length) consequences.push(dependents.length + ' voeding(en) verliezen de bronmodule');
+      if (!confirm('Kast "' + (box.name || box.number) + '" verwijderen?' + (consequences.length ? ' ' + consequences.join('; ') + '.' : ''))) return;
       dependents.forEach(function (candidate) { candidate.supply.sourceModuleId = null; });
+      linked.forEach(function (module) { module.protectedByModuleId = null; });
+      state.modules = state.modules.filter(function (module) { return !ids.has(module.id); });
+      if (ids.has(selectedId)) selectedId = null;
       state.boxes.splice(index, 1);
       update();
    }
 
-   function removeModule(box, module, index) {
-      const rcd = state.rcds.find(function (item) { return item.id === module.id; });
-      const linked = rcd ? linkedGroupCount(rcd) : 0;
+   function removeModule(module) {
+      const linked = state.modules.filter(function (item) { return item.protectedByModuleId === module.id; }).length;
       const feedBoxes = state.boxes.filter(function (candidate) {
          return candidate.supply && candidate.supply.sourceModuleId === module.id;
       });
@@ -593,17 +969,20 @@
       if (feedBoxes.length) consequences.push(feedBoxes.length + ' voeding(en) verliezen de bronmodule');
       if (!confirm('Module ' + module.number + ' verwijderen?' + (consequences.length ? ' ' + consequences.join('; ') + '.' : ''))) return;
       feedBoxes.forEach(function (candidate) { candidate.supply.sourceModuleId = null; });
-      state.boxes.forEach(function (candidate) {
-         candidate.groups.forEach(function (item) { if (item.rcdId === module.id) item.rcdId = null; });
-      });
-      state.rcds = state.rcds.filter(function (item) { return item.id !== module.id; });
-      box.groups.splice(index, 1);
+      state.modules.forEach(function (item) { if (item.protectedByModuleId === module.id) item.protectedByModuleId = null; });
+      state.modules = state.modules.filter(function (item) { return item !== module; });
+      const box = module.boxId && findBox(module.boxId);
+      if (box) box.moduleIds = box.moduleIds.filter(function (id) { return id !== module.id; });
+      if (selectedId === module.id) selectedId = null;
       update();
    }
+
+   /* ---------- Supply ---------- */
+
    function supplySourceModules(box) {
       return state.boxes.filter(function (candidate) { return candidate !== box; }).flatMap(function (candidate) {
-         return candidate.groups.filter(function (module) {
-            return ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'].includes(module.type);
+         return boxModules(candidate).filter(function (module) {
+            return circuitTypes.includes(module.type);
          }).map(function (module) { return { box: candidate, module: module }; });
       });
    }
@@ -727,155 +1106,7 @@
       ].concat(fields));
    }
 
-   function linkedGroupCount(rcd) {
-      return state.boxes.reduce(function (total, box) {
-         return total + box.groups.filter(function (g) { return g.rcdId === rcd.id; }).length;
-      }, 0);
-   }
-
-   // RCD edits re-render the boxes (option labels and swatches) but not the RCD list, so focus is kept.
-   function rcdChanged() {
-      save();
-      renderBoxes();
-      renderPrint();
-   }
-
-   function rcdPhaseInput(rcd) {
-      if (rcd.amountOfPoles === 4) {
-         return el('div', { className: 'field' }, [
-            el('span', { text: 'Fasen' }),
-            el('span', { className: 'phase-inherited', text: 'L1, L2, L3 (4-polig)' })
-         ]);
-      }
-      const select = el('select', { 'aria-label': 'Fase aardlekschakelaar ' + rcd.number }, [
-         el('option', { value: '', text: 'Kies een fase' }),
-         ...rcdHelpers.phaseCodes.map(function (phase) { return el('option', { value: phase, text: phase }); })
-      ]);
-      select.value = rcd.phases[0] || '';
-      select.addEventListener('change', function () {
-         rcd.phases = select.value ? [select.value] : [];
-         rcdChanged();
-      });
-      return el('label', { className: 'field' }, [el('span', { text: 'Fase' }), select]);
-   }
-
-   function rcdPhaseControls(rcd) {
-      const phases = el('div', { className: 'rcd-phase-selection' }, [rcdPhaseInput(rcd)]);
-      const poles = el('select', { 'aria-label': 'Aantal polen aardlekschakelaar ' + rcd.number }, [
-         el('option', { value: '2', text: '2-polig' }),
-         el('option', { value: '4', text: '4-polig' })
-      ]);
-      poles.value = String(rcd.amountOfPoles);
-      poles.addEventListener('change', function () {
-         rcd.amountOfPoles = Number(poles.value);
-         rcd.phases = rcd.amountOfPoles === 4 ? rcdHelpers.phaseCodes.slice() : [];
-         state.boxes.forEach(function (box) {
-            box.groups.forEach(function (module) {
-               if (module.id === rcd.id && module.type && (module.type.startsWith('RCD') || module.type.startsWith('RCBO'))) {
-                  module.type = module.type.slice(0, -2) + (rcd.amountOfPoles === 4 ? '4P' : '2P');
-                  module.phases = rcd.phases.slice();
-               }
-            });
-         });
-         phases.replaceChildren(rcdPhaseInput(rcd));
-         rcdChanged();
-      });
-      return el('div', { className: 'rcd-phase-controls' }, [
-         el('label', { className: 'field' }, [el('span', { text: 'Aantal polen' }), poles]), phases
-      ]);
-   }
-
-   function rcdTechnicalControls(rcd) {
-      if (!expertMode) return null;
-      const sensitivity = el('select', { 'aria-label': 'Gevoeligheid aardlekschakelaar ' + rcd.number }, [
-         el('option', { value: '', text: 'Niet ingesteld' }),
-         ...[10, 30, 100, 300].map(function (value) { return el('option', { value: String(value), text: value + ' mA' }); })
-      ]);
-      sensitivity.value = rcd.sensitivity === undefined ? '' : String(rcd.sensitivity);
-      sensitivity.addEventListener('change', function () {
-         if (sensitivity.value) rcd.sensitivity = Number(sensitivity.value);
-         else delete rcd.sensitivity;
-         rcdChanged();
-      });
-      const type = el('select', { 'aria-label': 'Aardlektype aardlekschakelaar ' + rcd.number }, [
-         el('option', { value: '', text: 'Niet ingesteld' }),
-         ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
-      ]);
-      type.value = rcd.rcdType || '';
-      type.addEventListener('change', function () {
-         if (type.value) rcd.rcdType = type.value;
-         else delete rcd.rcdType;
-         rcdChanged();
-      });
-      const current = el('input', {
-         type: 'number', min: '1', step: '1', placeholder: 'A',
-         'aria-label': 'Nominale stroom aardlekschakelaar ' + rcd.number
-      });
-      current.value = rcd.ratedCurrent === undefined ? '' : String(rcd.ratedCurrent);
-      current.addEventListener('input', function () {
-         const value = Number(current.value);
-         if (current.value && Number.isFinite(value) && value > 0) rcd.ratedCurrent = value;
-         else delete rcd.ratedCurrent;
-         rcdChanged();
-      });
-      return el('div', { className: 'rcd-technical-controls' }, [
-         labelField('Gevoeligheid', sensitivity), labelField('Aardlektype', type), labelField('Nominale stroom (A)', current)
-      ]);
-   }
-
-   function renderRcd(rcd, index) {
-      const color = el('input', { type: 'color', className: 'rcd-color', 'aria-label': 'Kleur aardlekschakelaar ' + rcdHelpers.label(rcd, index), title: 'Kleur kiezen' });
-      color.value = rcd.color;
-      color.addEventListener('input', function () {
-         if (!rcdHelpers.isColor(color.value)) return;
-         rcd.color = color.value.toLowerCase();
-         rcdChanged();
-      });
-      return el('li', { className: 'rcd-item', 'data-id': rcd.id }, [
-         color,
-         rcdInput(rcd.number, 'Bijv. A1', 'Code aardlekschakelaar', function (v) { rcd.number = v; }, 'input-number'),
-         rcdInput(rcd.name, 'Omschrijving, bijv. Keuken en badkamer', 'Naam aardlekschakelaar', function (v) { rcd.name = v; }),
-         el('div', { className: 'row-actions' }, [
-            iconButton('↑', 'Aardlekschakelaar omhoog', function () { move(state.rcds, index, -1); update(); }),
-            iconButton('↓', 'Aardlekschakelaar omlaag', function () { move(state.rcds, index, 1); update(); }),
-            iconButton('✕', 'Aardlekschakelaar verwijderen', function () {
-               const linked = linkedGroupCount(rcd);
-               const message = 'Aardlekschakelaar "' + rcdOptionText(rcd, index) + '" verwijderen?' +
-                  (linked ? ' ' + linked + (linked === 1 ? ' gekoppelde module wordt' : ' gekoppelde modules worden') + ' ontkoppeld.' : '');
-               if (!confirm(message)) return;
-               state.boxes.forEach(function (box) {
-                  box.groups.forEach(function (g) {
-                     if (g.id === rcd.id) {
-                        g.type = 'MCB';
-                        ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'].forEach(function (key) { delete g[key]; });
-                     }
-                     if (g.rcdId === rcd.id) g.rcdId = null;
-                  });
-               });
-               state.rcds.splice(index, 1);
-               update();
-            }, 'btn-danger')
-         ]),
-         rcdTechnicalControls(rcd),
-         state.phaseEnabled ? rcdPhaseControls(rcd) : null
-      ]);
-   }
-
-   function rcdInput(value, placeholder, label, onInput, className) {
-      const node = el('input', { type: 'text', placeholder: placeholder, 'aria-label': label, className: className || '' });
-      node.value = value;
-      node.addEventListener('input', function () {
-         onInput(node.value);
-         rcdChanged();
-      });
-      return node;
-   }
-
-   function renderRcds() {
-      rcdEnabledEl.checked = state.rcdEnabled;
-      rcdPanelEl.hidden = !state.rcdEnabled;
-      rcdListEl.replaceChildren.apply(rcdListEl, state.rcds.map(renderRcd));
-   }
+   /* ---------- Print output ---------- */
 
    function boxTitle(box) {
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
@@ -883,7 +1114,7 @@
 
    function moduleMeta(module) {
       const type = moduleTypes.get(module.type);
-      return [module.type, type ? type.width + (type.width === 1 ? ' DIN-module' : ' DIN-modules') : '',
+      return [module.type, type ? widthText(type.width) : '',
       module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '']
          .filter(Boolean).join(' · ');
    }
@@ -902,11 +1133,9 @@
          }
          if (supply.supplier) details.push(supply.supplier);
       } else {
-         const sourceBox = state.boxes.find(function (candidate) {
-            return candidate.groups.some(function (module) { return module.id === supply.sourceModuleId; });
-         });
-         const source = sourceBox && sourceBox.groups.find(function (module) { return module.id === supply.sourceModuleId; });
-         if (sourceBox && source) details.push('vanuit kast ' + sourceBox.number + ', module ' + source.number);
+         const source = supply.sourceModuleId && findModule(supply.sourceModuleId);
+         const sourceBox = source && findBox(source.boxId);
+         if (sourceBox) details.push('vanuit kast ' + sourceBox.number + ', module ' + source.number);
          if (supply.preFuse) details.push(supply.preFuse);
          if (supply.cableCores && supply.cableCrossSection) details.push(supply.cableCores + 'x ' + supply.cableCrossSection + ' mm²');
          if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
@@ -927,8 +1156,10 @@
 
    function renderPrint() {
       const date = 'Afgedrukt op ' + window.GroepenkaartPdf.today();
-      printEl.replaceChildren.apply(printEl, state.boxes.map(function (box, index) {
-         const lookup = rcdHelpers.index(state.rcds);
+      const rcds = rcdViews();
+      const lookup = rcdHelpers.index(rcds);
+      const boxes = printBoxes();
+      printEl.replaceChildren.apply(printEl, boxes.map(function (box, index) {
          const rows = box.groups.map(function (g) {
             const entry = lookup[g.rcdId];
             const protection = entry || (protectiveTypes.includes(g.type) ? lookup[g.id] : null);
@@ -961,10 +1192,10 @@
             el('h1', { text: 'Module-indeling' }),
             el('p', { className: 'print-date', text: date }),
             index === 0 ? renderWarnings() : null,
-            index === 0 ? renderUnusedRcds() : null,
+            index === 0 ? renderUnusedRcds(rcds, boxes) : null,
             el('h2', { text: boxTitle(box) }),
             supplySummary(box),
-            renderRcdKey(box),
+            renderRcdKey(rcds, box),
             el('table', null, [
                el('thead', null, [el('tr', null, [
                   el('th', { className: 'col-number', text: 'Module' }),
@@ -977,8 +1208,8 @@
       }));
    }
 
-   function renderRcdKey(box) {
-      const used = rcdHelpers.used(state.rcds, box.groups);
+   function renderRcdKey(rcds, box) {
+      const used = rcdHelpers.used(rcds, box.groups);
       if (!used.length) return null;
       return el('ul', { className: 'print-rcd-key', 'aria-label': 'Aardlekschakelaars' }, [
          el('li', { className: 'print-rcd-key-title', text: 'Aardlekschakelaars:' })
@@ -1000,9 +1231,9 @@
       }));
    }
 
-   function renderUnusedRcds() {
-      const groups = state.boxes.flatMap(function (box) { return box.groups; });
-      const unused = rcdHelpers.unused(state.rcds, groups);
+   function renderUnusedRcds(rcds, boxes) {
+      const groups = boxes.flatMap(function (box) { return box.groups; });
+      const unused = rcdHelpers.unused(rcds, groups);
       if (!unused.length) return null;
       return el('section', { className: 'print-unused-rcds' }, [
          el('h3', { text: 'Aardlekschakelaars niet in gebruik' }),
@@ -1020,19 +1251,21 @@
    }
 
    function render() {
+      if (selectedId && !findModule(selectedId)) selectedId = null;
       phaseEnabledEl.checked = state.phaseEnabled;
+      rcdEnabledEl.checked = state.rcdEnabled;
       qrEnabledEl.checked = state.qrEnabled;
       fillRowsEl.checked = fillRows;
       expertModeEl.checked = expertMode;
       renderQrStatus();
-      renderRcds();
+      renderUnplaced();
       renderBoxes();
       emptyEl.hidden = state.boxes.length > 0;
       renderPrint();
    }
 
    function hasData() {
-      return !storageWritable || state.boxes.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
+      return !storageWritable || state.boxes.length || state.modules.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
    }
 
    function shareUrl() {
@@ -1047,6 +1280,12 @@
          : '';
    }
 
+   function replaceState(data) {
+      state = data;
+      selectedId = null;
+      storageWritable = true;
+   }
+
    // Replaces the data with the card in the page address (the link in a QR code). Returns whether it did.
    function importFromLink() {
       const hash = window.location.hash;
@@ -1055,8 +1294,7 @@
       try {
          const data = normalize(share.decode(hash));
          if (hasData() && !confirm('Huidige gegevens vervangen door de groepenkaart uit de link?')) return false;
-         state = data;
-         storageWritable = true;
+         replaceState(data);
          return true;
       } catch (e) {
          alert('Openen van de link mislukt: ' + e.message);
@@ -1081,8 +1319,7 @@
          try {
             const data = normalize(JSON.parse(reader.result));
             if (hasData() && !confirm('Huidige gegevens vervangen door het geïmporteerde bestand?')) return;
-            state = data;
-            storageWritable = true;
+            replaceState(data);
             update();
          } catch (e) {
             alert('Importeren mislukt: ' + (e instanceof SyntaxError ? 'geen geldig JSON-bestand.' : e.message));
@@ -1091,21 +1328,9 @@
       reader.readAsText(file);
    }
 
-   document.getElementById('add-box').addEventListener('click', function () {
-      state.boxes.push({
-         id: uid(),
-         number: nextNumber(state.boxes),
-         name: '',
-         supply: null,
-         groups: [{ id: uid(), type: 'MCB', number: '1', description: '', characteristic: '', rcdId: null, phases: [] }]
-      });
-      update();
-      const last = boxesEl.lastElementChild;
-      if (last) {
-         last.scrollIntoView({ behavior: 'smooth', block: 'start' });
-         last.querySelectorAll('input')[1].focus({ preventScroll: true });
-      }
-   });
+   document.getElementById('add-box').addEventListener('click', openBoxDialog);
+
+   moduleDialogEl.addEventListener('close', function () { dialogState = null; });
 
    document.getElementById('download-pdf').addEventListener('click', function () {
       if (!state.boxes.length) {
@@ -1128,7 +1353,7 @@
          window.print();
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), activeWarnings(), state.rcds, state.phaseEnabled, qr, rcdFirst, warningImages)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(printBoxes(), minRows(), activeWarnings(), rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages)) {
          window.print();
       }
    });
@@ -1164,8 +1389,6 @@
    expertModeEl.addEventListener('change', function () {
       expertMode = expertModeEl.checked;
       saveExpertMode();
-      renderRcds();
-      renderBoxes();
    });
 
    phaseEnabledEl.addEventListener('change', function () {
@@ -1173,43 +1396,35 @@
       update();
    });
 
+   // Switching off removes RCDs without a place; placed RCDs and RCBOs become circuit breakers so their spot is kept.
    rcdEnabledEl.addEventListener('change', function () {
       if (rcdEnabledEl.checked) {
          state.rcdEnabled = true;
          update();
          return;
       }
-      if (state.rcds.length && !confirm('Alle Aardlekschakelaars en de koppelingen van modules worden gewist. Doorgaan?')) {
+      const protective = state.modules.filter(isProtective);
+      if ((protective.length || state.modules.some(function (module) { return module.protectedByModuleId; })) &&
+         !confirm('Alle aardlekschakelaars en de koppelingen van modules worden gewist. Geplaatste aardlekschakelaars en aardlekautomaten worden installatieautomaten. Doorgaan?')) {
          rcdEnabledEl.checked = true;
          return;
       }
       state.rcdEnabled = false;
-      state.rcds = [];
-      state.boxes.forEach(function (box) {
-         box.groups.forEach(function (module) {
-            module.rcdId = null;
-            if (protectiveTypes.includes(module.type)) {
-               module.type = 'MCB';
-               ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'].forEach(function (key) { delete module[key]; });
-            }
-         });
+      state.modules = state.modules.filter(function (module) { return !(isProtective(module) && module.boxId === null); });
+      state.modules.forEach(function (module) {
+         module.protectedByModuleId = null;
+         if (isProtective(module)) {
+            module.type = 'MCB';
+            module.phases = [];
+            protectiveKeys.forEach(function (key) { delete module[key]; });
+         }
       });
       update();
    });
 
-   document.getElementById('add-rcd').addEventListener('click', function () {
-      const number = rcdHelpers.nextNumber(state.rcds);
-      const rcd = { id: uid(), number: number, name: '', color: rcdHelpers.defaultColor(number), amountOfPoles: 2, phases: [] };
-      state.rcds.push(rcd);
-      update();
-      const last = rcdListEl.lastElementChild;
-      if (last) last.querySelectorAll('input[type="text"]')[1].focus();
-   });
-
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (hasData() && confirm('Weet je zeker dat je alle kasten, modules, Aardlekschakelaars en fase- en QR-instellingen wilt wissen?')) {
-         state = normalize(schema.empty());
-         storageWritable = true;
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, modules, aardlekschakelaars en fase- en QR-instellingen wilt wissen?')) {
+         replaceState(normalize(schema.empty()));
          update();
       }
    });

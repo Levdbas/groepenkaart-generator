@@ -4,8 +4,8 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
-   * @typedef {{id: string, boxId: string | null, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warning?: 'pv' | 'ev' | 'battery'}} ModuleData
-   * @typedef {{id: string, number: string, name: string, moduleIds: string[], supply: object | null}} BoxData
+   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warning?: 'pv' | 'ev' | 'battery'}} ModuleData
+   * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
    * @typedef {{schemaVersion: 5, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
 
@@ -48,6 +48,37 @@
       }
    };
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
+   const boxLimits = { minRails: 1, maxRails: 99, minRailWidth: 4, maxRailWidth: 48, defaultRailWidth: 12 };
+
+   /**
+    * Places modules from left to right in the given order. A module that does not fit on the rest of a rail starts
+    * the next rail. Returns the 1-based positions and the number of rails used (at least one).
+    */
+   function autoLayout(types, railWidth) {
+      let rail = 1;
+      let slot = 1;
+      const positions = types.map(function (type) {
+         const width = (moduleTypes.get(type) || { width: 1 }).width;
+         if (slot + width - 1 > railWidth) {
+            rail += 1;
+            slot = 1;
+         }
+         const position = { rail: rail, slot: slot };
+         slot += width;
+         return position;
+      });
+      return { rails: positions.length ? rail : 1, positions: positions };
+   }
+
+   function layoutBox(box, modules) {
+      const byId = Object.fromEntries(modules.map(function (module) { return [module.id, module]; }));
+      const placed = box.moduleIds.map(function (id) { return byId[id]; });
+      const layout = autoLayout(placed.map(function (module) { return module.type; }), boxLimits.defaultRailWidth);
+      placed.forEach(function (module, index) { Object.assign(module, layout.positions[index]); });
+      box.rails = layout.rails;
+      box.railWidth = boxLimits.defaultRailWidth;
+   }
+
    const connectionRatings = ['1x25A', '1x35A', '1x40A', '3x25A', '3x35A', '3x40A', '3x50A', '3x63A', '3x80A', 'Anders'];
 
    function isObject(value) {
@@ -195,7 +226,7 @@
                });
                return moduleIdValue;
             });
-            return { id: id, number: box.number, name: box.name, moduleIds: moduleIds, supply: null };
+            return { id: id, number: box.number, name: box.name, rails: 1, railWidth: boxLimits.defaultRailWidth, moduleIds: moduleIds, supply: null };
          });
          warnings.selected(warnings.normalize(data.warnings)).forEach(function (warning) {
             if (!boxes.length) return;
@@ -208,6 +239,8 @@
             });
             boxes[0].moduleIds.push(id);
          });
+         // Older versions had no physical layout: modules fill rails of the default width in their list order.
+         boxes.forEach(function (box) { layoutBox(box, modules); });
          (data.rcds || []).forEach(function (rcd) {
             modules.push({
                id: rcd.id,
@@ -280,6 +313,14 @@
          if (module.boxId !== null && (typeof module.boxId !== 'string' || !boxIds.includes(module.boxId))) {
             throw new Error('Ongeldig bestand: "boxId" van module ' + JSON.stringify(module.id) + ' verwijst naar een onbekende kast.');
          }
+         ['rail', 'slot'].forEach(function (field) {
+            if (module[field] !== undefined && (!Number.isInteger(module[field]) || module[field] < 1)) {
+               throw new Error('Ongeldig bestand: "' + field + '" van een module moet een positief geheel getal zijn.');
+            }
+         });
+         if (module.boxId === null && (module.rail !== undefined || module.slot !== undefined)) {
+            throw new Error('Ongeldig bestand: een niet-geplaatste module heeft geen rail of plek.');
+         }
          const phases = normalizePhases(module);
          const protectedByModuleId = module.protectedByModuleId;
          if (protectedByModuleId !== null && typeof protectedByModuleId !== 'string') {
@@ -311,6 +352,8 @@
          return {
             id: module.id,
             boxId: module.boxId,
+            ...(module.rail !== undefined ? { rail: module.rail } : {}),
+            ...(module.slot !== undefined ? { slot: module.slot } : {}),
             type: module.type,
             number: module.number,
             description: module.description,
@@ -387,6 +430,34 @@
       return result;
    }
 
+   function sortByPosition(modules) {
+      return modules.slice().sort(function (a, b) { return a.rail - b.rail || a.slot - b.slot; });
+   }
+
+   function validateLayout(box, placed) {
+      if (!Number.isInteger(box.rails) || box.rails < boxLimits.minRails || box.rails > boxLimits.maxRails) {
+         throw new Error('Ongeldig bestand: "rails" van een kast moet een geheel getal van ' + boxLimits.minRails + ' tot ' + boxLimits.maxRails + ' zijn.');
+      }
+      if (!Number.isInteger(box.railWidth) || box.railWidth < boxLimits.minRailWidth || box.railWidth > boxLimits.maxRailWidth) {
+         throw new Error('Ongeldig bestand: "railWidth" van een kast moet een geheel getal van ' + boxLimits.minRailWidth + ' tot ' + boxLimits.maxRailWidth + ' zijn.');
+      }
+      const taken = new Set();
+      placed.forEach(function (module) {
+         if (module.rail === undefined || module.slot === undefined) {
+            throw new Error('Ongeldig bestand: module ' + JSON.stringify(module.id) + ' in een kast heeft geen rail en plek.');
+         }
+         const width = moduleTypes.get(module.type).width;
+         if (module.rail > box.rails || module.slot + width - 1 > box.railWidth) {
+            throw new Error('Ongeldig bestand: module ' + JSON.stringify(module.id) + ' valt buiten de rails van de kast.');
+         }
+         for (let slot = module.slot; slot < module.slot + width; slot++) {
+            const key = module.rail + ':' + slot;
+            if (taken.has(key)) throw new Error('Ongeldig bestand: modules in een kast overlappen elkaar.');
+            taken.add(key);
+         }
+      });
+   }
+
    function validateFeedGraph(boxes, modules) {
       const moduleById = Object.fromEntries(modules.map(function (module) { return [module.id, module]; }));
       const boxById = Object.fromEntries(boxes.map(function (box) { return [box.id, box]; }));
@@ -458,13 +529,24 @@
             const module = moduleById[id];
             if (!module || module.boxId !== box.id) throw new Error('Ongeldig bestand: moduleverwijzing hoort niet bij deze kast.');
          });
-         return {
+         const result = {
             id: box.id,
             number: box.number,
             name: box.name,
+            rails: box.rails,
+            railWidth: box.railWidth,
             moduleIds: box.moduleIds.slice(),
             supply: normalizeSupply(box.supply === undefined ? null : box.supply, modules)
          };
+         const placed = result.moduleIds.map(function (id) { return moduleById[id]; });
+         // Draft v5 data from before the box layout has no positions at all: lay it out like a migration would.
+         if (box.rails === undefined && box.railWidth === undefined &&
+            placed.every(function (module) { return module.rail === undefined && module.slot === undefined; })) {
+            layoutBox(result, modules);
+         }
+         validateLayout(result, placed);
+         result.moduleIds = sortByPosition(placed).map(function (module) { return module.id; });
+         return result;
       });
       modules.forEach(function (module) {
          if (module.boxId && !boxes.some(function (box) { return box.id === module.boxId && box.moduleIds.includes(module.id); })) {
@@ -485,5 +567,8 @@
       };
    }
 
-   window.GroepenkaartSchema = { currentVersion: currentVersion, schemaUrl: schemaUrl, moduleTypes: moduleTypes, empty: empty, normalize: normalize };
+   window.GroepenkaartSchema = {
+      currentVersion: currentVersion, schemaUrl: schemaUrl, moduleTypes: moduleTypes, boxLimits: boxLimits,
+      autoLayout: autoLayout, empty: empty, normalize: normalize
+   };
 })();
