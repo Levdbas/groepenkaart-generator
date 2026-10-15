@@ -117,7 +117,7 @@
       };
    }
 
-   const MODULE_TYPES = window.GroepenkaartModuleTypes.definitions.map(function (type) { return type.slug; });
+   const MODULE_TYPES = window.GroepenkaartSchema.moduleTypes.definitions.map(function (type) { return type.slug; });
 
    function packV5(data) {
       const moduleIndex = {};
@@ -138,7 +138,6 @@
             supply.mainSwitchCurrent || null, supply.mainSwitchPoles || null];
       }
       return [
-         data.warnings,
          (data.qrEnabled ? 1 : 0) | (data.rcdEnabled ? 2 : 0) | (data.phaseEnabled ? 4 : 0),
          data.modules.map(function (module) {
             return [
@@ -147,7 +146,7 @@
                module.characteristic, phaseMask(module.phases),
                module.protectedByModuleId === null ? -1 : moduleIndex[module.protectedByModuleId],
                module.name === undefined ? null : module.name, module.color || null, module.items || null,
-               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null
+               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warning || null
             ];
          }),
          data.boxes.map(function (box) {
@@ -157,8 +156,8 @@
    }
 
    function unpackV5(packed) {
-      const moduleIds = packed[2].map(function (_, index) { return 'm' + (index + 1); });
-      const boxIds = packed[3].map(function (_, index) { return 'b' + (index + 1); });
+      const moduleIds = packed[1].map(function (_, index) { return 'm' + (index + 1); });
+      const boxIds = packed[2].map(function (_, index) { return 'b' + (index + 1); });
       function unpackSupply(supply) {
          if (!supply) return null;
          if (supply[0] === 'm') {
@@ -183,11 +182,10 @@
       }
       return {
          schemaVersion: 5,
-         warnings: packed[0],
-         qrEnabled: !!(packed[1] & 1),
-         rcdEnabled: !!(packed[1] & 2),
-         phaseEnabled: !!(packed[1] & 4),
-         modules: packed[2].map(function (row, index) {
+         qrEnabled: !!(packed[0] & 1),
+         rcdEnabled: !!(packed[0] & 2),
+         phaseEnabled: !!(packed[0] & 4),
+         modules: packed[1].map(function (row, index) {
             return {
                id: moduleIds[index],
                boxId: row[0] < 0 ? null : boxIds[row[0]],
@@ -202,10 +200,11 @@
                ...(row[9] !== null ? { items: row[9] } : {}),
                ...(row[10] !== null ? { sensitivity: row[10] } : {}),
                ...(row[11] !== null ? { rcdType: row[11] } : {}),
-               ...(row[12] !== null ? { ratedCurrent: row[12] } : {})
+               ...(row[12] !== null ? { ratedCurrent: row[12] } : {}),
+               ...(row[13] !== null ? { warning: row[13] } : {})
             };
          }),
-         boxes: packed[3].map(function (row, index) {
+         boxes: packed[2].map(function (row, index) {
             return {
                id: boxIds[index],
                number: row[0],

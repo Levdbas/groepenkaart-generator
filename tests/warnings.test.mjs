@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
-const sources = await Promise.all(['warnings', 'rcd', 'module-types', 'pdf'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'schema', 'pdf'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 
 function setup() {
@@ -279,9 +279,10 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       const document = harness.document();
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
-      assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
-      assert.ok(text.indexOf('LET OP!') > text.indexOf('Module-indeling'));
-      assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
+      const displayedCount = selected.filter((id) => displayedIds.includes(id)).length;
+      assert.equal(harness.warningCards.length, displayedCount);
+      assert.equal(harness.warningImages.length, displayedCount);
+      assert.ok(!text.includes('LET OP!'));
       assert.equal(document.lastAutoTable.settings.startY, 58);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('Group-1-1'));

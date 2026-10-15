@@ -7,7 +7,7 @@
    const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
-   const moduleTypes = window.GroepenkaartModuleTypes;
+   const moduleTypes = schema.moduleTypes;
    const rcdHelpers = window.GroepenkaartRcd;
    const share = window.GroepenkaartShare;
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
@@ -31,22 +31,6 @@
    const phaseEnabledEl = document.getElementById('phase-enabled');
    const rcdPanelEl = document.getElementById('rcd-panel');
    const rcdListEl = document.getElementById('rcd-list');
-   const warningInputs = warnings.definitions.map(function (warning) {
-      const checkbox = el('input', { type: 'checkbox', value: warning.id });
-      checkbox.addEventListener('change', function () {
-         const selectable = warnings.definitions.map(function (definition) { return definition.id; });
-         state.warnings = state.warnings.filter(function (id) { return !selectable.includes(id); })
-            .concat(warningInputs.filter(function (node) { return node.checked; })
-               .map(function (node) { return node.value; }));
-         state.warnings = warnings.normalize(state.warnings);
-         save();
-         renderPrint();
-      });
-      document.getElementById('installation-options').appendChild(el('label', null, [
-         checkbox, el('span', { text: warning.label })
-      ]));
-      return checkbox;
-   });
 
    function uid() {
       if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -130,7 +114,6 @@
       const modulesById = Object.fromEntries(normalized.modules.map(function (module) { return [module.id, module]; }));
       return {
          schemaVersion: normalized.schemaVersion,
-         warnings: normalized.warnings,
          qrEnabled: normalized.qrEnabled,
          rcdEnabled: normalized.rcdEnabled,
          phaseEnabled: normalized.phaseEnabled,
@@ -153,7 +136,7 @@
                   return {
                      ...module,
                      rcdId: module.protectedByModuleId,
-                     phases: module.phases.slice(),
+                     phases: moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
                      ...(module.items ? { items: module.items.slice() } : {})
                   };
                })
@@ -179,7 +162,8 @@
                ...(group.sensitivity !== undefined ? { sensitivity: group.sensitivity } : {}),
                ...(group.rcdType !== undefined ? { rcdType: group.rcdType } : {}),
                ...(group.ratedCurrent !== undefined ? { ratedCurrent: group.ratedCurrent } : {}),
-               ...(group.color !== undefined ? { color: group.color } : {})
+               ...(group.color !== undefined ? { color: group.color } : {}),
+               ...(group.warning ? { warning: group.warning } : {})
             });
             return group.id;
          });
@@ -208,7 +192,6 @@
       });
       return schema.normalize({
          schemaVersion: 5,
-         warnings: data.warnings,
          qrEnabled: data.qrEnabled,
          rcdEnabled: data.rcdEnabled,
          phaseEnabled: data.phaseEnabled,
@@ -302,6 +285,30 @@
       ]);
    }
 
+   function moduleWarningControl(module) {
+      const allowed = (moduleTypes.get(module.type) || {}).warnings;
+      if (!allowed || !allowed.length) return null;
+      const select = el('select', { 'aria-label': 'Bijzondere installatie voor module ' + module.number }, [
+         el('option', { value: '', text: 'Geen bijzondere installatie' })
+      ].concat(warnings.definitions.filter(function (warning) { return allowed.includes(warning.id); }).map(function (warning) {
+         return el('option', { value: warning.id, text: warning.label });
+      })));
+      select.value = module.warning || '';
+      select.addEventListener('change', function () {
+         if (select.value) module.warning = select.value;
+         else delete module.warning;
+         save();
+         renderPrint();
+      });
+      return el('label', { className: 'field' }, [el('span', { text: 'Bijzondere installatie (waarschuwing)' }), select]);
+   }
+
+   // Warning cards follow the modules that flag an installation, in the fixed card order.
+   function activeWarnings() {
+      const flagged = state.boxes.flatMap(function (box) { return box.groups.map(function (module) { return module.warning; }); });
+      return warnings.codes.filter(function (code) { return flagged.includes(code); });
+   }
+
    function moduleTechnicalControls(module) {
       const rcdType = el('select', { 'aria-label': 'Aardlektype voor module ' + module.number }, [
          el('option', { value: '', text: 'Aardlektype' }),
@@ -367,6 +374,14 @@
          });
          ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'].forEach(function (key) { delete module[key]; });
       }
+      const definition = moduleTypes.get(type);
+      if (!isProtective) {
+         // One-phase types start without a phase; three-phase types always use all three.
+         if (definition.phases === 1) module.phases = [];
+         else if (definition.phases === 2) module.phases = module.phases.slice(0, 2);
+         else if (moduleTypes.allPhases(type)) module.phases = rcdHelpers.phaseCodes.slice();
+      }
+      if (module.warning && (definition.warnings || []).indexOf(module.warning) === -1) delete module.warning;
       module.type = type;
       update();
    }
@@ -403,6 +418,18 @@
    }
 
    function groupPhaseInput(group) {
+      if (moduleTypes.allPhases(group.type)) {
+         return el('fieldset', { className: 'phase-choices' }, [
+            el('legend', { text: 'Fasen voor module ' + group.number }),
+            ...rcdHelpers.phaseCodes.map(function (phase) {
+               const checkbox = el('input', { type: 'checkbox', value: phase });
+               checkbox.checked = true;
+               checkbox.disabled = true;
+               return el('label', null, [checkbox, el('span', { text: phase })]);
+            }),
+            el('span', { className: 'phase-status', text: rcdHelpers.phaseText(rcdHelpers.phaseCodes) })
+         ]);
+      }
       const rcd = state.rcds.find(function (r) { return r.id === group.rcdId; }) ||
          (protectiveTypes.includes(group.type) ? state.rcds.find(function (r) { return r.id === group.id; }) : null);
       if (rcd && rcd.amountOfPoles === 2) {
@@ -444,9 +471,9 @@
       const items = groupItemsInput(group);
       // With phases the connections get their own row; otherwise they stay stacked under the description.
       const descriptionCells = state.phaseEnabled ? [
-         el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [moduleTypeControl(group), description, characteristic, moduleTechnicalControls(group)]),
+         el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [moduleTypeControl(group), moduleWarningControl(group), description, characteristic, moduleTechnicalControls(group)]),
          el('td', { className: 'group-items' }, [items])
-      ] : [el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [moduleTypeControl(group), description, characteristic, moduleTechnicalControls(group), items])];
+      ] : [el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [moduleTypeControl(group), moduleWarningControl(group), description, characteristic, moduleTechnicalControls(group), items])];
       return el('tr', null, [
          el('td', { className: 'group-number', 'data-label': 'Module' }, [input(group.number, 'Nr', 'Modulenummer', function (v) {
             group.number = v;
@@ -873,7 +900,7 @@
          const rows = box.groups.map(function (g) {
             const entry = lookup[g.rcdId];
             const protection = entry || (protectiveTypes.includes(g.type) ? lookup[g.id] : null);
-            const phases = rcdHelpers.groupPhases(g, protection && protection.rcd);
+            const phases = rcdHelpers.groupPhases(g, moduleTypes.allPhases(g.type) ? null : protection && protection.rcd);
             return el('tr', null, [
                el('td', protection ? {
                   className: 'rcd-cell',
@@ -932,7 +959,7 @@
    }
 
    function renderWarnings() {
-      const selected = warnings.selected(state.warnings);
+      const selected = warnings.selected(activeWarnings());
       if (!selected.length) return null;
       return el('div', { className: 'print-warnings' }, selected.map(function (warning) {
          return el('div', { className: 'print-warning' }, [
@@ -961,7 +988,6 @@
    }
 
    function render() {
-      warningInputs.forEach(function (node) { node.checked = state.warnings.includes(node.value); });
       phaseEnabledEl.checked = state.phaseEnabled;
       qrEnabledEl.checked = state.qrEnabled;
       fillRowsEl.checked = fillRows;
@@ -973,7 +999,7 @@
    }
 
    function hasData() {
-      return !storageWritable || state.boxes.length || state.warnings.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
+      return !storageWritable || state.boxes.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
    }
 
    function shareUrl() {
@@ -1069,7 +1095,7 @@
          window.print();
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), state.warnings, state.rcds, state.phaseEnabled, qr, rcdFirst, warningImages)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), activeWarnings(), state.rcds, state.phaseEnabled, qr, rcdFirst, warningImages)) {
          window.print();
       }
    });
@@ -1141,7 +1167,7 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (hasData() && confirm('Weet je zeker dat je alle kasten, modules, Aardlekschakelaars, installatiewaarschuwingen en fase- en QR-instellingen wilt wissen?')) {
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, modules, Aardlekschakelaars en fase- en QR-instellingen wilt wissen?')) {
          state = normalize(schema.empty());
          storageWritable = true;
          update();

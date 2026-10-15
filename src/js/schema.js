@@ -4,16 +4,49 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
-   * @typedef {{id: string, boxId: string | null, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number}} ModuleData
+   * @typedef {{id: string, boxId: string | null, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warning?: 'pv' | 'ev' | 'battery'}} ModuleData
    * @typedef {{id: string, number: string, name: string, moduleIds: string[], supply: object | null}} BoxData
-   * @typedef {{schemaVersion: 5, warnings: WarningCode[], qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
+   * @typedef {{schemaVersion: 5, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
 
    const currentVersion = 5;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
-   const moduleTypes = window.GroepenkaartModuleTypes;
+   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag.
+   const typeDefinitions = [
+      { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
+      { slug: 'MCB-2P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
+      { slug: 'MCB-3P', label: 'Fornuisgroep', description: 'Range circuit', phases: 2, width: 2 },
+      { slug: 'RCD-2P', label: 'Aardlekschakelaar 2P', description: 'Residual Current Device', phases: null, width: 2 },
+      { slug: 'RCD-4P', label: 'Aardlekschakelaar 4P', description: 'Residual Current Device', phases: null, width: 4, phaseMode: 'three' },
+      { slug: 'MAINS-2P', label: 'Hoofdschakelaar 2P', description: 'Switch-disconnector or main isolator', phases: 1, width: 2, phaseMode: 'single' },
+      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three' },
+      { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1 },
+      { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three' },
+      { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3 },
+      { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2 },
+      { slug: 'KWH-2P', label: 'KWh meter 2P', description: 'Write kWh with a lowercase k', phases: 1, width: 1 },
+      { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4 },
+      { slug: 'SPD', label: 'Overspanningsbeveiliging', description: '', phases: 1, width: 1 }
+   ];
+   const typesBySlug = Object.fromEntries(typeDefinitions.map(function (definition) { return [definition.slug, definition]; }));
+   const moduleTypes = {
+      definitions: typeDefinitions,
+      get: function (slug) { return typesBySlug[slug] || null; },
+      available: function (slug, phaseEnabled) {
+         const definition = typesBySlug[slug];
+         if (!definition) return false;
+         if (definition.phaseMode === 'three') return phaseEnabled === true;
+         if (definition.phaseMode === 'single') return phaseEnabled !== true;
+         return true;
+      },
+      // Types that always use all three phases (an RCD has no nominal count in the catalog, but 4P means three).
+      allPhases: function (slug) {
+         const definition = typesBySlug[slug];
+         return !!definition && (definition.phases === 3 || slug === 'RCD-4P');
+      }
+   };
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
    const connectionRatings = ['1x25A', '1x35A', '1x40A', '3x25A', '3x35A', '3x40A', '3x50A', '3x63A', '3x80A', 'Anders'];
 
@@ -120,8 +153,10 @@
       3: function (data) {
          return Object.assign({}, data, { schemaVersion: 4, qrEnabled: false });
       },
+      // Global installation warnings become explicit MCB modules in the first box, so nothing is lost.
       4: function (data) {
          if (!Array.isArray(data.rcds)) throw new Error('Ongeldig bestand: "rcds" moet een lijst zijn.');
+         if (!Array.isArray(data.warnings)) throw new Error('Ongeldig bestand: "warnings" moet een lijst zijn.');
          data.rcds.forEach(function (rcd) {
             requireStrings(rcd, ['id', 'number', 'name', 'color'], 'een aardlekschakelaar');
             if (rcd.amountOfPoles !== 2 && rcd.amountOfPoles !== 4) {
@@ -162,6 +197,17 @@
             });
             return { id: id, number: box.number, name: box.name, moduleIds: moduleIds, supply: null };
          });
+         warnings.selected(warnings.normalize(data.warnings)).forEach(function (warning) {
+            if (!boxes.length) return;
+            let id = 'legacy-warning-' + warning.id;
+            while (usedIds.has(id)) id += '-1';
+            usedIds.add(id);
+            modules.push({
+               id: id, boxId: boxes[0].id, type: 'MCB', number: '', description: warning.label, characteristic: '',
+               phases: [], protectedByModuleId: null, warning: warning.id
+            });
+            boxes[0].moduleIds.push(id);
+         });
          (data.rcds || []).forEach(function (rcd) {
             modules.push({
                id: rcd.id,
@@ -178,7 +224,6 @@
          });
          return {
             schemaVersion: 5,
-            warnings: data.warnings,
             qrEnabled: data.qrEnabled,
             rcdEnabled: data.rcdEnabled,
             phaseEnabled: data.phaseEnabled,
@@ -211,7 +256,7 @@
 
    /** @returns {CardData} */
    function empty() {
-      return { schemaVersion: currentVersion, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] };
+      return { schemaVersion: currentVersion, qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] };
    }
 
    function normalizePhases(value) {
@@ -253,6 +298,9 @@
          if (module.ratedCurrent !== undefined && (!Number.isFinite(module.ratedCurrent) || module.ratedCurrent <= 0)) {
             throw new Error('Ongeldig bestand: "ratedCurrent" moet een positief getal zijn.');
          }
+         if (module.warning !== undefined && (moduleTypes.get(module.type).warnings || []).indexOf(module.warning) === -1) {
+            throw new Error('Ongeldig bestand: moduletype ' + module.type + ' ondersteunt de waarschuwing "' + module.warning + '" niet.');
+         }
          if (['RCD-2P', 'RCBO-2P'].includes(module.type) && phases.length > 1) {
             throw new Error('Ongeldig bestand: een 2-polige beveiligingsmodule kan maar één fase hebben.');
          }
@@ -274,6 +322,7 @@
             ...(module.sensitivity !== undefined ? { sensitivity: module.sensitivity } : {}),
             ...(module.rcdType !== undefined ? { rcdType: module.rcdType } : {}),
             ...(module.ratedCurrent !== undefined ? { ratedCurrent: module.ratedCurrent } : {}),
+            ...(module.warning !== undefined ? { warning: module.warning } : {}),
             ...normalizeItems(module)
          };
       });
@@ -376,7 +425,6 @@
          if (data.schemaVersion !== version) throw new Error('Migratie naar schemaversie ' + version + ' mislukt.');
       }
       if (!Array.isArray(data.boxes)) throw new Error('Ongeldig bestand: "boxes" ontbreekt.');
-      if (!Array.isArray(data.warnings)) throw new Error('Ongeldig bestand: "warnings" moet een lijst zijn.');
       if (typeof data.phaseEnabled !== 'boolean') throw new Error('Ongeldig bestand: "phaseEnabled" moet waar of onwaar zijn.');
       if (typeof data.qrEnabled !== 'boolean') throw new Error('Ongeldig bestand: "qrEnabled" moet waar of onwaar zijn.');
       if (typeof data.rcdEnabled !== 'boolean') throw new Error('Ongeldig bestand: "rcdEnabled" moet waar of onwaar zijn.');
@@ -429,7 +477,6 @@
       }
       return {
          schemaVersion: currentVersion,
-         warnings: warnings.normalize(data.warnings),
          qrEnabled: data.qrEnabled,
          rcdEnabled: data.rcdEnabled,
          phaseEnabled: data.phaseEnabled,
@@ -438,5 +485,5 @@
       };
    }
 
-   window.GroepenkaartSchema = { currentVersion: currentVersion, schemaUrl: schemaUrl, empty: empty, normalize: normalize };
+   window.GroepenkaartSchema = { currentVersion: currentVersion, schemaUrl: schemaUrl, moduleTypes: moduleTypes, empty: empty, normalize: normalize };
 })();

@@ -145,7 +145,7 @@
    }
 
    function moduleMetadata(module, boxes) {
-      const definition = window.GroepenkaartModuleTypes.get(module.type || 'MCB');
+      const definition = window.GroepenkaartSchema.moduleTypes.get(module.type || 'MCB');
       const details = definition ? [definition.slug, definition.width + (definition.width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
       if (module.characteristic) details.push(module.characteristic);
       if (module.rcdType) details.push('type ' + module.rcdType);
@@ -309,7 +309,8 @@
                   return '\u2022 ' + item;
                })).join('\n');
             const row = [rcd.cellText(g.number, entries[i], rcdFirst), description];
-            if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, entries[i] && entries[i].rcd)));
+            const protection = window.GroepenkaartSchema.moduleTypes.allPhases(g.type) ? null : entries[i] && entries[i].rcd;
+            if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, protection)));
             return row;
          });
          for (let i = box.groups.length; i < minRows; i++) body.push(phaseEnabled ? ['', '', ''] : ['', '']);

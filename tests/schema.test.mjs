@@ -6,7 +6,7 @@ import vm from 'node:vm';
 
 const require = createRequire(import.meta.url);
 
-const sources = await Promise.all(['warnings', 'rcd', 'module-types', 'schema', 'share', 'app'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'schema', 'share', 'app'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 const readSchema = async (version) => JSON.parse(await readFile(
    new URL(`../schemas/groepenkaart-v${version}.schema.json`, import.meta.url), 'utf8'));
@@ -29,6 +29,8 @@ const legacy = {
    ]
 };
 const v1 = { schemaVersion: 1, ...legacy };
+// Same cards without warnings, for tests that count module rows.
+const noWarnings = { ...legacy, warnings: [] };
 // The shape published as schema version 2, before phase support.
 const v2 = {
    schemaVersion: 2,
@@ -114,13 +116,22 @@ function expectedV5(data) {
       });
       return { id, number: box.number, name: box.name, moduleIds, supply: null };
    });
+   const labels = { pv: 'PV-installatie (zonnepanelen)', ev: 'EV-lader', battery: 'Thuisbatterij (EOS)' };
+   for (const code of ['pv', 'ev', 'battery']) {
+      if (!boxes.length || !(data.warnings || []).includes(code)) continue;
+      modules.push({
+         id: `legacy-warning-${code}`, boxId: boxes[0].id, type: 'MCB', number: '', description: labels[code],
+         characteristic: '', phases: [], protectedByModuleId: null, warning: code
+      });
+      boxes[0].moduleIds.push(`legacy-warning-${code}`);
+   }
    (data.rcds || []).forEach((rcd) => modules.push({
       id: rcd.id, boxId: null, type: rcd.amountOfPoles === 4 ? 'RCD-4P' : 'RCD-2P',
       number: rcd.number, name: rcd.name, color: rcd.color, description: '', characteristic: '',
       phases: rcd.phases, protectedByModuleId: null
    }));
    return {
-      schemaVersion: 5, warnings: data.warnings, qrEnabled: data.qrEnabled,
+      schemaVersion: 5, qrEnabled: data.qrEnabled,
       rcdEnabled: data.rcdEnabled, phaseEnabled: data.phaseEnabled, modules, boxes
    };
 }
@@ -130,7 +141,6 @@ function editorState(data) {
    const protective = data.modules.filter((module) => ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'].includes(module.type));
    return {
       schemaVersion: 5,
-      warnings: data.warnings,
       qrEnabled: data.qrEnabled,
       rcdEnabled: data.rcdEnabled,
       phaseEnabled: data.phaseEnabled,
@@ -184,8 +194,8 @@ function semanticV5(data) {
 function setupSchema() {
    const window = {};
    const context = vm.createContext({ window });
-   sources.slice(0, 4).forEach((source) => vm.runInContext(source, context));
-   return { schema: window.GroepenkaartSchema, moduleTypes: window.GroepenkaartModuleTypes, context };
+   sources.slice(0, 3).forEach((source) => vm.runInContext(source, context));
+   return { schema: window.GroepenkaartSchema, moduleTypes: window.GroepenkaartSchema.moduleTypes, context };
 }
 
 test('module type catalog preserves the declared slugs, widths, phases and conditions', () => {
@@ -205,6 +215,10 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
    assert.equal(moduleTypes.available('unknown', true), false);
+   assert.equal(moduleTypes.allPhases('MCB-2P'), true);
+   assert.equal(moduleTypes.allPhases('RCD-4P'), true);
+   assert.equal(moduleTypes.allPhases('MCB'), false);
+   assert.equal(moduleTypes.allPhases('MCB-3P'), false);
    assert.deepEqual(Array.from(moduleTypes.get('MCB').warnings), ['ev', 'pv', 'battery']);
 });
 
@@ -235,12 +249,13 @@ test('v4 migration creates stable typed modules and preserves RCD references', (
 test('c2 compact links round-trip modules, protection references and supply fields', () => {
    const { schema, context } = setupSchema();
    context.window.fflate = require('fflate');
-   vm.runInContext(sources[4], context);
+   vm.runInContext(sources[3], context);
    const share = context.window.GroepenkaartShare;
    const data = schema.normalize(withRcds);
    data.modules[4].sensitivity = 30;
    data.modules[4].rcdType = 'A';
    data.modules[4].ratedCurrent = 40;
+   data.modules[0].warning = 'ev';
    data.boxes[0].supply = {
       type: 'mains', connectionRating: 'Anders', customConnectionRating: '3x45A', supplier: 'Stedin',
       mainSwitchCurrent: 40, mainSwitchPoles: 4
@@ -257,6 +272,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    assert.equal(decoded.modules[4].sensitivity, 30);
    assert.equal(decoded.modules[4].rcdType, 'A');
    assert.equal(decoded.modules[4].ratedCurrent, 40);
+   assert.equal(decoded.modules[0].warning, 'ev');
    assert.equal(decoded.modules[0].protectedByModuleId, decoded.modules[4].id);
    assert.deepEqual(Array.from(decoded.boxes[0].moduleIds), ['m1', 'm2']);
    assert.deepEqual(plain(decoded.boxes[1].supply), {
@@ -352,8 +368,8 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
       setTimeout(callback) { timers.push(callback); return timers.length; },
       clearTimeout() { timers.length = 0; }
    });
+   vm.runInContext(sources[3], context);
    vm.runInContext(sources[4], context);
-   vm.runInContext(sources[5], context);
    const findAll = (root, predicate, found = []) => {
       if (predicate(root)) found.push(root);
       root.children.forEach((child) => findAll(child, predicate, found));
@@ -368,11 +384,6 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
       async export() {
          nodes.get('export-json').listeners.click();
          return JSON.parse(await exported.text());
-      },
-      selectWarning() {
-         const checkbox = nodes.get('installation-options').children[0].children[0];
-         checkbox.checked = true;
-         checkbox.listeners.change();
       },
       setRcdEnabled(value) {
          const checkbox = nodes.get('rcd-enabled');
@@ -430,10 +441,11 @@ test('v2 files migrate to v5 with default phase settings and keep all existing d
    withItems.warnings = ['pv'];
    withItems.boxes[0].groups[0].items = ['Vaatwasser'];
    const migrated = plain(schema.normalize(withItems));
-   assert.deepEqual(migrated.warnings, ['pv']);
+   assert.deepEqual(plain(migrated.modules.filter((module) => module.warning).map((module) => [module.id, module.warning, module.boxId])),
+      [['legacy-warning-pv', 'pv', migrated.boxes[0].id]]);
    assert.deepEqual(migrated.modules[0].items, ['Vaatwasser']);
    assert.deepEqual(migrated.modules.filter((module) => module.type.startsWith('RCD')).map((module) => module.id), ['r1', 'r2']);
-   assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB').map((module) => module.protectedByModuleId), ['r1', null, 'r1', 'r2']);
+   assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB' && !module.warning).map((module) => module.protectedByModuleId), ['r1', null, 'r1', 'r2']);
 });
 
 test('v2 to v3 renames the RCBO fields to RCD fields', () => {
@@ -592,7 +604,7 @@ test('v3 round-trip keeps all data, RCD IDs, and strips UI-only IDs', () => {
    const normalized = plain(schema.normalize(data));
    assert.deepEqual(normalized, expectedV5(withRcds));
    assert.deepEqual(plain(schema.normalize(normalized)), normalized);
-   assert.deepEqual(plain(schema.empty()), { schemaVersion: 5, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] });
+   assert.deepEqual(plain(schema.empty()), { schemaVersion: 5, qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] });
 });
 
 test('v3 files that still use the old RCBO field names are rejected', () => {
@@ -751,17 +763,16 @@ test('published schemas match the current version, required fields, and warning 
    const { schema, context } = setupSchema();
    assert.equal(publishedSchema.properties.schemaVersion.const, schema.currentVersion);
    assert.deepEqual(publishedSchema.required, Object.keys(plain(schema.empty())));
-   assert.deepEqual(publishedSchema.properties.warnings.items.enum,
-      Array.from(context.window.GroepenkaartWarnings.codes));
+   assert.deepEqual(publishedSchema.$defs.module.properties.warning.enum, ['pv', 'ev', 'battery']);
+   assert.ok(!('warnings' in publishedSchema.properties));
    assert.deepEqual(publishedV2Schema.properties.warnings.items.enum,
       Array.from(context.window.GroepenkaartWarnings.codes));
    assert.deepEqual(publishedV1Schema.properties.warnings.items.enum,
       Array.from(context.window.GroepenkaartWarnings.codes));
-   assert.ok(publishedSchema.properties.warnings.items.enum.includes('ev'));
    assert.equal(publishedSchema.properties.rcdEnabled.type, 'boolean');
    assert.equal(publishedSchema.properties.phaseEnabled.type, 'boolean');
    assert.ok(publishedSchema.required.includes('phaseEnabled'));
-   assert.deepEqual(publishedSchema.required, ['schemaVersion', 'warnings', 'qrEnabled', 'rcdEnabled', 'phaseEnabled', 'modules', 'boxes']);
+   assert.deepEqual(publishedSchema.required, ['schemaVersion', 'qrEnabled', 'rcdEnabled', 'phaseEnabled', 'modules', 'boxes']);
    assert.equal(publishedSchema.properties.qrEnabled.type, 'boolean');
    assert.deepEqual(publishedSchema.$defs.phases.items.enum, ['L1', 'L2', 'L3']);
    assert.equal(publishedSchema.$defs.phases.uniqueItems, true);
@@ -818,9 +829,6 @@ test('browser storage migrates on load and exports the same portable versioned d
    const app = setupApp(JSON.stringify(legacy));
    assert.deepEqual(JSON.parse(app.storage()), expectedV5(v4));
    assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...expectedV5(v4) });
-   assert.equal(app.nodes.get('installation-options').children.length, 3);
-   app.selectWarning();
-   assert.deepEqual(JSON.parse(app.storage()).warnings, legacy.warnings);
    assert.equal(app.nodes.get('boxes').children.length, 2);
    assert.equal(app.nodes.get('rcd-panel').hidden, true);
    assert.equal(app.selects().length, 0);
@@ -958,7 +966,7 @@ test('groups have no name field: the description takes its place in the editor, 
 });
 
 test('module type controls derive width, preserve characteristics and create protective modules', () => {
-   const app = setupApp(JSON.stringify(legacy));
+   const app = setupApp(JSON.stringify(noWarnings));
    const typeControls = () => app.findAll(app.nodes.get('boxes'), (node) => node.className === 'module-type-select');
    assert.equal(typeControls().length, 2);
    assert.ok(!typeControls()[0].children.some((option) => option.value === 'MCB-2P'));
@@ -970,7 +978,7 @@ test('module type controls derive width, preserve characteristics and create pro
    let module = JSON.parse(app.storage()).modules[0];
    assert.equal(module.type, 'MCB-2P');
    assert.ok(!('width' in module));
-   assert.equal(app.shareContext.GroepenkaartModuleTypes.get(module.type).width, 4);
+   assert.equal(app.shareContext.GroepenkaartSchema.moduleTypes.get(module.type).width, 4);
 
    const characteristic = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Kenmerk voor module 1')[0];
    characteristic.value = 'C32';
@@ -1002,8 +1010,74 @@ test('module type controls derive width, preserve characteristics and create pro
    assert.ok(app.findAll(app.nodes.get('print-area'), (node) => node.className === 'print-rcd-key').length);
 });
 
+test('a module warning must be one its type may flag', () => {
+   const { schema } = setupSchema();
+   const data = plain(schema.normalize(noWarnings));
+   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
+   assert.equal(schema.normalize(variant((d) => { d.modules[0].warning = 'pv'; })).modules[0].warning, 'pv');
+   for (const warning of ['heat-pump', 'unknown', 1]) {
+      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warning = warning; })), /waarschuwing/);
+   }
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[0].type = 'SPD'; d.modules[0].warning = 'pv'; })),
+      /ondersteunt de waarschuwing/);
+});
+
+test('the installation warning is chosen per module and drives the warning cards', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   const boxes = () => app.nodes.get('boxes');
+   const byLabel = (label) => app.findAll(boxes(), (n) => n.attrs['aria-label'] === label)[0];
+   const cards = () => app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warning');
+   assert.deepEqual(Array.from(byLabel('Bijzondere installatie voor module 1').children, (option) => option.value),
+      ['', 'pv', 'ev', 'battery']);
+   assert.equal(cards().length, 0);
+
+   byLabel('Bijzondere installatie voor module 1').value = 'battery';
+   byLabel('Bijzondere installatie voor module 1').listeners.change();
+   byLabel('Bijzondere installatie voor module 2').value = 'pv';
+   byLabel('Bijzondere installatie voor module 2').listeners.change();
+   assert.deepEqual(JSON.parse(app.storage()).modules.map((module) => module.warning), ['battery', 'pv']);
+   assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg', 'images/eos.svg']);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.deepEqual(app.pdfCalls[0][2], ['pv', 'battery']);
+
+   byLabel('Moduletype voor module 1').value = 'SPD';
+   byLabel('Moduletype voor module 1').listeners.change();
+   assert.ok(!('warning' in JSON.parse(app.storage()).modules[0]));
+   assert.equal(byLabel('Bijzondere installatie voor module 1'), undefined);
+   assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg']);
+});
+
+test('choosing a module type clears one-phase selections and locks three-phase modules', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   app.setPhaseEnabled(true);
+   const boxes = () => app.nodes.get('boxes');
+   const type = () => app.findAll(boxes(), (n) => n.attrs['aria-label'] === 'Moduletype voor module 1')[0];
+   const phaseInputs = () => app.findAll(app.findAll(boxes(), (n) => n.className === 'group-phases')[0], (n) => n.tag === 'input');
+   const stored = () => JSON.parse(app.storage()).modules[0].phases;
+
+   phaseInputs()[1].checked = true;
+   phaseInputs()[1].listeners.change();
+   assert.deepEqual(stored(), ['L2']);
+
+   type().value = 'MCB-2P';
+   type().listeners.change();
+   assert.deepEqual(stored(), ['L1', 'L2', 'L3']);
+   assert.ok(phaseInputs().every((input) => input.checked && input.disabled));
+
+   type().value = 'KWH-2P';
+   type().listeners.change();
+   assert.deepEqual(stored(), []);
+   assert.ok(phaseInputs().every((input) => !input.checked && !input.disabled));
+
+   phaseInputs()[0].checked = true;
+   phaseInputs()[0].listeners.change();
+   type().value = 'SPD';
+   type().listeners.change();
+   assert.deepEqual(stored(), [], 'switching between one-phase types starts empty again');
+});
+
 test('sub-distribution supply references stable modules and renders inverse feed details', () => {
-   const app = setupApp(JSON.stringify(legacy));
+   const app = setupApp(JSON.stringify(noWarnings));
    const supplyType = (number) => app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Soort voeding kast ' + number)[0];
    supplyType('1').value = 'mains';
    supplyType('1').listeners.change();
@@ -1126,7 +1200,7 @@ test('phase editing applies inheritance immediately across boxes and preserves i
 });
 
 test('RCDs can be added and linked to groups in any box, and linked groups are colored in print', () => {
-   const app = setupApp(JSON.stringify(legacy));
+   const app = setupApp(JSON.stringify(noWarnings));
    app.setRcdEnabled(true);
    assert.equal(app.nodes.get('rcd-panel').hidden, false);
    app.addRcd();
@@ -1296,7 +1370,7 @@ test('failed storage loads cannot be overwritten by edits or cancelled imports',
       const app = setupApp(stored);
       assert.equal(app.storage(), stored);
       assert.equal(app.messages.length, 2);
-      app.selectWarning();
+      app.setPhaseEnabled(true);
       assert.equal(app.storage(), stored);
       app.confirm(false);
       app.import(legacy);
@@ -1312,7 +1386,7 @@ test('clearing data writes the current schema, including after a failed load or 
       const app = setupApp(stored);
       app.nodes.get('clear-all').listeners.click();
       assert.deepEqual(JSON.parse(app.storage()), {
-         schemaVersion: 5, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: []
+         schemaVersion: 5, qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: []
       });
    }
    const app = setupApp();

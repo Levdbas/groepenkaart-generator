@@ -6,7 +6,6 @@
   "type": "object",
   "required": [
     "schemaVersion",
-    "warnings",
     "qrEnabled",
     "rcdEnabled",
     "phaseEnabled",
@@ -16,10 +15,6 @@
   "properties": {
     "$schema": { "type": "string", "format": "uri" },
     "schemaVersion": { "type": "integer", "const": 5 },
-    "warnings": {
-      "type": "array",
-      "items": { "enum": ["pv", "ev", "battery", "heat-pump"] }
-    },
     "qrEnabled": { "type": "boolean" },
     "rcdEnabled": { "type": "boolean" },
     "phaseEnabled": { "type": "boolean" },
@@ -96,7 +91,11 @@
         "items": { "type": "array", "items": { "type": "string" } },
         "sensitivity": { "type": "integer", "enum": [10, 30, 100, 300] },
         "rcdType": { "enum": ["AC", "A", "F", "B", "B+"] },
-        "ratedCurrent": { "type": "number", "exclusiveMinimum": 0 }
+        "ratedCurrent": { "type": "number", "exclusiveMinimum": 0 },
+        "warning": {
+          "description": "Installation this module flags with a warning card on the first page. Only MCB and MCB-2P modules may set it.",
+          "enum": ["pv", "ev", "battery"]
+        }
       },
       "if": {
         "properties": {
@@ -105,6 +104,10 @@
       },
       "then": { "required": ["color"] },
       "allOf": [
+        {
+          "if": { "required": ["warning"] },
+          "then": { "properties": { "type": { "enum": ["MCB", "MCB-2P"] } } }
+        },
         {
           "if": { "properties": { "type": { "enum": ["RCD-4P", "RCBO-4P"] } } },
           "then": { "properties": { "phases": { "minItems": 3 } } }
