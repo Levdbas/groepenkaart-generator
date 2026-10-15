@@ -105,9 +105,12 @@
         "sensitivity": { "type": "integer", "enum": [10, 30, 100, 300] },
         "rcdType": { "enum": ["AC", "A", "F", "B", "B+"] },
         "ratedCurrent": { "type": "number", "exclusiveMinimum": 0 },
-        "warning": {
-          "description": "Installation this module flags with a warning card on the first page. Only MCB and MCB-2P modules may set it.",
-          "enum": ["pv", "ev", "battery"]
+        "warnings": {
+          "description": "Installations this module flags with a warning card on the first page. Only MCB and MCB-2P modules may set it.",
+          "type": "array",
+          "items": { "enum": ["pv", "ev", "battery"] },
+          "uniqueItems": true,
+          "minItems": 1
         }
       },
       "if": {
@@ -135,7 +138,7 @@
           }
         },
         {
-          "if": { "required": ["warning"] },
+          "if": { "required": ["warnings"] },
           "then": { "properties": { "type": { "enum": ["MCB", "MCB-2P"] } } }
         },
         {

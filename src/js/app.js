@@ -351,7 +351,7 @@
 
    // Warning cards follow the modules that flag an installation, in the fixed card order.
    function activeWarnings() {
-      const flagged = state.modules.map(function (module) { return module.warning; });
+      const flagged = state.modules.flatMap(function (module) { return module.warnings || []; });
       return warnings.codes.filter(function (code) { return flagged.includes(code); });
    }
 
@@ -417,7 +417,11 @@
          else if (definition.phases === 2) draft.phases = draft.phases.slice(0, 2);
          else if (moduleTypes.allPhases(type)) draft.phases = rcdHelpers.phaseCodes.slice();
       }
-      if (draft.warning && (definition.warnings || []).indexOf(draft.warning) === -1) delete draft.warning;
+      if (draft.warnings) {
+         const kept = draft.warnings.filter(function (code) { return (definition.warnings || []).includes(code); });
+         if (kept.length) draft.warnings = kept;
+         else delete draft.warnings;
+      }
       if (!moduleTypes.protectable(type)) draft.protectedByModuleId = null;
       const linkedTarget = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
       if (linkedTarget && !canLink(type, linkedTarget)) draft.protectedByModuleId = null;
@@ -456,17 +460,21 @@
    function warningField(draft) {
       const allowed = (moduleTypes.get(draft.type) || {}).warnings;
       if (!allowed || !allowed.length) return null;
-      const select = el('select', { 'data-field': 'warning', 'aria-label': 'Bijzondere installatie' }, [
-         el('option', { value: '', text: 'Geen bijzondere installatie' })
-      ].concat(warnings.definitions.filter(function (warning) { return allowed.includes(warning.id); }).map(function (warning) {
-         return el('option', { value: warning.id, text: warning.label });
-      })));
-      select.value = draft.warning || '';
-      select.addEventListener('change', function () {
-         if (select.value) draft.warning = select.value;
-         else delete draft.warning;
-      });
-      return labelField('Bijzondere installatie (waarschuwing)', select, 'field-wide');
+      return el('fieldset', { className: 'phase-choices' }, [
+         el('legend', { text: 'Bijzondere installaties (waarschuwingen)' }),
+         ...warnings.definitions.filter(function (warning) { return allowed.includes(warning.id); }).map(function (warning) {
+            const checkbox = el('input', { type: 'checkbox', value: warning.id, 'data-field': 'warning-' + warning.id });
+            checkbox.checked = (draft.warnings || []).includes(warning.id);
+            checkbox.addEventListener('change', function () {
+               const chosen = warnings.codes.filter(function (code) {
+                  return code === warning.id ? checkbox.checked : (draft.warnings || []).includes(code);
+               });
+               if (chosen.length) draft.warnings = chosen;
+               else delete draft.warnings;
+            });
+            return el('label', null, [checkbox, el('span', { text: warning.label })]);
+         })
+      ]);
    }
 
    function colorField(draft) {
@@ -849,8 +857,8 @@
       const width = typeWidth(module.type);
       const color = moduleColor(module);
       const selected = module.id === selectedId;
-      const warning = module.warning && warnings.definitions.find(function (item) { return item.id === module.warning; });
-      const description = [moduleLabel(module), module.type, warning ? warning.label : ''].filter(Boolean).join(', ');
+      const flagged = warnings.selected(module.warnings || []);
+      const description = [moduleLabel(module), module.type].concat(flagged.map(function (warning) { return warning.label; })).filter(Boolean).join(', ');
       return el('button', {
          type: 'button',
          className: 'din-module' + (selected ? ' is-selected' : '') + (width > 1 ? ' is-wide' : '') + (isProtective(module) ? ' is-protective' : ''),
@@ -869,7 +877,9 @@
          el('span', { className: 'din-module-number', text: module.number || '–', 'aria-hidden': 'true' }),
          el('span', { className: 'din-module-lever', 'aria-hidden': 'true' }),
          width > 1 ? el('span', { className: 'din-module-type', text: module.type, 'aria-hidden': 'true' }) : null,
-         warning ? el('span', { className: 'din-module-badge', text: warningBadges[warning.id], 'aria-hidden': 'true' }) : null
+         ...flagged.map(function (warning) {
+            return el('span', { className: 'din-module-badge', text: warningBadges[warning.id], 'aria-hidden': 'true' });
+         })
       ]);
    }
 

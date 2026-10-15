@@ -146,13 +146,13 @@
                module.characteristic, phaseMask(module.phases),
                module.protectedByModuleId === null ? -1 : moduleIndex[module.protectedByModuleId],
                module.name === undefined ? null : module.name, module.color || null, module.items || null,
-               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warning || null,
+               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warnings || null,
                module.rail === undefined ? null : module.rail, module.slot === undefined ? null : module.slot
             ];
          }),
          data.boxes.map(function (box) {
             return [box.number, box.name, box.moduleIds.map(function (id) { return moduleIndex[id]; }), packSupply(box.supply),
-               box.rails, box.railWidth];
+            box.rails, box.railWidth];
          })
       ];
    }
@@ -205,7 +205,7 @@
                ...(row[10] !== null ? { sensitivity: row[10] } : {}),
                ...(row[11] !== null ? { rcdType: row[11] } : {}),
                ...(row[12] !== null ? { ratedCurrent: row[12] } : {}),
-               ...(row[13] !== null ? { warning: row[13] } : {})
+               ...(row[13] !== null ? { warnings: row[13] } : {})
             };
          }),
          boxes: packed[2].map(function (row, index) {

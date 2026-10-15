@@ -4,7 +4,7 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
-   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warning?: 'pv' | 'ev' | 'battery'}} ModuleData
+   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[]}} ModuleData
    * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
    * @typedef {{schemaVersion: 5, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
@@ -245,7 +245,7 @@
             usedIds.add(id);
             modules.push({
                id: id, boxId: boxes[0].id, type: 'MCB', number: '', description: warning.label, characteristic: '',
-               phases: [], protectedByModuleId: null, warning: warning.id
+               phases: [], protectedByModuleId: null, warnings: [warning.id]
             });
             boxes[0].moduleIds.push(id);
          });
@@ -349,8 +349,16 @@
          if (module.ratedCurrent !== undefined && (!Number.isFinite(module.ratedCurrent) || module.ratedCurrent <= 0)) {
             throw new Error('Ongeldig bestand: "ratedCurrent" moet een positief getal zijn.');
          }
-         if (module.warning !== undefined && (moduleTypes.get(module.type).warnings || []).indexOf(module.warning) === -1) {
-            throw new Error('Ongeldig bestand: moduletype ' + module.type + ' ondersteunt de waarschuwing "' + module.warning + '" niet.');
+         if (module.warnings !== undefined) {
+            const allowed = moduleTypes.get(module.type).warnings || [];
+            if (!Array.isArray(module.warnings) || !module.warnings.length || new Set(module.warnings).size !== module.warnings.length) {
+               throw new Error('Ongeldig bestand: "warnings" van een module moet een lijst met unieke waarschuwingen zijn.');
+            }
+            module.warnings.forEach(function (code) {
+               if (allowed.indexOf(code) === -1) {
+                  throw new Error('Ongeldig bestand: moduletype ' + module.type + ' ondersteunt de waarschuwing "' + code + '" niet.');
+               }
+            });
          }
          if (['RCD-2P', 'RCBO-2P'].includes(module.type) && phases.length > 1) {
             throw new Error('Ongeldig bestand: een 2-polige beveiligingsmodule kan maar één fase hebben.');
@@ -375,7 +383,7 @@
             ...(module.sensitivity !== undefined ? { sensitivity: module.sensitivity } : {}),
             ...(module.rcdType !== undefined ? { rcdType: module.rcdType } : {}),
             ...(module.ratedCurrent !== undefined ? { ratedCurrent: module.ratedCurrent } : {}),
-            ...(module.warning !== undefined ? { warning: module.warning } : {}),
+            ...(module.warnings !== undefined ? { warnings: warnings.codes.filter(function (code) { return module.warnings.includes(code); }) } : {}),
             ...normalizeItems(module)
          };
       });
