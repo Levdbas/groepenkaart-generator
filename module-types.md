@@ -1,8 +1,8 @@
 | Nederlands               | slug             | Toelichting                                                                                     | conditioneel                 | fases | module breedte | Warning types   |
 | ------------------------ | ---------------- | ----------------------------------------------------------------------------------------------- | ---------------------------- | ----- | -------------- | --------------- |
 | Installatieautomaat      | MCB              | Korte label in de UI: "Circuit breaker"                                                         |                              | 1     | 1              | EV, PV, Battery |
-| Krachtgroep              | MCB-2P           | Ook wel "3-phase power circuit"                                                                 | alleen in 3 fase beschikbaar | 3     | 4              | EV, PV, Battery |
-| Fornuisgroep             | MCB-3P           | Meestal een 2P MCB. In de VS: "Range circuit"                                                   |                              | 2     | 2              |
+| Fornuisgroep             | MCB-2P           | Meestal een 2P MCB. In de VS: "Range circuit"                                                   |                              | 2     | 2              |
+| Krachtgroep              | MCB-3P           | Ook wel "3-phase power circuit"                                                                 | alleen in 3 fase beschikbaar | 3     | 4              | EV, PV, Battery |
 | Aardlekschakelaar 2P     | RCD-2P           | Voluit: Residual Current Device                                                                 |                              |       | 2              |
 | Aardlekschakelaar 4P     | RCD-4P           | Voluit: Residual Current Device                                                                 | alleen in 3 fase beschikbaar |       | 4              |
 | Hoofdschakelaar 2P       | MAINS-2P         | Technisch: "Switch-disconnector" of "Main isolator". Staat vóór de aardlek, dus niet koppelbaar | alleen in 1 fase beschikbaar | 1     | 2              |
