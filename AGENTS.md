@@ -10,6 +10,7 @@ Groepenkaart Generator is a browser-only app for creating electrical panel sched
 | `src/css/style.css`  | Screen, responsive, and print styling                    |
 | `src/js/app.js`      | UI behavior, editing, browser storage, and import/export |
 | `src/js/schema.js`   | Data validation, schema versions, and migrations         |
+| `src/js/layout.js`   | Box layout: fitting, free slots, and moving modules      |
 | `src/js/rcd.js`      | Shared RCD helpers and labels                            |
 | `src/js/warnings.js` | Installation warning definitions and icons               |
 | `src/js/share.js`    | Share URL and QR encoding/decoding                       |
