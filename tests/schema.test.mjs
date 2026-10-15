@@ -121,7 +121,7 @@ function expectedV5(data) {
       if (!boxes.length || !(data.warnings || []).includes(code)) continue;
       modules.push({
          id: `legacy-warning-${code}`, boxId: boxes[0].id, type: 'MCB', number: '', description: labels[code],
-         characteristic: '', phases: [], protectedByModuleId: null, warnings: [code]
+         characteristic: '', phases: [], protectedByModuleId: null, warning: code
       });
       boxes[0].moduleIds.push(`legacy-warning-${code}`);
    }
@@ -210,33 +210,23 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    const { moduleTypes } = setupSchema();
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => type.slug), [
       'MCB', 'MCB-2P', 'MCB-3P', 'RCD-2P', 'RCD-4P', 'MAINS-2P', 'MAINS-4P',
-      'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD', 'SPD-4P', 'OTHER'
+      'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD'
    ]);
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => [type.slug, type.phases, type.width]), [
-      ['MCB', 1, 1], ['MCB-2P', 2, 2], ['MCB-3P', 3, 4], ['RCD-2P', null, 2],
+      ['MCB', 1, 1], ['MCB-2P', 3, 4], ['MCB-3P', 2, 2], ['RCD-2P', null, 2],
       ['RCD-4P', null, 4], ['MAINS-2P', 1, 2], ['MAINS-4P', 3, 4], ['RCBO-2P', 2, 1],
       ['RCBO-4P', 3, 4], ['DIN-OUTLET', 1, 3], ['Bell-TRANSFORMER', 1, 2],
-      ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 2], ['SPD-4P', 3, 4], ['OTHER', 1, 1]
+      ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 1]
    ]);
-   assert.equal(moduleTypes.available('MCB-3P', false), false);
-   assert.equal(moduleTypes.available('MCB-3P', true), true);
-   assert.equal(moduleTypes.available('SPD-4P', false), false);
-   assert.equal(moduleTypes.available('SPD-4P', true), true);
-   assert.equal(moduleTypes.allPhases('SPD-4P'), true);
-   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
-      [['RCBO-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
-   assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
-   assert.equal(moduleTypes.widthRange('MCB'), null);
-   assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P' }), 1, 'a module without its own width takes the type default');
-   assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P', width: 2 }), 2);
-   assert.equal(moduleTypes.widthOf({ type: 'MCB-2P', width: 1 }), 2, 'fixed-width types ignore a width');
+   assert.equal(moduleTypes.available('MCB-2P', false), false);
+   assert.equal(moduleTypes.available('MCB-2P', true), true);
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
    assert.equal(moduleTypes.available('unknown', true), false);
-   assert.equal(moduleTypes.allPhases('MCB-3P'), true);
+   assert.equal(moduleTypes.allPhases('MCB-2P'), true);
    assert.equal(moduleTypes.allPhases('RCD-4P'), true);
    assert.equal(moduleTypes.allPhases('MCB'), false);
-   assert.equal(moduleTypes.allPhases('MCB-2P'), false);
+   assert.equal(moduleTypes.allPhases('MCB-3P'), false);
    assert.deepEqual(Array.from(moduleTypes.get('MCB').warnings), ['ev', 'pv', 'battery']);
 });
 
@@ -280,7 +270,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
       [(d) => { delete d.boxes[0].railWidth; }, /"railWidth"/],
       [(d) => { d.modules[0].slot = 13; }, /valt buiten de rails/],
       [(d) => { d.modules[0].rail = 2; }, /valt buiten de rails/],
-      [(d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].slot = 10; }, /valt buiten de rails/],
+      [(d) => { d.modules[1].type = 'MCB-2P'; d.modules[1].slot = 10; }, /valt buiten de rails/],
       [(d) => { d.modules[1].slot = 1; }, /overlappen/],
       [(d) => { d.modules[0].type = 'RCD-2P'; d.modules[0].color = '#ff0000'; }, /overlappen/],
       [(d) => { delete d.modules[0].rail; }, /geen rail en plek/],
@@ -290,7 +280,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    ]) {
       assert.throws(() => schema.normalize(variant(change)), message);
    }
-   const wide = schema.normalize(variant((d) => { d.modules[1].type = 'MCB-2P'; d.modules[1].slot = 11; }));
+   const wide = schema.normalize(variant((d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].slot = 11; }));
    assert.equal(wide.modules[1].slot, 11);
 
    const reordered = schema.normalize(variant((d) => {
@@ -304,7 +294,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    const draft = variant((d) => {
       d.boxes.forEach((box) => { delete box.rails; delete box.railWidth; });
       d.modules.forEach((module) => { delete module.rail; delete module.slot; });
-      d.modules[1].type = 'MCB-3P';
+      d.modules[1].type = 'MCB-2P';
    });
    const laidOut = plain(schema.normalize(draft));
    assert.deepEqual(laidOut.boxes.map((box) => [box.rails, box.railWidth]), [[1, 12], [1, 12]]);
@@ -314,7 +304,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    const migrated = schema.normalize(full);
    assert.equal(migrated.boxes[0].rails, 2, 'a 13th module starts a second rail');
    assert.deepEqual([migrated.modules[12].rail, migrated.modules[12].slot], [2, 1]);
-   assert.equal(schema.autoLayout(['MCB', 'MCB-3P', 'MCB-3P', 'MCB-3P'], 12).rails, 2,
+   assert.equal(schema.autoLayout(['MCB', 'MCB-2P', 'MCB-2P', 'MCB-2P'], 12).rails, 2,
       'a module that does not fit on the rest of a rail moves to the next one');
    assert.deepEqual(plain(schema.autoLayout([], 12)), { rails: 1, positions: [] });
 });
@@ -328,7 +318,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    data.modules[4].sensitivity = 30;
    data.modules[4].rcdType = 'A';
    data.modules[4].ratedCurrent = 40;
-   data.modules[0].warnings = ['ev', 'battery'];
+   data.modules[0].warning = 'ev';
    data.boxes[0].supply = {
       type: 'mains', connectionRating: 'Anders', customConnectionRating: '3x45A', supplier: 'Stedin',
       mainSwitchCurrent: 40, mainSwitchPoles: 4
@@ -349,7 +339,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    assert.equal(decoded.modules[4].sensitivity, 30);
    assert.equal(decoded.modules[4].rcdType, 'A');
    assert.equal(decoded.modules[4].ratedCurrent, 40);
-   assert.deepEqual(Array.from(decoded.modules[0].warnings), ['ev', 'battery']);
+   assert.equal(decoded.modules[0].warning, 'ev');
    assert.equal(decoded.modules[0].protectedByModuleId, decoded.modules[4].id);
    assert.deepEqual(Array.from(decoded.boxes[0].moduleIds), ['m1', 'm2']);
    assert.deepEqual([decoded.boxes[0].rails, decoded.boxes[0].railWidth, decoded.boxes[1].rails, decoded.boxes[1].railWidth], [3, 18, 1, 12]);
@@ -365,7 +355,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    });
 });
 
-function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = null, expertMode = null) {
+function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null, rcdFirst = null, expertMode = null) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl, publishedSchema.$id);
    assert.equal(publishedSchema.$id, schema.schemaUrl);
@@ -570,11 +560,11 @@ test('v2 files migrate to v5 with default phase settings and keep all existing d
    withItems.warnings = ['pv'];
    withItems.boxes[0].groups[0].items = ['Vaatwasser'];
    const migrated = plain(schema.normalize(withItems));
-   assert.deepEqual(plain(migrated.modules.filter((module) => module.warnings).map((module) => [module.id, module.warnings, module.boxId])),
-      [['legacy-warning-pv', ['pv'], migrated.boxes[0].id]]);
+   assert.deepEqual(plain(migrated.modules.filter((module) => module.warning).map((module) => [module.id, module.warning, module.boxId])),
+      [['legacy-warning-pv', 'pv', migrated.boxes[0].id]]);
    assert.deepEqual(migrated.modules[0].items, ['Vaatwasser']);
    assert.deepEqual(migrated.modules.filter((module) => module.type.startsWith('RCD')).map((module) => module.id), ['r1', 'r2']);
-   assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB' && !module.warnings).map((module) => module.protectedByModuleId), ['r1', null, 'r1', 'r2']);
+   assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB' && !module.warning).map((module) => module.protectedByModuleId), ['r1', null, 'r1', 'r2']);
 });
 
 test('v2 to v3 renames the RCBO fields to RCD fields', () => {
@@ -805,29 +795,6 @@ test('v5 validates module types, protection references, box order and phase card
    assert.throws(() => schema.normalize(variant((d) => { d.rcdEnabled = false; })), /beveiligingsmodules bestaan/);
 });
 
-test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD, other types only to an RCD or RCBO', () => {
-   const { schema, moduleTypes } = setupSchema();
-   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET', 'OTHER']);
-   assert.equal(moduleTypes.mcbLinkable('unknown'), false);
-   const data = schema.normalize(withRcds);
-   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
-   const free = schema.normalize(variant((d) => {
-      Object.assign(d.modules[1], { type: 'OTHER', width: 4, protectedByModuleId: d.modules[0].id });
-   }));
-   assert.deepEqual([free.modules[1].width, free.modules[1].protectedByModuleId], [4, data.modules[0].id]);
-   assert.throws(() => schema.normalize(variant((d) => { d.modules[1].type = 'OTHER'; d.modules[1].width = 5; })), /1 tot 4/);
-   assert.throws(() => schema.normalize(variant((d) => {
-      Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: d.modules[4].id });
-   })), /installatieautomaat of aardlekautomaat/);
-   const outlet = (d) => { d.modules[1].type = 'DIN-OUTLET'; d.modules[1].protectedByModuleId = d.modules[0].id; };
-   assert.equal(schema.normalize(variant(outlet)).modules[1].protectedByModuleId, data.modules[0].id);
-   const rcbo = variant((d) => { outlet(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; });
-   assert.equal(schema.normalize(rcbo).modules[1].protectedByModuleId, data.modules[0].id);
-   assert.throws(() => schema.normalize(variant((d) => { outlet(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
-      /installatieautomaat of aardlekautomaat/);
-   assert.throws(() => schema.normalize(variant((d) => { d.modules[1].protectedByModuleId = d.modules[0].id; })), /verwijst niet naar een RCD- of RCBO-module\./);
-});
-
 test('optional group items preserve arrays across schema versions without changing the version', () => {
    const { schema } = setupSchema();
    for (const source of [legacy, v1, v2, v3, v4, withRcdsV2, withRcds]) {
@@ -916,8 +883,7 @@ test('published schemas match the current version, required fields, and warning 
    const { schema, context } = setupSchema();
    assert.equal(publishedSchema.properties.schemaVersion.const, schema.currentVersion);
    assert.deepEqual(publishedSchema.required, Object.keys(plain(schema.empty())));
-   assert.deepEqual(publishedSchema.$defs.module.properties.warnings.items.enum, ['pv', 'ev', 'battery']);
-   assert.ok(!('warning' in publishedSchema.$defs.module.properties));
+   assert.deepEqual(publishedSchema.$defs.module.properties.warning.enum, ['pv', 'ev', 'battery']);
    assert.ok(!('warnings' in publishedSchema.properties));
    assert.deepEqual(publishedV2Schema.properties.warnings.items.enum,
       Array.from(context.window.GroepenkaartWarnings.codes));
@@ -939,7 +905,7 @@ test('published schemas match the current version, required fields, and warning 
    assert.deepEqual(publishedSchema.$defs.module.properties.sensitivity.enum, [10, 30, 100, 300]);
    assert.deepEqual(publishedSchema.$defs.module.properties.rcdType.enum, ['AC', 'A', 'F', 'B', 'B+']);
    assert.deepEqual(publishedSchema.$defs.box.properties.supply.oneOf.map((schema) => schema.type || schema.$ref),
-      ['null', '#/$defs/mainsSupply', '#/$defs/subdistributionSupply', '#/$defs/linkedSupply']);
+      ['null', '#/$defs/mainsSupply', '#/$defs/subdistributionSupply']);
    assert.equal(publishedSchema.$defs.box.properties.moduleIds.uniqueItems, true);
    const { boxLimits } = schema;
    assert.ok(['rails', 'railWidth'].every((field) => publishedSchema.$defs.box.required.includes(field)));
@@ -1133,14 +1099,14 @@ test('module type controls derive width, only offer types that fit, keep charact
    const app = setupApp(JSON.stringify(noWarnings));
    const option = (slug) => app.field('type').children.find((item) => item.value === slug);
    app.editModule('legacy-module-1-1');
-   assert.equal(option('MCB-3P'), undefined);
+   assert.equal(option('MCB-2P'), undefined);
    app.cancel();
    app.setPhaseEnabled(true);
    app.editModule('legacy-module-1-1');
-   assert.equal(option('MCB-3P').attrs.disabled, 'disabled', 'a 4-wide type does not fit before module 2');
-   assert.match(option('MCB-3P').textContent, /past hier niet/);
+   assert.equal(option('MCB-2P').attrs.disabled, 'disabled', 'a 4-wide type does not fit before module 2');
+   assert.match(option('MCB-2P').textContent, /past hier niet/);
    assert.equal(option('MCB').attrs.disabled, undefined);
-   app.set('type', 'MCB-3P');
+   app.set('type', 'MCB-2P');
    app.save();
    assert.match(app.messages.at(-1), /Module niet opgeslagen.*overlappen/);
    assert.equal(JSON.parse(app.storage()).modules[0].type, 'MCB', 'a rejected save leaves the data untouched');
@@ -1148,19 +1114,19 @@ test('module type controls derive width, only offer types that fit, keep charact
 
    app.setExpertMode(true);
    app.editModule('legacy-module-1-2');
-   assert.equal(option('MCB-3P').attrs.disabled, undefined);
-   app.set('type', 'MCB-3P');
+   assert.equal(option('MCB-2P').attrs.disabled, undefined);
+   app.set('type', 'MCB-2P');
    app.set('characteristic', 'C32');
-   assert.equal(app.field('rcdType'), undefined, 'only RCDs have an RCD type');
+   app.set('rcdType', 'A');
    app.set('ratedCurrent', '16');
    app.save();
    let module = JSON.parse(app.storage()).modules[1];
-   assert.equal(module.type, 'MCB-3P');
+   assert.equal(module.type, 'MCB-2P');
    assert.ok(!('width' in module));
    assert.equal(app.shareContext.GroepenkaartSchema.moduleTypes.get(module.type).width, 4);
    assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 4');
    assert.equal(module.characteristic, 'C32');
-   assert.ok(!('rcdType' in module));
+   assert.equal(module.rcdType, 'A');
    assert.equal(module.ratedCurrent, 16);
 
    app.editModule('legacy-module-1-2');
@@ -1180,122 +1146,41 @@ test('module type controls derive width, only offer types that fit, keep charact
    assert.ok(app.findAll(app.nodes.get('print-area'), (node) => node.className === 'print-rcd-key').length);
 });
 
-test('a module of a variable-width type stores its own width, validated against the type range', () => {
-   const { schema, context } = setupSchema();
-   context.window.fflate = require('fflate');
-   vm.runInContext(sources[4], context);
-   const share = context.window.GroepenkaartShare;
-   const data = plain(schema.normalize(noWarnings));
-   const variant = (change) => {
-      const copy = structuredClone(data);
-      copy.rcdEnabled = true;
-      Object.assign(copy.modules[0], { type: 'RCBO-2P', color: '#ff0000' });
-      change(copy);
-      return copy;
-   };
-   assert.equal(schema.normalize(variant(() => { })).modules[0].width, undefined);
-   assert.equal(schema.normalize(variant((d) => { d.modules[0].width = 1; })).modules[0].width, 1);
-   assert.equal(schema.normalize(variant((d) => { d.modules[0].width = 2; d.modules[1].slot = 3; })).modules[0].width, 2);
-   for (const [change, message] of [
-      [(d) => { d.modules[0].width = 2; }, /overlappen/],
-      [(d) => { d.modules[0].width = 3; }, /moet een geheel getal van 1 tot 2/],
-      [(d) => { d.modules[0].width = 0; }, /moet een geheel getal van 1 tot 2/],
-      [(d) => { d.modules[0].width = 1.5; }, /moet een geheel getal van 1 tot 2/],
-      [(d) => { d.modules[0].width = '2'; }, /moet een geheel getal van 1 tot 2/],
-      [(d) => { d.modules[1].width = 1; }, /heeft een vaste breedte/]
-   ]) {
-      assert.throws(() => schema.normalize(variant(change)), message);
-   }
-   const wide = variant((d) => { d.modules[0].width = 2; d.modules[1].slot = 3; });
-   assert.equal(plain(schema.normalize(wide)).modules[0].width, 2);
-   const decoded = schema.normalize(share.decode(share.url('https://example.test/', schema.normalize(wide)).replace(/^.*(?=#)/, '')));
-   assert.deepEqual(Array.from(decoded.modules, (module) => module.width), [2, undefined]);
-   assert.equal(publishedSchema.$defs.module.properties.width.type, 'integer');
-});
-
-test('a variable-width type offers its widths in the dialog, only those that fit, and the width moves the neighbours', () => {
-   const app = setupApp(JSON.stringify(noWarnings));
-   const option = (name, value) => app.field(name).children.find((item) => item.value === value);
-   app.editModule('legacy-module-1-1');
-   assert.equal(app.field('width'), undefined, 'fixed-width types have no width choice');
-   assert.match(option('type', 'RCBO-2P').textContent, /1\u20132 DIN-modules/);
-   app.set('type', 'RCBO-2P');
-   assert.equal(app.field('width').value, '1');
-   assert.equal(option('width', '1').attrs.disabled, undefined);
-   assert.equal(option('width', '2').attrs.disabled, 'disabled', 'module 2 blocks a second slot');
-   assert.match(option('width', '2').textContent, /past hier niet/);
-   app.set('type', 'MCB');
-   assert.equal(app.field('width'), undefined);
-   app.cancel();
-
-   app.editModule('legacy-module-1-2');
-   app.set('type', 'RCBO-2P');
-   assert.deepEqual(app.field('width').children.map((item) => item.attrs.disabled), [undefined, undefined]);
-   app.set('width', '2');
-   app.save();
-   assert.equal(JSON.parse(app.storage()).modules[1].width, 2);
-   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 2');
-
-   app.editModule('legacy-module-1-2');
-   assert.equal(app.field('width').value, '2');
-   app.set('type', 'MCB');
-   app.save();
-   assert.ok(!('width' in JSON.parse(app.storage()).modules[1]), 'a fixed-width type drops the width');
-   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 1');
-});
-
 test('a module warning must be one its type may flag', () => {
    const { schema } = setupSchema();
    const data = plain(schema.normalize(noWarnings));
    const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
-   assert.deepEqual(plain(schema.normalize(variant((d) => { d.modules[0].warnings = ['pv']; })).modules[0].warnings), ['pv']);
-   assert.deepEqual(plain(schema.normalize(variant((d) => { d.modules[0].warnings = ['battery', 'pv']; })).modules[0].warnings), ['pv', 'battery'],
-      'several warnings are kept in card order');
+   assert.equal(schema.normalize(variant((d) => { d.modules[0].warning = 'pv'; })).modules[0].warning, 'pv');
    for (const warning of ['heat-pump', 'unknown', 1]) {
-      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warnings = [warning]; })), /waarschuwing/);
+      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warning = warning; })), /waarschuwing/);
    }
-   for (const warnings of ['pv', [], ['pv', 'pv']]) {
-      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warnings = warnings; })), /lijst met unieke waarschuwingen/);
-   }
-   assert.throws(() => schema.normalize(variant((d) => { d.modules[0].type = 'SPD'; d.modules[0].warnings = ['pv']; })),
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[0].type = 'SPD'; d.modules[0].warning = 'pv'; })),
       /ondersteunt de waarschuwing/);
 });
 
-test('installation warnings are chosen per module, can be combined and drive the warning cards', () => {
+test('the installation warning is chosen per module and drives the warning cards', () => {
    const app = setupApp(JSON.stringify(noWarnings));
    const cards = () => app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warning');
    app.editModule('legacy-module-1-1');
-   assert.deepEqual(['pv', 'ev', 'battery'].map((code) => app.field('warning-' + code).attrs.type), ['checkbox', 'checkbox', 'checkbox']);
+   assert.deepEqual(Array.from(app.field('warning').children, (option) => option.value), ['', 'pv', 'ev', 'battery']);
    assert.equal(cards().length, 0);
-   app.set('warning-battery', true);
-   app.set('warning-pv', true);
+   app.set('warning', 'battery');
    app.save();
    app.editModule('legacy-module-1-2');
-   app.set('warning-pv', true);
+   app.set('warning', 'pv');
    app.save();
-   assert.deepEqual(JSON.parse(app.storage()).modules.map((module) => module.warnings), [['pv', 'battery'], ['pv']]);
+   assert.deepEqual(JSON.parse(app.storage()).modules.map((module) => module.warning), ['battery', 'pv']);
    assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg', 'images/eos.svg']);
-   assert.deepEqual(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className === 'din-module-badge').map((n) => n.textContent), ['PV', 'EOS']);
+   assert.equal(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className === 'din-module-badge')[0].textContent, 'EOS');
    app.nodes.get('download-pdf').listeners.click();
-   assert.deepEqual(app.pdfCalls[0][1], ['pv', 'battery']);
+   assert.deepEqual(app.pdfCalls[0][2], ['pv', 'battery']);
 
    app.editModule('legacy-module-1-1');
-   assert.equal(app.field('warning-pv').checked, true);
-   app.set('warning-pv', false);
-   app.save();
-   assert.deepEqual(JSON.parse(app.storage()).modules[0].warnings, ['battery']);
-   app.editModule('legacy-module-1-1');
-   app.set('warning-battery', false);
-   app.save();
-   assert.ok(!('warnings' in JSON.parse(app.storage()).modules[0]));
-   assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg']);
-
-   app.editModule('legacy-module-1-2');
    app.set('type', 'SPD');
-   assert.equal(app.field('warning-pv'), undefined);
+   assert.equal(app.field('warning'), undefined);
    app.save();
-   assert.ok(!('warnings' in JSON.parse(app.storage()).modules[1]));
-   assert.equal(cards().length, 0);
+   assert.ok(!('warning' in JSON.parse(app.storage()).modules[0]));
+   assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg']);
 });
 
 test('choosing a module type clears one-phase selections and locks three-phase modules', () => {
@@ -1308,7 +1193,7 @@ test('choosing a module type clears one-phase selections and locks three-phase m
    assert.deepEqual(stored(), ['L2']);
 
    app.editModule('legacy-module-1-2');
-   app.set('type', 'MCB-3P');
+   app.set('type', 'MCB-2P');
    assert.equal(app.field('phase-L1'), undefined, 'three-phase modules have no phase choice');
    assert.ok(app.findAll(app.dialog(), (n) => n.className === 'phase-inherited' && n.textContent === 'L1, L2, L3').length);
    app.save();
@@ -1325,69 +1210,6 @@ test('choosing a module type clears one-phase selections and locks three-phase m
    app.set('type', 'SPD');
    app.save();
    assert.deepEqual(stored(), [], 'switching between one-phase types starts empty again');
-});
-
-test('a linked supply must point at another box with a mains supply', () => {
-   const { schema } = setupSchema();
-   const data = plain(schema.normalize(withRcds));
-   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
-   const linked = variant((d) => {
-      d.boxes[0].supply = { type: 'mains', connectionRating: '3x25A' };
-      d.boxes[1].supply = { type: 'linked', sourceBoxId: d.boxes[0].id, mainSwitchCurrent: 40 };
-   });
-   assert.deepEqual(plain(schema.normalize(linked).boxes[1].supply), { type: 'linked', sourceBoxId: data.boxes[0].id });
-   assert.deepEqual(plain(schema.normalize(variant((d) => { d.boxes[1].supply = { type: 'linked' }; })).boxes[1].supply), { type: 'linked' });
-   assert.deepEqual(plain(schema.normalize(variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: null }; })).boxes[1].supply),
-      { type: 'linked', sourceBoxId: null });
-   for (const [invalid, message] of [
-      [variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: 'missing' }; }), /onbekende kast/],
-      [variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: 3 }; }), /sourceBoxId/],
-      [variant((d) => { d.boxes[1].supply = { type: 'linked', sourceBoxId: d.boxes[1].id }; }), /hoofdaansluiting/],
-      [variant((d) => { d.boxes[0].supply = { type: 'subdistribution' }; d.boxes[1].supply = { type: 'linked', sourceBoxId: d.boxes[0].id }; }), /hoofdaansluiting/]
-   ]) assert.throws(() => schema.normalize(invalid), message);
-});
-
-test('c2 compact links round-trip a linked supply', () => {
-   const { schema, context } = setupSchema();
-   context.window.fflate = require('fflate');
-   vm.runInContext(sources[4], context);
-   const share = context.window.GroepenkaartShare;
-   const data = plain(schema.normalize(withRcds));
-   data.boxes[0].supply = { type: 'mains' };
-   data.boxes[1].supply = { type: 'linked', sourceBoxId: data.boxes[0].id };
-   const decoded = plain(schema.normalize(share.decode(share.url('https://example.test/app/', data).replace(/^[^#]*/, ''))));
-   assert.deepEqual(decoded.boxes[1].supply, { type: 'linked', sourceBoxId: decoded.boxes[0].id });
-   data.boxes[1].supply = { type: 'linked' };
-   const open = plain(schema.normalize(share.decode(share.url('https://example.test/app/', data).replace(/^[^#]*/, ''))));
-   assert.deepEqual(open.boxes[1].supply, { type: 'linked' });
-});
-
-test('a linked box is attached to a mains box and prints that connection', () => {
-   const app = setupApp(JSON.stringify(noWarnings));
-   const boxes = app.nodes.get('boxes');
-   const supplyType = (number) => app.findAll(boxes, (node) => node.attrs['aria-label'] === 'Soort voeding kast ' + number)[0];
-   const linkedTo = (number) => app.findAll(boxes, (node) => node.attrs['aria-label'] === 'Gekoppeld aan kast ' + number)[0];
-   assert.deepEqual(Array.from(supplyType('2').children, (option) => option.value), ['', 'mains', 'subdistribution', 'linked']);
-   supplyType('2').value = 'linked';
-   supplyType('2').listeners.change();
-   assert.deepEqual(Array.from(linkedTo('2').children, (option) => option.value), [''], 'no box has a mains supply yet');
-
-   supplyType('1').value = 'mains';
-   supplyType('1').listeners.change();
-   const mainsBoxId = JSON.parse(app.storage()).boxes[0].id;
-   assert.deepEqual(Array.from(linkedTo('2').children, (option) => option.value), ['', mainsBoxId]);
-   linkedTo('2').value = mainsBoxId;
-   linkedTo('2').listeners.change();
-   assert.deepEqual(JSON.parse(app.storage()).boxes[1].supply, { type: 'linked', sourceBoxId: mainsBoxId });
-   const summaries = app.findAll(app.nodes.get('print-area'), (node) => node.className === 'print-supply');
-   assert.ok(summaries[1].textContent.includes('hoofdaansluiting van kast 1'));
-
-   const count = app.confirms.length;
-   supplyType('1').value = '';
-   supplyType('1').listeners.change();
-   assert.equal(app.confirms.length, count + 1);
-   assert.match(app.confirms.at(-1), /gekoppelde kast verliest/);
-   assert.deepEqual(JSON.parse(app.storage()).boxes[1].supply, { type: 'linked' });
 });
 
 test('sub-distribution supply references stable modules and renders inverse feed details', () => {
@@ -1438,29 +1260,6 @@ test('sub-distribution supply references stable modules and renders inverse feed
    app.selectModule('legacy-module-1-1');
    app.action('Module verwijderen').listeners.click();
    assert.equal(JSON.parse(app.storage()).boxes[1].supply.sourceModuleId, null);
-});
-
-test('a sub-distribution box can be fed from an RCD, not from any module', () => {
-   const module = (id, boxId, type, extra = {}) => ({
-      id, boxId, rail: 1, slot: 1, type, number: '1', description: '', characteristic: '', phases: [], protectedByModuleId: null, ...extra
-   });
-   const data = (sourceType) => ({
-      schemaVersion: 5, qrEnabled: false, rcdEnabled: true, phaseEnabled: false,
-      modules: [module('src', 'b1', sourceType, sourceType.startsWith('RCD') ? { color: '#ed8c01', phases: sourceType === 'RCD-4P' ? ['L1', 'L2', 'L3'] : [] } : {}), module('m2', 'b2', 'MCB')],
-      boxes: [
-         { id: 'b1', number: '1', name: '', rails: 1, railWidth: 12, moduleIds: ['src'], supply: { type: 'mains' } },
-         { id: 'b2', number: '2', name: '', rails: 1, railWidth: 12, moduleIds: ['m2'], supply: { type: 'subdistribution', sourceModuleId: 'src' } }
-      ]
-   });
-   const { schema } = setupSchema();
-   for (const type of ['RCD-2P', 'RCD-4P', 'MCB']) {
-      assert.equal(schema.normalize(data(type)).boxes[1].supply.sourceModuleId, 'src');
-   }
-   assert.throws(() => schema.normalize(data('KWH-2P')), /circuitmodule of aardlekschakelaar/);
-
-   const app = setupApp(JSON.stringify(data('RCD-2P')));
-   const source = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Voeding vanuit module kast 2')[0];
-   assert.deepEqual(Array.from(source.children, (option) => option.value), ['', 'src']);
 });
 
 test('phase editing applies inheritance immediately across boxes and preserves independent group selections', async () => {
@@ -1584,7 +1383,7 @@ test('RCDs are placed in a box like any module and linked groups in any box are 
 });
 
 test('RCD technical attributes persist and appear in the print legend only when set', () => {
-   const app = setupApp(JSON.stringify(withRcds), '', true, null, 'true');
+   const app = setupApp(JSON.stringify(withRcds), '', true, null, null, 'true');
    assert.equal(app.nodes.get('unplaced').hidden, false);
    app.editModule('r1');
    assert.equal(app.field('description').value, 'Keuken', 'a migrated RCD name is edited as its description');
@@ -1919,6 +1718,41 @@ test('expert mode is off by default, shows the technical fields per device and k
    assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
 });
 
+test('expert mode is off by default, shows the technical fields per device and keeps their values when hidden', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   const technical = () => app.findAll(app.dialog(), (node) => node.className === 'module-technical-controls');
+   assert.equal(app.nodes.get('expert-mode').checked, false);
+   app.editModule('r1');
+   assert.equal(technical().length, 0);
+   app.cancel();
+
+   app.setExpertMode(true);
+   assert.equal(app.expertModeStorage(), 'true');
+   app.editModule('r1');
+   assert.equal(technical().length, 1);
+   app.set('sensitivity', '30');
+   app.save();
+   app.editModule('legacy-module-1-1');
+   assert.equal(app.field('sensitivity'), undefined, 'only RCDs have a sensitivity');
+   app.set('rcdType', 'A');
+   app.set('ratedCurrent', '16');
+   app.save();
+
+   app.setExpertMode(false);
+   app.editModule('r1');
+   assert.equal(technical().length, 0);
+   app.save();
+   const stored = JSON.parse(app.storage());
+   assert.ok(!('expertMode' in stored));
+   assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
+   assert.ok(stored.modules.some((module) => module.rcdType === 'A' && module.ratedCurrent === 16));
+
+   const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
+   assert.equal(reloaded.nodes.get('expert-mode').checked, true);
+   reloaded.editModule('legacy-module-1-1');
+   assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
+});
+
 test('a QR code is skipped with a visible message when the data does not fit', () => {
    const big = structuredClone(withRcds);
    let seed = 1;
@@ -2137,9 +1971,8 @@ test('a selected module moves left and right, swaps with neighbours and wraps be
    assert.deepEqual(app.position(id), [1, 4]);
    app.action('Naar rechts').listeners.click();
    assert.deepEqual(app.position(id), [2, 1], 'wraps to the start of the next rail');
-   const printed = () => app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.map((row) => row.children[0].textContent).filter(Boolean);
+   const printed = () => app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.map((row) => row.children[0].textContent);
    assert.deepEqual(printed(), ['2', '1'], 'print follows the physical order');
-   assert.equal(app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.length, 8, 'free slots are empty rows');
    app.moduleButton(id).listeners.keydown({ key: 'ArrowLeft', preventDefault() { } });
    assert.deepEqual(app.position(id), [1, 4], 'arrow keys move the module too');
    app.moduleButton(id).listeners.keydown({ key: 'Escape', preventDefault() { } });

@@ -126,7 +126,6 @@
       data.boxes.forEach(function (box, index) { boxIndex[box.id] = index; });
       function packSupply(supply) {
          if (!supply) return null;
-         if (supply.type === 'linked') return ['l', supply.sourceBoxId ? boxIndex[supply.sourceBoxId] : -1];
          if (supply.type === 'mains') {
             return ['m', supply.connectionRating === undefined ? null : supply.connectionRating,
                supply.customConnectionRating === undefined ? null : supply.customConnectionRating,
@@ -147,14 +146,13 @@
                module.characteristic, phaseMask(module.phases),
                module.protectedByModuleId === null ? -1 : moduleIndex[module.protectedByModuleId],
                module.name === undefined ? null : module.name, module.color || null, module.items || null,
-               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warnings || null,
-               module.rail === undefined ? null : module.rail, module.slot === undefined ? null : module.slot,
-               module.width === undefined ? null : module.width
+               module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warning || null,
+               module.rail === undefined ? null : module.rail, module.slot === undefined ? null : module.slot
             ];
          }),
          data.boxes.map(function (box) {
             return [box.number, box.name, box.moduleIds.map(function (id) { return moduleIndex[id]; }), packSupply(box.supply),
-            box.rails, box.railWidth];
+               box.rails, box.railWidth];
          })
       ];
    }
@@ -164,7 +162,6 @@
       const boxIds = packed[2].map(function (_, index) { return 'b' + (index + 1); });
       function unpackSupply(supply) {
          if (!supply) return null;
-         if (supply[0] === 'l') return { type: 'linked', ...(supply[1] >= 0 ? { sourceBoxId: boxIds[supply[1]] } : {}) };
          if (supply[0] === 'm') {
             return {
                type: 'mains',
@@ -196,7 +193,6 @@
                boxId: row[0] < 0 ? null : boxIds[row[0]],
                ...(row[14] != null ? { rail: row[14] } : {}),
                ...(row[15] != null ? { slot: row[15] } : {}),
-               ...(row[16] != null ? { width: row[16] } : {}),
                type: MODULE_TYPES[row[1]],
                number: row[2],
                description: row[3],
@@ -209,7 +205,7 @@
                ...(row[10] !== null ? { sensitivity: row[10] } : {}),
                ...(row[11] !== null ? { rcdType: row[11] } : {}),
                ...(row[12] !== null ? { ratedCurrent: row[12] } : {}),
-               ...(row[13] !== null ? { warnings: row[13] } : {})
+               ...(row[13] !== null ? { warning: row[13] } : {})
             };
          }),
          boxes: packed[2].map(function (row, index) {

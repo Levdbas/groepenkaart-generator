@@ -290,7 +290,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       assert.equal(harness.warningCards.length, displayedCount);
       assert.equal(harness.warningImages.length, displayedCount);
       assert.ok(!text.includes('LET OP!'));
-      assert.equal(document.lastAutoTable.settings.startY, 55);
+      assert.equal(document.lastAutoTable.settings.startY, 58);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('Group-1-1'));
       assert.ok(document.output().startsWith('%PDF-'));
@@ -468,7 +468,7 @@ test('PDF shows module metadata, supply details and derived feed references', ()
       id: 'r1', number: 'A1', name: 'Keuken', color: '#ed8c01', amountOfPoles: 2,
       phases: [], sensitivity: 30, rcdType: 'A', ratedCurrent: 40
    }];
-   harness.pdf.download([source, branch], [], rcds, false);
+   harness.pdf.download([source, branch], 0, [], rcds, false);
    const document = harness.document();
    const firstPage = pageText(document, 1);
    const secondPage = pageText(document, 2);

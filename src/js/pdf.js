@@ -151,12 +151,10 @@
 
    function moduleMetadata(module, boxes) {
       const definition = window.GroepenkaartSchema.moduleTypes.get(module.type || 'MCB');
-      const width = window.GroepenkaartSchema.moduleTypes.widthOf(module);
-      const details = definition ? [definition.slug, width + (width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
+      const details = definition ? [definition.slug, definition.width + (definition.width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
       if (module.characteristic) details.push(module.characteristic);
       if (module.rcdType) details.push('type ' + module.rcdType);
       if (module.ratedCurrent) details.push(module.ratedCurrent + ' A');
-      if (module.connectedTo) details.push(window.GroepenkaartRcd.connectionText(module));
       boxes.forEach(function (box) {
          if (box.supply && box.supply.type === 'subdistribution' && box.supply.sourceModuleId === module.id) {
             details.push('voedt kast ' + box.number + (box.name ? ' (' + box.name + ')' : ''));
@@ -169,13 +167,9 @@
       const supply = box.supply;
       if (!supply) return '';
       const details = [];
-      if (supply.type === 'linked') {
-         const source = boxes.find(function (candidate) { return candidate.id === supply.sourceBoxId; });
-         details.push(source ? 'gekoppeld aan de hoofdaansluiting van kast ' + source.number : 'gekoppeld aan een hoofdaansluiting');
-      } else if (supply.type === 'mains') {
+      if (supply.type === 'mains') {
          details.push('hoofdaansluiting');
-         if (supply.connectionRating === 'Anders') details.push(supply.customConnectionRating || 'Anders');
-         else if (supply.connectionRating) details.push(supply.connectionRating);
+         if (supply.connectionRating) details.push(supply.connectionRating);
          if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
             details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
                (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
@@ -216,11 +210,11 @@
       const headWidth = innerWidth - badgeWidth;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
-      const description = hasDescription ? doc.splitTextToSize(group.description, headWidth) : [];
+      const description = hasDescription ? doc.splitTextToSize(group.description, innerWidth) : [];
       const metadataText = moduleMetadata(group, boxes);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(metadataSize);
-      const metadata = metadataText ? doc.splitTextToSize(metadataText, headWidth) : [];
+      const metadata = metadataText ? doc.splitTextToSize(metadataText, innerWidth) : [];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(ITEM_SIZE);
       const items = (group.items || []).map(function (item) {
@@ -231,7 +225,7 @@
       const itemsGap = description.length && itemLines ? 0.8 : 0;
       const textHeight = description.length * descriptionStep + metadataGap + metadata.length * metadataStep + itemsGap + itemLines * itemStep;
       return {
-         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep, badges: badges,
+         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep,
          metadataStep: metadataStep, metadataGap: metadataGap, itemStep: itemStep,
          itemsGap: itemsGap, textHeight: textHeight, height: textHeight + CELL_PADDING * 2
       };
@@ -303,7 +297,7 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(13);
-         doc.text('Groepenkaart', margin, 15); // keep this title as it is.
+         doc.text('Module-indeling', margin, 15);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);
@@ -324,17 +318,13 @@
          }
          const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset + supplyHeight, phaseEnabled);
 
-         // A null row is a free slot, drawn as an empty row.
-         const rows = box.rows || box.groups;
-         const entries = rows.map(function (module) {
-            if (!module) return undefined;
+         const entries = box.groups.map(function (module) {
             return lookup[module.rcdId] || (module.type && /^(RCD|RCBO)-/.test(module.type) ? lookup[module.id] : undefined);
          });
          const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
          // Groups are drawn by hand (bold description, small bullets) unless one is taller than a page: that one
          // stays plain text so the table can still split it and no text is lost.
-         const layouts = rows.map(function (g) {
-            if (!g) return null;
+         const layouts = box.groups.map(function (g) {
             const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2, boxes);
             return layout.height <= maxRowHeight ? layout : null;
          });

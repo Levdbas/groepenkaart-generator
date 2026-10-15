@@ -11,15 +11,6 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 const box = { rails: 2, railWidth: 6 };
 const item = (id, rail, slot, width = 1) => ({ id, rail, slot, width });
 
-test('rows lists modules and free slots in reading order', () => {
-   const items = [item('a', 1, 1), item('b', 1, 4, 2), item('c', 2, 2)];
-   assert.deepEqual(plain(layout.rows(box, items)), [
-      'a', null, null, 'b', null,
-      null, 'c', null, null, null, null
-   ]);
-   assert.deepEqual(plain(layout.rows({ rails: 1, railWidth: 3 }, [])), [null, null, null]);
-});
-
 test('fits and freeRun respect the rail bounds and other modules', () => {
    const items = [item('a', 1, 1), item('b', 1, 4, 2)];
    assert.equal(layout.fits(box, items, 1, 2, 2), true);

@@ -73,11 +73,6 @@
           "type": "integer",
           "minimum": 1
         },
-        "width": {
-          "description": "Width in DIN modules. Only for types with a variable width (RCBO-2P: 1 or 2; OTHER: 1 to 4); other types use the fixed width of their type. When absent the type default applies.",
-          "type": "integer",
-          "minimum": 1
-        },
         "type": {
           "enum": [
             "MCB",
@@ -93,9 +88,7 @@
             "Bell-TRANSFORMER",
             "KWH-2P",
             "KWH-4P",
-            "SPD",
-            "SPD-4P",
-            "OTHER"
+            "SPD"
           ]
         },
         "number": { "type": "string" },
@@ -104,20 +97,14 @@
         "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
         "characteristic": { "type": "string" },
         "phases": { "$ref": "#/$defs/phases" },
-        "protectedByModuleId": {
-          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET, OTHER) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead, never to an RCD. Always null for MAINS types.",
-          "type": ["string", "null"]
-        },
+        "protectedByModuleId": { "type": ["string", "null"] },
         "items": { "type": "array", "items": { "type": "string" } },
         "sensitivity": { "type": "integer", "enum": [10, 30, 100, 300] },
         "rcdType": { "enum": ["AC", "A", "F", "B", "B+"] },
         "ratedCurrent": { "type": "number", "exclusiveMinimum": 0 },
-        "warnings": {
-          "description": "Installations this module flags with a warning card on the first page. Only MCB and MCB-3P modules may set it.",
-          "type": "array",
-          "items": { "enum": ["pv", "ev", "battery"] },
-          "uniqueItems": true,
-          "minItems": 1
+        "warning": {
+          "description": "Installation this module flags with a warning card on the first page. Only MCB and MCB-2P modules may set it.",
+          "enum": ["pv", "ev", "battery"]
         }
       },
       "if": {
@@ -145,24 +132,8 @@
           }
         },
         {
-          "if": { "required": ["warnings"] },
-          "then": { "properties": { "type": { "enum": ["MCB", "MCB-3P"] } } }
-        },
-        {
-          "if": { "required": ["width"] },
-          "then": {
-            "properties": {
-              "type": { "enum": ["RCBO-2P", "OTHER"] },
-              "width": { "maximum": 4 }
-            }
-          }
-        },
-        {
-          "if": {
-            "required": ["width"],
-            "properties": { "type": { "const": "RCBO-2P" } }
-          },
-          "then": { "properties": { "width": { "maximum": 2 } } }
+          "if": { "required": ["warning"] },
+          "then": { "properties": { "type": { "enum": ["MCB", "MCB-2P"] } } }
         },
         {
           "if": { "properties": { "type": { "enum": ["RCD-4P", "RCBO-4P"] } } },
@@ -210,8 +181,7 @@
           "oneOf": [
             { "type": "null" },
             { "$ref": "#/$defs/mainsSupply" },
-            { "$ref": "#/$defs/subdistributionSupply" },
-            { "$ref": "#/$defs/linkedSupply" }
+            { "$ref": "#/$defs/subdistributionSupply" }
           ]
         }
       }
@@ -223,7 +193,6 @@
         "type": { "const": "mains" },
         "connectionRating": {
           "enum": [
-            "1x10A",
             "1x25A",
             "1x35A",
             "1x40A",
@@ -240,15 +209,6 @@
         "supplier": { "type": "string" },
         "mainSwitchCurrent": { "type": "number", "exclusiveMinimum": 0 },
         "mainSwitchPoles": { "type": "integer", "enum": [2, 4] }
-      }
-    },
-    "linkedSupply": {
-      "description": "A box directly attached to a box with a mains supply, which powers it. sourceBoxId is the ID of that other box.",
-      "type": "object",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "linked" },
-        "sourceBoxId": { "type": ["string", "null"] }
       }
     },
     "subdistributionSupply": {

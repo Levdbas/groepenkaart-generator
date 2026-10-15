@@ -115,6 +115,28 @@
 
       <div class="installation-checkboxes pdf-option">
         <label>
+          <input type="checkbox" id="fill-rows" />
+          <span>Tabel aanvullen tot 15 regels</span>
+        </label>
+        <span class="tooltip-anchor">
+          <button
+            type="button"
+            class="tooltip-trigger"
+            aria-label="Meer informatie over lege regels"
+            aria-describedby="fill-rows-help"
+          >
+            i
+          </button>
+          <span id="fill-rows-help" class="tooltip-content" role="tooltip">
+            Vul elke kast aan tot 15 regels om later met de hand modules toe te
+            voegen. Deze instelling is alleen voor deze browser en wordt niet
+            opgeslagen met of gedeeld via de groepenkaart.
+          </span>
+        </span>
+      </div>
+
+      <div class="installation-checkboxes pdf-option">
+        <label>
           <input type="checkbox" id="rcd-first" checked />
           <span>Aardlekschakelaar vóór modulenummer</span>
         </label>
@@ -154,9 +176,9 @@
             i
           </button>
           <span id="expert-mode-help" class="tooltip-content" role="tooltip">
-            Toont extra technische velden: gevoeligheid, aardlektype en nominale
-            stroom bij aardlekschakelaars en aardlekautomaten, en nominale
-            stroom bij andere modules. Ingevulde waarden blijven bewaard als de
+            Toont extra technische velden: gevoeligheid, aardlektype en
+            nominale stroom bij aardlekschakelaars, en aardlektype en nominale
+            stroom bij modules. Ingevulde waarden blijven bewaard als de
             expertmodus uit staat. Deze instelling is alleen voor deze browser
             en wordt niet opgeslagen met of gedeeld via de groepenkaart.
           </span>
