@@ -25,7 +25,7 @@ Groepenkaart Generator is a browser-only app for creating electrical panel sched
 - Make application changes in `src/`, schemas, tests, or documentation as appropriate. Do not edit generated files in `dist/`; rebuild them with the project scripts.
 - Keep user-facing interface text and documentation in Dutch, following the existing terminology and style.
 - Preserve the browser-only data flow. Card data is stored locally; share URLs and QR codes carry data in the URL fragment, not to a server.
-- The current data format is schema version 4. Treat the data schema version as independent from the app version. Keep published older schema files unchanged.
+- The current data format is schema version 5. Treat the data schema version as independent from the app version. Keep published older schema files unchanged.
 - When changing the persisted or imported data shape, update the current schema, validation, and a sequential migration from the preceding version. Preserve existing data through migrations and add regression coverage for the migration chain. Reject unsupported newer versions and leave current data intact when an import fails. A feature that does not change the data format does not need a schema version bump.
 - Current groups use `description` rather than a separate `name`. Use RCD terminology in current code and UI; retain legacy RCBO field names only where needed to read and migrate older formats.
 - Preserve documented PDF behavior unless the request changes it: a group stays together on one page, filling tables to 15 rows is opt-in, and an enabled QR code is placed on the final page. Check rendered PDF output for PDF layout changes.

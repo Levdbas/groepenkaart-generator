@@ -121,7 +121,7 @@ function expectedV5(data) {
       if (!boxes.length || !(data.warnings || []).includes(code)) continue;
       modules.push({
          id: `legacy-warning-${code}`, boxId: boxes[0].id, type: 'MCB', number: '', description: labels[code],
-         characteristic: '', phases: [], protectedByModuleId: null, warning: code
+         characteristic: '', phases: [], protectedByModuleId: null, warnings: [code]
       });
       boxes[0].moduleIds.push(`legacy-warning-${code}`);
    }
@@ -318,7 +318,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    data.modules[4].sensitivity = 30;
    data.modules[4].rcdType = 'A';
    data.modules[4].ratedCurrent = 40;
-   data.modules[0].warning = 'ev';
+   data.modules[0].warnings = ['ev', 'battery'];
    data.boxes[0].supply = {
       type: 'mains', connectionRating: 'Anders', customConnectionRating: '3x45A', supplier: 'Stedin',
       mainSwitchCurrent: 40, mainSwitchPoles: 4
@@ -339,7 +339,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    assert.equal(decoded.modules[4].sensitivity, 30);
    assert.equal(decoded.modules[4].rcdType, 'A');
    assert.equal(decoded.modules[4].ratedCurrent, 40);
-   assert.equal(decoded.modules[0].warning, 'ev');
+   assert.deepEqual(Array.from(decoded.modules[0].warnings), ['ev', 'battery']);
    assert.equal(decoded.modules[0].protectedByModuleId, decoded.modules[4].id);
    assert.deepEqual(Array.from(decoded.boxes[0].moduleIds), ['m1', 'm2']);
    assert.deepEqual([decoded.boxes[0].rails, decoded.boxes[0].railWidth, decoded.boxes[1].rails, decoded.boxes[1].railWidth], [3, 18, 1, 12]);
@@ -563,11 +563,11 @@ test('v2 files migrate to v5 with default phase settings and keep all existing d
    withItems.warnings = ['pv'];
    withItems.boxes[0].groups[0].items = ['Vaatwasser'];
    const migrated = plain(schema.normalize(withItems));
-   assert.deepEqual(plain(migrated.modules.filter((module) => module.warning).map((module) => [module.id, module.warning, module.boxId])),
-      [['legacy-warning-pv', 'pv', migrated.boxes[0].id]]);
+   assert.deepEqual(plain(migrated.modules.filter((module) => module.warnings).map((module) => [module.id, module.warnings, module.boxId])),
+      [['legacy-warning-pv', ['pv'], migrated.boxes[0].id]]);
    assert.deepEqual(migrated.modules[0].items, ['Vaatwasser']);
    assert.deepEqual(migrated.modules.filter((module) => module.type.startsWith('RCD')).map((module) => module.id), ['r1', 'r2']);
-   assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB' && !module.warning).map((module) => module.protectedByModuleId), ['r1', null, 'r1', 'r2']);
+   assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB' && !module.warnings).map((module) => module.protectedByModuleId), ['r1', null, 'r1', 'r2']);
 });
 
 test('v2 to v3 renames the RCBO fields to RCD fields', () => {
@@ -901,7 +901,8 @@ test('published schemas match the current version, required fields, and warning 
    const { schema, context } = setupSchema();
    assert.equal(publishedSchema.properties.schemaVersion.const, schema.currentVersion);
    assert.deepEqual(publishedSchema.required, Object.keys(plain(schema.empty())));
-   assert.deepEqual(publishedSchema.$defs.module.properties.warning.enum, ['pv', 'ev', 'battery']);
+   assert.deepEqual(publishedSchema.$defs.module.properties.warnings.items.enum, ['pv', 'ev', 'battery']);
+   assert.ok(!('warning' in publishedSchema.$defs.module.properties));
    assert.ok(!('warnings' in publishedSchema.properties));
    assert.deepEqual(publishedV2Schema.properties.warnings.items.enum,
       Array.from(context.window.GroepenkaartWarnings.codes));
@@ -1168,37 +1169,54 @@ test('a module warning must be one its type may flag', () => {
    const { schema } = setupSchema();
    const data = plain(schema.normalize(noWarnings));
    const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
-   assert.equal(schema.normalize(variant((d) => { d.modules[0].warning = 'pv'; })).modules[0].warning, 'pv');
+   assert.deepEqual(plain(schema.normalize(variant((d) => { d.modules[0].warnings = ['pv']; })).modules[0].warnings), ['pv']);
+   assert.deepEqual(plain(schema.normalize(variant((d) => { d.modules[0].warnings = ['battery', 'pv']; })).modules[0].warnings), ['pv', 'battery'],
+      'several warnings are kept in card order');
    for (const warning of ['heat-pump', 'unknown', 1]) {
-      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warning = warning; })), /waarschuwing/);
+      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warnings = [warning]; })), /waarschuwing/);
    }
-   assert.throws(() => schema.normalize(variant((d) => { d.modules[0].type = 'SPD'; d.modules[0].warning = 'pv'; })),
+   for (const warnings of ['pv', [], ['pv', 'pv']]) {
+      assert.throws(() => schema.normalize(variant((d) => { d.modules[0].warnings = warnings; })), /lijst met unieke waarschuwingen/);
+   }
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[0].type = 'SPD'; d.modules[0].warnings = ['pv']; })),
       /ondersteunt de waarschuwing/);
 });
 
-test('the installation warning is chosen per module and drives the warning cards', () => {
+test('installation warnings are chosen per module, can be combined and drive the warning cards', () => {
    const app = setupApp(JSON.stringify(noWarnings));
    const cards = () => app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warning');
    app.editModule('legacy-module-1-1');
-   assert.deepEqual(Array.from(app.field('warning').children, (option) => option.value), ['', 'pv', 'ev', 'battery']);
+   assert.deepEqual(['pv', 'ev', 'battery'].map((code) => app.field('warning-' + code).attrs.type), ['checkbox', 'checkbox', 'checkbox']);
    assert.equal(cards().length, 0);
-   app.set('warning', 'battery');
+   app.set('warning-battery', true);
+   app.set('warning-pv', true);
    app.save();
    app.editModule('legacy-module-1-2');
-   app.set('warning', 'pv');
+   app.set('warning-pv', true);
    app.save();
-   assert.deepEqual(JSON.parse(app.storage()).modules.map((module) => module.warning), ['battery', 'pv']);
+   assert.deepEqual(JSON.parse(app.storage()).modules.map((module) => module.warnings), [['pv', 'battery'], ['pv']]);
    assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg', 'images/eos.svg']);
-   assert.equal(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className === 'din-module-badge')[0].textContent, 'EOS');
+   assert.deepEqual(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className === 'din-module-badge').map((n) => n.textContent), ['PV', 'EOS']);
    app.nodes.get('download-pdf').listeners.click();
    assert.deepEqual(app.pdfCalls[0][2], ['pv', 'battery']);
 
    app.editModule('legacy-module-1-1');
-   app.set('type', 'SPD');
-   assert.equal(app.field('warning'), undefined);
+   assert.equal(app.field('warning-pv').checked, true);
+   app.set('warning-pv', false);
    app.save();
-   assert.ok(!('warning' in JSON.parse(app.storage()).modules[0]));
+   assert.deepEqual(JSON.parse(app.storage()).modules[0].warnings, ['battery']);
+   app.editModule('legacy-module-1-1');
+   app.set('warning-battery', false);
+   app.save();
+   assert.ok(!('warnings' in JSON.parse(app.storage()).modules[0]));
    assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg']);
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'SPD');
+   assert.equal(app.field('warning-pv'), undefined);
+   app.save();
+   assert.ok(!('warnings' in JSON.parse(app.storage()).modules[1]));
+   assert.equal(cards().length, 0);
 });
 
 test('choosing a module type clears one-phase selections and locks three-phase modules', () => {
