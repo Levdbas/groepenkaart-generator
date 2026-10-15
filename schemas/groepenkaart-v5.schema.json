@@ -187,7 +187,8 @@
           "oneOf": [
             { "type": "null" },
             { "$ref": "#/$defs/mainsSupply" },
-            { "$ref": "#/$defs/subdistributionSupply" }
+            { "$ref": "#/$defs/subdistributionSupply" },
+            { "$ref": "#/$defs/linkedSupply" }
           ]
         }
       }
@@ -215,6 +216,15 @@
         "supplier": { "type": "string" },
         "mainSwitchCurrent": { "type": "number", "exclusiveMinimum": 0 },
         "mainSwitchPoles": { "type": "integer", "enum": [2, 4] }
+      }
+    },
+    "linkedSupply": {
+      "description": "A box directly attached to a box with a mains supply, which powers it. sourceBoxId is the ID of that other box.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "linked" },
+        "sourceBoxId": { "type": ["string", "null"] }
       }
     },
     "subdistributionSupply": {
