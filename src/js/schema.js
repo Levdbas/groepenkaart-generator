@@ -425,8 +425,8 @@
          if (supply.sourceModuleId && !source) {
             throw new Error('Ongeldig bestand: "sourceModuleId" verwijst naar een onbekende module.');
          }
-         if (source && (!source.boxId || !['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'].includes(source.type))) {
-            throw new Error('Ongeldig bestand: een voeding moet verwijzen naar een geplaatste circuitmodule.');
+         if (source && (!source.boxId || !['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P', 'RCD-2P', 'RCD-4P'].includes(source.type))) {
+            throw new Error('Ongeldig bestand: een voeding moet verwijzen naar een geplaatste circuitmodule of aardlekschakelaar.');
          }
          if (supply.sourceModuleId !== undefined) result.sourceModuleId = supply.sourceModuleId;
          if (supply.preFuse !== undefined) {

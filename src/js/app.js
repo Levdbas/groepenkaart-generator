@@ -15,6 +15,7 @@
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
    const circuitTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const mcbLinkTargets = circuitTypes;
+   const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P']);
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
 
@@ -1036,7 +1037,7 @@
    function supplySourceModules(box) {
       return state.boxes.filter(function (candidate) { return candidate !== box; }).flatMap(function (candidate) {
          return boxModules(candidate).filter(function (module) {
-            return circuitTypes.includes(module.type);
+            return supplySourceTypes.includes(module.type);
          }).map(function (module) { return { box: candidate, module: module }; });
       });
    }
