@@ -553,16 +553,17 @@
             else delete draft.sensitivity;
          });
          fields.push(labelField('Gevoeligheid', sensitivity));
+         const rcdType = el('select', { 'data-field': 'rcdType', 'aria-label': 'Aardlektype' }, [
+            el('option', { value: '', text: 'Niet ingesteld' }),
+            ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
+         ]);
+         rcdType.value = draft.rcdType || '';
+         rcdType.addEventListener('change', function () {
+            if (rcdType.value) draft.rcdType = rcdType.value;
+            else delete draft.rcdType;
+         });
+         fields.push(labelField('Aardlektype', rcdType));
       }
-      const rcdType = el('select', { 'data-field': 'rcdType', 'aria-label': 'Aardlektype' }, [
-         el('option', { value: '', text: 'Niet ingesteld' }),
-         ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
-      ]);
-      rcdType.value = draft.rcdType || '';
-      rcdType.addEventListener('change', function () {
-         if (rcdType.value) draft.rcdType = rcdType.value;
-         else delete draft.rcdType;
-      });
       const ratedCurrent = el('input', { type: 'number', min: '1', step: '1', placeholder: 'A', 'data-field': 'ratedCurrent', 'aria-label': 'Nominale stroom' });
       ratedCurrent.value = draft.ratedCurrent === undefined ? '' : String(draft.ratedCurrent);
       ratedCurrent.addEventListener('input', function () {
@@ -570,7 +571,7 @@
          if (ratedCurrent.value && Number.isFinite(value) && value > 0) draft.ratedCurrent = value;
          else delete draft.ratedCurrent;
       });
-      fields.push(labelField('Aardlektype', rcdType), labelField('Nominale stroom (A)', ratedCurrent));
+      fields.push(labelField('Nominale stroom (A)', ratedCurrent));
       return el('div', { className: 'module-technical-controls' }, fields);
    }
 
@@ -652,6 +653,8 @@
       const snapshot = clone(state);
       if (isProtective(draft)) {
          draft.name = draft.description;
+      } else {
+         delete draft.rcdType;
       }
       if (original && original.type !== draft.type) {
          const unlinked = state.modules.filter(function (module) {

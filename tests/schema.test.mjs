@@ -1132,7 +1132,7 @@ test('module type controls derive width, only offer types that fit, keep charact
    assert.equal(option('MCB-2P').attrs.disabled, undefined);
    app.set('type', 'MCB-2P');
    app.set('characteristic', 'C32');
-   app.set('rcdType', 'A');
+   assert.equal(app.field('rcdType'), undefined, 'only RCDs have an RCD type');
    app.set('ratedCurrent', '16');
    app.save();
    let module = JSON.parse(app.storage()).modules[1];
@@ -1141,7 +1141,7 @@ test('module type controls derive width, only offer types that fit, keep charact
    assert.equal(app.shareContext.GroepenkaartSchema.moduleTypes.get(module.type).width, 4);
    assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 4');
    assert.equal(module.characteristic, 'C32');
-   assert.equal(module.rcdType, 'A');
+   assert.ok(!('rcdType' in module));
    assert.equal(module.ratedCurrent, 16);
 
    app.editModule('legacy-module-1-2');
@@ -1748,7 +1748,7 @@ test('expert mode is off by default, shows the technical fields per device and k
    app.save();
    app.editModule('legacy-module-1-1');
    assert.equal(app.field('sensitivity'), undefined, 'only RCDs have a sensitivity');
-   app.set('rcdType', 'A');
+   assert.equal(app.field('rcdType'), undefined, 'only RCDs have an RCD type');
    app.set('ratedCurrent', '16');
    app.save();
 
@@ -1759,7 +1759,7 @@ test('expert mode is off by default, shows the technical fields per device and k
    const stored = JSON.parse(app.storage());
    assert.ok(!('expertMode' in stored));
    assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
-   assert.ok(stored.modules.some((module) => module.rcdType === 'A' && module.ratedCurrent === 16));
+   assert.ok(stored.modules.some((module) => module.ratedCurrent === 16));
 
    const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
    assert.equal(reloaded.nodes.get('expert-mode').checked, true);
