@@ -27,6 +27,8 @@ Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot ge
 
 Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot genoeg blijft om aan te tikken.
 
+Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot genoeg blijft om aan te tikken.
+
 Niet gekozen fasen en lege regels krijgen geen gekleurde rand.
 
 ## Gebruik

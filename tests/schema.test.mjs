@@ -1753,6 +1753,41 @@ test('expert mode is off by default, shows the technical fields per device and k
    assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
 });
 
+test('expert mode is off by default, shows the technical fields per device and keeps their values when hidden', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   const technical = () => app.findAll(app.dialog(), (node) => node.className === 'module-technical-controls');
+   assert.equal(app.nodes.get('expert-mode').checked, false);
+   app.editModule('r1');
+   assert.equal(technical().length, 0);
+   app.cancel();
+
+   app.setExpertMode(true);
+   assert.equal(app.expertModeStorage(), 'true');
+   app.editModule('r1');
+   assert.equal(technical().length, 1);
+   app.set('sensitivity', '30');
+   app.save();
+   app.editModule('legacy-module-1-1');
+   assert.equal(app.field('sensitivity'), undefined, 'only RCDs have a sensitivity');
+   app.set('rcdType', 'A');
+   app.set('ratedCurrent', '16');
+   app.save();
+
+   app.setExpertMode(false);
+   app.editModule('r1');
+   assert.equal(technical().length, 0);
+   app.save();
+   const stored = JSON.parse(app.storage());
+   assert.ok(!('expertMode' in stored));
+   assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
+   assert.ok(stored.modules.some((module) => module.rcdType === 'A' && module.ratedCurrent === 16));
+
+   const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
+   assert.equal(reloaded.nodes.get('expert-mode').checked, true);
+   reloaded.editModule('legacy-module-1-1');
+   assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
+});
+
 test('a QR code is skipped with a visible message when the data does not fit', () => {
    const big = structuredClone(withRcds);
    let seed = 1;
