@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
-const sources = await Promise.all(['warnings', 'rcd', 'pdf'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'module-types', 'pdf'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 
 function setup() {
@@ -280,7 +280,7 @@ test('warning cards fit below the print date and above the standard table on A4'
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
       assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
-      assert.ok(text.indexOf('LET OP!') > text.indexOf('Groepenindeling'));
+      assert.ok(text.indexOf('LET OP!') > text.indexOf('Module-indeling'));
       assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
       assert.equal(document.lastAutoTable.settings.startY, 58);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
@@ -406,4 +406,30 @@ test('without RCDs the PDF output is unchanged', () => {
    const document = harness.document();
    assert.equal(document.lastAutoTable.settings.startY, 30);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
+});
+
+test('PDF shows module metadata, supply details and derived feed references', () => {
+   const harness = setup();
+   const source = box('1');
+   source.groups[0] = { ...source.groups[0], id: 'source', type: 'MCB', characteristic: 'C16', rcdId: 'r1' };
+   const branch = box('2');
+   branch.supply = {
+      type: 'subdistribution', sourceModuleId: 'source', preFuse: 'C32', cableCores: 5,
+      cableCrossSection: 6, mainSwitchCurrent: 40, mainSwitchPoles: 4
+   };
+   const rcds = [{
+      id: 'r1', number: 'A1', name: 'Keuken', color: '#ed8c01', amountOfPoles: 2,
+      phases: [], sensitivity: 30, rcdType: 'A', ratedCurrent: 40
+   }];
+   harness.pdf.download([source, branch], 0, [], rcds, false);
+   const document = harness.document();
+   const firstPage = pageText(document, 1);
+   const secondPage = pageText(document, 2);
+   for (const value of ['MCB', '1 DIN-module', 'C16', 'voedt kast 2', '30 mA - type A - 40 A']) {
+      assert.ok(firstPage.includes(value), `${value} appears on the source module page`);
+   }
+   for (const value of ['Voeding: vanuit kast 1, module 1', 'C32', '5x 6 mm2']) {
+      assert.ok(secondPage.includes(value), `${value} appears on the sub-distribution page`);
+   }
+   assert.deepEqual(document.lastAutoTable.head[0].cells[0].text, ['Module']);
 });

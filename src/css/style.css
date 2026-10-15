@@ -322,6 +322,21 @@ textarea {
   width: 5rem;
 }
 
+.box-supply-editor {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.3fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.box-supply-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem;
+}
+
 .groups-table {
   width: 100%;
   border-collapse: collapse;
@@ -408,6 +423,13 @@ textarea {
   border-radius: 4px;
   height: 2.25rem;
   min-height: 2.25rem;
+}
+
+.rcd-technical-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
 }
 
 .rcd-phase-controls {
@@ -508,11 +530,56 @@ textarea {
   width: 1px;
   height: 1px;
   overflow: hidden;
+  .module-type-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .module-type-select {
+    width: min(100%, 24rem);
+    min-width: 0;
+    min-height: 2.25rem;
+  }
+
+  .module-width {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .module-technical-controls {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.5fr) minmax(6rem, 0.3fr);
+    gap: 0.5rem;
+    margin: 0.4rem 0;
+  }
+
+  .group-description > .field {
+    margin-top: 0.4rem;
+  }
+
   clip-path: inset(50%);
 }
 
 .groups-table .col-phases {
   width: 10rem;
+}
+
+.module-type-control {
+  flex-wrap: wrap;
+}
+
+.module-type-select {
+  width: 100%;
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+.module-technical-controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .phase-choices {
@@ -668,6 +735,10 @@ select:focus-visible,
     justify-content: flex-end;
   }
 
+  .box-supply-editor {
+    grid-template-columns: 1fr;
+  }
+
   input[type="text"],
   textarea {
     min-height: 44px;
@@ -726,8 +797,13 @@ select:focus-visible,
 
   .rcd-item > input[type="text"]:not(.input-number),
   .rcd-item .row-actions,
-  .rcd-phase-controls {
+  .rcd-phase-controls,
+  .rcd-technical-controls {
     grid-column: 1 / -1;
+  }
+
+  .rcd-technical-controls {
+    grid-template-columns: 1fr;
   }
 
   .rcd-panel .btn-primary {
@@ -885,6 +961,18 @@ select:focus-visible,
     color: var(--blue);
     font-weight: 400;
     font-size: 13pt;
+  }
+
+  .print-supply {
+    margin: -0.4rem 0 0.5rem;
+    font-size: 8pt;
+  }
+
+  .print-module-meta,
+  .print-module-feed {
+    color: var(--muted);
+    font-size: 7.5pt;
+    line-height: 1.15;
   }
 
   .print-page table {

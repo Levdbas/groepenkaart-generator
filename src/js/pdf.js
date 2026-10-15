@@ -150,26 +150,76 @@
          margin + size + 8, top + 8);
    }
 
-   // Lays out a group's bold description and small bullet list for a cell of the given inner width. The height
+   function moduleMetadata(module, boxes) {
+      const definition = window.GroepenkaartModuleTypes.get(module.type || 'MCB');
+      const details = definition ? [definition.slug, definition.width + (definition.width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
+      if (module.characteristic) details.push(module.characteristic);
+      if (module.rcdType) details.push('type ' + module.rcdType);
+      if (module.ratedCurrent) details.push(module.ratedCurrent + ' A');
+      boxes.forEach(function (box) {
+         if (box.supply && box.supply.type === 'subdistribution' && box.supply.sourceModuleId === module.id) {
+            details.push('voedt kast ' + box.number + (box.name ? ' (' + box.name + ')' : ''));
+         }
+      });
+      return details.join(' - ');
+   }
+
+   function supplySummary(box, boxes) {
+      const supply = box.supply;
+      if (!supply) return '';
+      const details = [];
+      if (supply.type === 'mains') {
+         details.push('hoofdaansluiting');
+         if (supply.connectionRating) details.push(supply.connectionRating);
+         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+            details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
+               (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
+         }
+         if (supply.supplier) details.push(supply.supplier);
+      } else {
+         const sourceBox = boxes.find(function (candidate) {
+            return candidate.groups.some(function (module) { return module.id === supply.sourceModuleId; });
+         });
+         const source = sourceBox && sourceBox.groups.find(function (module) { return module.id === supply.sourceModuleId; });
+         if (sourceBox && source) details.push('vanuit kast ' + sourceBox.number + ', module ' + source.number);
+         if (supply.preFuse) details.push(supply.preFuse);
+         if (supply.cableCores && supply.cableCrossSection) details.push(supply.cableCores + 'x ' + supply.cableCrossSection + ' mm2');
+         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+            details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
+               (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
+         }
+      }
+      return details.length ? 'Voeding: ' + details.join(' - ') : '';
+   }
+
+   // Lays out a module's description, type details, and small bullet list for a cell of the given inner width. The height
    // includes the cell padding; the table row is made exactly this tall so the text can be drawn inside it.
-   function layoutGroup(doc, group, innerWidth) {
+   function layoutGroup(doc, group, innerWidth, boxes) {
       const scale = doc.internal.scaleFactor;
       const descriptionStep = DESCRIPTION_SIZE * LINE_FACTOR / scale;
+      const metadataSize = 6.3;
+      const metadataStep = metadataSize * LINE_FACTOR / scale;
       const itemStep = ITEM_SIZE * LINE_FACTOR / scale;
       const hasDescription = !!group.description;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
       const description = hasDescription ? doc.splitTextToSize(group.description, innerWidth) : [];
+      const metadataText = moduleMetadata(group, boxes);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(metadataSize);
+      const metadata = metadataText ? doc.splitTextToSize(metadataText, innerWidth) : [];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(ITEM_SIZE);
       const items = (group.items || []).map(function (item) {
          return doc.splitTextToSize(item, innerWidth - ITEM_INDENT);
       });
       const itemLines = items.reduce(function (sum, lines) { return sum + lines.length; }, 0);
+      const metadataGap = description.length && metadata.length ? 0.5 : 0;
       const itemsGap = description.length && itemLines ? 0.8 : 0;
-      const textHeight = description.length * descriptionStep + itemsGap + itemLines * itemStep;
+      const textHeight = description.length * descriptionStep + metadataGap + metadata.length * metadataStep + itemsGap + itemLines * itemStep;
       return {
-         description: description, items: items, descriptionStep: descriptionStep, itemStep: itemStep,
+         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep,
+         metadataStep: metadataStep, metadataGap: metadataGap, itemStep: itemStep,
          itemsGap: itemsGap, textHeight: textHeight, height: textHeight + CELL_PADDING * 2
       };
    }
@@ -183,6 +233,14 @@
       layout.description.forEach(function (line) {
          doc.text(line, x, y, { baseline: 'top' });
          y += layout.descriptionStep;
+      });
+      y += layout.metadataGap;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.3);
+      doc.setTextColor(91, 101, 115);
+      layout.metadata.forEach(function (line) {
+         doc.text(line, x, y, { baseline: 'top' });
+         y += layout.metadataStep;
       });
       y += layout.itemsGap;
       doc.setFont('helvetica', 'normal');
@@ -219,7 +277,7 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(13);
-         doc.text('Groepenindeling', margin, 15);
+         doc.text('Module-indeling', margin, 15);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);
@@ -229,20 +287,31 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(11);
          doc.text(title(box), margin, 24 + offset);
-         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset, phaseEnabled);
+         const supply = supplySummary(box, boxes);
+         let supplyHeight = 0;
+         if (supply) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(30, 30, 30);
+            doc.text(doc.splitTextToSize(supply, pageWidth - margin * 2), margin, 28 + offset);
+            supplyHeight = 4.5;
+         }
+         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset + supplyHeight, phaseEnabled);
 
-         const entries = box.groups.map(function (g) { return lookup[g.rcdId]; });
+         const entries = box.groups.map(function (module) {
+            return lookup[module.rcdId] || (module.type && /^(RCD|RCBO)-/.test(module.type) ? lookup[module.id] : undefined);
+         });
          const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
          // Groups are drawn by hand (bold description, small bullets) unless one is taller than a page: that one
          // stays plain text so the table can still split it and no text is lost.
          const layouts = box.groups.map(function (g) {
-            const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2);
+            const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2, boxes);
             return layout.height <= maxRowHeight ? layout : null;
          });
          const body = box.groups.map(function (g, i) {
             const description = layouts[i]
                ? { content: '', styles: { minCellHeight: Math.max(10, layouts[i].height) } }
-               : [g.description].filter(Boolean).concat((g.items || []).map(function (item) {
+               : [g.description, moduleMetadata(g, boxes)].filter(Boolean).concat((g.items || []).map(function (item) {
                   return '\u2022 ' + item;
                })).join('\n');
             const row = [rcd.cellText(g.number, entries[i], rcdFirst), description];
@@ -252,10 +321,10 @@
          for (let i = box.groups.length; i < minRows; i++) body.push(phaseEnabled ? ['', '', ''] : ['', '']);
 
          doc.autoTable({
-            startY: 30 + offset + keyHeight,
+            startY: 30 + offset + supplyHeight + keyHeight,
             margin: { top: MARGIN_Y, bottom: MARGIN_Y, left: margin, right: margin },
             rowPageBreak: 'avoid',
-            head: [phaseEnabled ? ['Groep', 'Omschrijving', 'Fasen'] : ['Groep', 'Omschrijving']],
+            head: [phaseEnabled ? ['Module', 'Omschrijving', 'Fasen'] : ['Module', 'Omschrijving']],
             body: body,
             theme: 'grid',
             styles: {

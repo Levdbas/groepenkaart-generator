@@ -9,17 +9,18 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 ## Functies
 
 - Meerdere **kasten** toevoegen, elk met een nummer en een naam
-- Per kast **groepen** toevoegen met een nummer, een omschrijving en een optionele opsomming van aansluitingen
-- Kasten en groepen verplaatsen (↑ ↓) en verwijderen (✕)
+- Per kast **DIN-modules** toevoegen met een type, nummer, omschrijving, kenmerk en optionele aansluitingen. De breedte volgt uit het gekozen moduletype.
+- Modules binnen een kast verplaatsen (↑ ↓) en verwijderen (✕)
 - **Installatiewaarschuwingen** aanvinken voor zonnepanelen (PV-installatie), thuisbatterij en airco/warmtepomp. De geselecteerde waarschuwingen verschijnen als compacte rode kaarten met pictogram op de eerste pagina, in de PDF. Alle drie passen naast elkaar.
-- **Aardlekschakelaars** (aardlekschakelaar: Residual Current Device, RCD): zet **Groepen koppelen aan Aardlekschakelaars** aan, voeg Aardlekschakelaars toe met een eigen code, naam en kleur, en koppel groepen eraan. In de PDF krijgt het groepnummer de kleur en code van de gekoppelde aardlekschakelaar, met een legenda per pagina.
-- **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke aardlekschakelaar 2 of 4 polen. Een 2-polige aardlekschakelaar heeft één te kiezen fase (L1, L2 of L3); gekoppelde groepen nemen die fase over. Een 4-polige aardlekschakelaar heeft alle drie de fasen; groepen hierop kiezen zelf één of meer fasen, net als groepen zonder koppeling. De fasen verschijnen in de PDF.
+- **Aardlekbeveiliging**: voeg RCD- of RCBO-modules toe met kleur, gevoeligheid, type en nominale stroom. Andere modules kunnen aan een RCD-module worden gekoppeld; de nummerkleur en legenda volgen die beveiliging.
+- **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke RCD-module 2 of 4 polen. Een 2-polige beveiliging heeft één te kiezen fase (L1, L2 of L3); gekoppelde modules nemen die fase over. Een 4-polige beveiliging heeft alle drie de fasen; modules hierop kiezen zelf één of meer fasen, net als modules zonder koppeling. De fasen verschijnen in de PDF.
+- **Voeding per kast**: leg een hoofdaansluiting of onderverdeler vast. Een onderverdeler verwijst met een stabiele module-ID naar de bronbeveiliging; voorbeveiliging en kabelgegevens verschijnen in de PDF.
 - **QR-code**: zet **QR-code toevoegen aan de PDF** aan (de bovenste optie) en de laatste pagina van de PDF krijgt een QR-code. Scannen opent de app met alle gegevens, zodat je de groepenkaart op een andere telefoon of computer kunt aanpassen. Zie [QR-code en deellink](#qr-code-en-deellink).
-- **PDF downloaden**: in de stijl van een standaard groepenkaart. De omschrijving staat vet, de aansluitingen eronder als kleine opsomming. Een groep wordt nooit over twee pagina's verdeeld en past een kast niet op één pagina, dan gaat de volgende hele groep naar een nieuwe pagina. Met de instelling **Tabel aanvullen tot 15 regels** (standaard uit) worden lege regels toegevoegd, zodat je later nog met de hand kunt aanvullen. Deze instelling wordt per browser bewaard en zit niet in de groepenkaartgegevens.
+- **PDF downloaden**: in de stijl van een standaard groepenkaart. De moduleomschrijving staat vet, het type, de DIN-breedte en het kenmerk eronder; aansluitingen verschijnen als kleine opsomming. Een module wordt nooit over twee pagina's verdeeld. Met **Tabel aanvullen tot 15 regels** (standaard uit) worden lege regels toegevoegd. Deze instelling wordt per browser bewaard en zit niet in de kaartgegevens.
 - Automatisch **opslaan in de browser** (localStorage)
 - **Exporteren en importeren** als JSON-bestand, voor een back-up of om op een andere computer verder te werken
 
-De optie **Fasen** staat boven **Aardlekschakelaars**. Met faseregistratie aan worden groepen als ruimere invoerkaarten getoond, met de omschrijving naast het groepnummer, de aansluitingen op een eigen regel en de aardlekschakelaar- en fasekeuze op een aparte regel daaronder.
+De optie **Fasen** staat boven **Aardlekschakelaars**. Met faseregistratie aan worden modules als ruimere invoerkaarten getoond, met de omschrijving naast het modulenummer, de aansluitingen op een eigen regel en de aardlek- en fasekeuze op een aparte regel daaronder.
 
 In de PDF krijgt de fasekolom een gekleurde onderrand binnen de cel: L1 bruin (`#8B4513`), L2 zwart (`#000000`) en L3 grijs (`#808080`). Bij meerdere actieve fasen wordt de rand in gelijke delen verdeeld. Niet gekozen fasen en lege aanvulregels krijgen geen gekleurde rand.
 
@@ -27,18 +28,18 @@ In de PDF krijgt de fasekolom een gekleurde onderrand binnen de cel: L1 bruin (`
 
 1. Open de [web app](https://levdbas.github.io/groepenkaart-generator/) of [draai de app lokaal](#lokaal-draaien).
 2. Klik onderaan de pagina op **+ Kast toevoegen** en vul een kastnummer en een naam in, bijvoorbeeld `1` en `Meterkast begane grond`.
-3. Elke nieuwe kast begint automatisch met groep `1`. Klik op **+ Groep toevoegen** voor extra groepen. Het groepnummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`.
-4. Vul per groep de omschrijving in, bijvoorbeeld `Keuken – wandcontactdozen aanrecht, vaatwasser`. Een groep heeft geen aparte naam meer: de omschrijving staat op de plek van de naam. Bij **Aansluitingen** kun je per regel een apparaat of aansluiting invullen. Lege regels worden genegeerd. De aansluitingen verschijnen als opsomming onder de omschrijving in de PDF.
+3. Elke nieuwe kast begint automatisch met module `1`. Klik op **+ Module toevoegen** voor extra modules. Het modulenummer wordt automatisch opgehoogd en kan worden aangepast, bijvoorbeeld naar `1a` of `F3`.
+4. Kies per module het type. De DIN-breedte en beschikbare fasen volgen uit het type. Vul de omschrijving en eventueel een vrij kenmerk in. Bij **Aansluitingen** kun je per regel een apparaat of aansluiting invullen. Lege regels worden genegeerd; aansluitingen verschijnen als opsomming onder de omschrijving in de PDF.
 5. Vink bij **Aanwezige installaties** aan welke installaties aanwezig zijn. De selectie geldt voor de hele installatie, niet per kast. Standaard is niets aangevinkt. Elke kaart vermeldt **LET OP!**, de aanwezige installatie en een bijbehorende waarschuwing. Voor een airco/warmtepomp luidt die: **Omvormer: condensatoren kunnen na uitschakelen nog spanning houden.**
-6. Je groepen ook koppelen aan aardlekschakelaars? Vink dan **Groepen koppelen aan Aardlekschakelaars** aan en klik op **+ Aardlekschakelaar toevoegen**. Geef elke aardlekschakelaar een code (bijvoorbeeld `A1`), een naam en een kleur. Standaard krijgt `A1` oranje (`#ed8c01`), `A2` blauw (`#009fe3`), `A3` groen (`#95be1a`) en elke volgende aardlekschakelaar grijs (`#9e9e9e`); je kunt de kleur altijd aanpassen. Kies daarna per groep in de kolom **Aardlekschakelaar** bij welke aardlekschakelaar de groep hoort. De Aardlekschakelaars gelden voor de hele installatie en zijn niet aan een kast gebonden. Als je een aardlekschakelaar verwijdert, worden de gekoppelde groepen ontkoppeld. Zet je de optie uit, dan worden na bevestiging alle Aardlekschakelaars en koppelingen verwijderd.
+6. Wil je modules aan aardlekschakelaars koppelen? Zet **Modules koppelen aan aardlekschakelaars** aan en voeg een Aardlekschakelaar toe. Geef deze een code, naam en kleur; de kleur wordt ook gebruikt voor gekoppelde modulenummers. Gevoeligheid, aardlektype en nominale stroom zijn optioneel. De Aardlekschakelaars gelden voor de hele installatie.
 7. Wil je dat de PDF een QR-code met alle gegevens bevat? Vink dan bovenaan **QR-code toevoegen aan de PDF** aan.
 8. Klik op **PDF downloaden** voor een PDF-bestand. Print die PDF als je een papieren kaart wilt.
 
 ### QR-code en deellink
 
-Met **QR-code toevoegen aan de PDF** komt onder de laatste tabel een QR-code van circa 5,5 cm met een korte uitleg. De QR-code bevat een link naar de app met alle gegevens van de groepenkaart in het deel na de `#`, bijvoorbeeld `https://levdbas.github.io/groepenkaart-generator/#c1=…`. Dit deel van een link gaat nooit naar een server.
+Met **QR-code toevoegen aan de PDF** komt onder de laatste tabel een QR-code van circa 5,5 cm met een korte uitleg. De QR-code bevat een link naar de app met alle gegevens van de groepenkaart in het deel na de `#`, bijvoorbeeld `https://levdbas.github.io/groepenkaart-generator/#c2=…`. Dit deel van een link gaat nooit naar een server.
 
-Om de QR-code zo eenvoudig mogelijk te houden, worden de gegevens compact opgeslagen ([src/js/share.js](src/js/share.js)): de gegevens van het JSON-bestand (zonder `$schema`) worden herschreven naar korte lijsten zonder veldnamen, waarbij groepen naar een aardlekschakelaar verwijzen met een volgnummer in plaats van een lang `id`. Daarna worden ze met deflate gecomprimeerd en als tekst uit de tekens `0-9 A-Z - + * $` in de link gezet. Die tekens passen in de compactere alfanumerieke modus van een QR-code (circa 5,5 bit per teken in plaats van 8). De `id`'s van aardlekschakelaars worden bij het openen opnieuw genummerd (`r1`, `r2`, …). Het formaat `c1` beschrijft altijd gegevens van schemaversie 4; bij een nieuwe schemaversie hoort een nieuw formaat. Links in het eerdere formaat (`#data=`, gecomprimeerde JSON als base64url) kunnen nog steeds worden geopend. Een kaart met 32 groepen, 3 aardlekschakelaars en aansluitingen kost zo circa 740 tekens en een QR-code van 89 bij 89 blokjes, tegen circa 1050 tekens en 121 bij 121 blokjes in het eerdere formaat.
+Om de QR-code compact te houden, worden de gegevens herschreven naar korte lijsten zonder veldnamen en daarna met deflate gecomprimeerd ([src/js/share.js](src/js/share.js)). In `c2` verwijzen boxen en modules onderling met lijstposities in plaats van lange IDs; bij openen worden nieuwe IDs gemaakt en blijven alle relaties behouden. De tekens `0-9 A-Z - + * $` passen in de compactere alfanumerieke modus van een QR-code. Het formaat `c2` beschrijft schemaversie 5. Bestaande `c1`-links (v4) en oudere `#data=`-links kunnen nog steeds worden geopend.
 
 Opent iemand zo'n link, dan valideert en migreert de app de gegevens net als bij **Importeren**, vraagt bevestiging als er al gegevens zijn, en haalt daarna de gegevens uit de adresbalk. Oude QR-codes blijven werken na een nieuwe schemaversie, omdat `schemaVersion` in de gegevens zit.
 
@@ -48,47 +49,60 @@ Een QR-code heeft een maximale capaciteit van ongeveer 2950 tekens. Dat is ruim 
 
 Alles wat je invoert wordt automatisch opgeslagen in je browser. Wis je de browsergegevens of gebruik je een andere browser of computer, dan ben je de gegevens kwijt. Gebruik daarom **Exporteren** om een `groepenkaart.json` te bewaren. Met **Importeren** laad je dat bestand later weer in.
 
-Ook de installatiewaarschuwingen worden opgeslagen en geëxporteerd. De mogelijke codes in `warnings` zijn `pv`, `ev`, `battery` en `heat-pump`. De `ev`-code blijft onderdeel van het bestandsformaat voor compatibiliteit, maar EV-laders zijn niet meer als waarschuwing beschikbaar in de app of op de groepenkaart. Oude bestanden zonder `warnings` blijven werken en worden zonder aangevinkte waarschuwingen geladen. Aardlekschakelaars staan in `rcds` (met `id`, `number`, `name` en een kleur als `#rrggbb`); `rcdEnabled` geeft aan of de koppeling aanstaat. Een groep verwijst met `rcdId` naar het `id` van een aardlekschakelaar, of heeft `null` als de groep niet gekoppeld is. `qrEnabled` geeft aan of de QR-code in de PDF aanstaat. **Alles wissen** verwijdert kasten, groepen, de geselecteerde waarschuwingen, de Aardlekschakelaars en de fase- en QR-instellingen.
+De gegevens gebruiken schema v5. `modules` bevat alle DIN-modules, waaronder losse RCD's en RCBO's. Elke module heeft een stabiele `id`, een type uit [module-types.md](module-types.md), nummer, omschrijving, vrij kenmerk, fasen en een optionele `protectedByModuleId`. De typecatalogus bepaalt de breedte en fasebeschikbaarheid; die vaste waarden worden niet gekopieerd naar elk module-item. `items`, `ratedCurrent`, `rcdType`, `sensitivity` en `color` zijn optioneel.
 
 Voorbeeld van een exportbestand:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v4.schema.json",
-  "schemaVersion": 4,
+  "$schema": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v5.schema.json",
+  "schemaVersion": 5,
   "warnings": ["pv", "ev", "battery", "heat-pump"],
   "qrEnabled": true,
   "rcdEnabled": true,
   "phaseEnabled": true,
-  "rcds": [
+  "modules": [
     {
-      "id": "5eefe74d-12b8-40e6-825b-409e26c0b066",
+      "id": "module-1",
+      "boxId": "box-1",
+      "type": "MCB",
+      "number": "1",
+      "description": "Keuken – wandcontactdozen aanrecht",
+      "characteristic": "B16",
+      "phases": [],
+      "protectedByModuleId": "rcd-1",
+      "items": ["Vaatwasser", "Wandcontactdozen aanrecht"],
+      "ratedCurrent": 16
+    },
+    {
+      "id": "rcd-1",
+      "boxId": null,
+      "type": "RCD-2P",
       "number": "A1",
       "name": "Keuken en badkamer",
       "color": "#ed8c01",
-      "amountOfPoles": 2,
-      "phases": ["L1"]
+      "description": "",
+      "characteristic": "",
+      "phases": ["L1"],
+      "protectedByModuleId": null,
+      "sensitivity": 30,
+      "rcdType": "A",
+      "ratedCurrent": 40
     }
   ],
   "boxes": [
     {
+      "id": "box-1",
       "number": "1",
       "name": "Meterkast begane grond",
-      "groups": [
-        {
-          "number": "1",
-          "description": "Keuken – wandcontactdozen aanrecht",
-          "items": ["Vaatwasser", "Wandcontactdozen aanrecht"],
-          "rcdId": "5eefe74d-12b8-40e6-825b-409e26c0b066",
-          "phases": []
-        },
-        {
-          "number": "2",
-          "description": "Woonkamer – verlichting en wandcontactdozen",
-          "rcdId": null,
-          "phases": ["L2", "L3"]
-        }
-      ]
+      "moduleIds": ["module-1"],
+      "supply": {
+        "type": "mains",
+        "connectionRating": "3x25A",
+        "supplier": "Stedin",
+        "mainSwitchCurrent": 40,
+        "mainSwitchPoles": 4
+      }
     }
   ]
 }
@@ -96,21 +110,17 @@ Voorbeeld van een exportbestand:
 
 ### Schemaversies en migraties
 
-JSON-exportbestanden en browseropslag bevatten `schemaVersion: 4`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De gedeelde gegevenstypen (`CardData`, `BoxData`, `GroupData`, `RcdData`, `PhaseCode` en `WarningCode`), validatie en migraties staan in [src/js/schema.js](src/js/schema.js).
+JSON-exportbestanden en browseropslag bevatten `schemaVersion: 5`. Dit is de versie van het gegevensformaat, onafhankelijk van de appversie. De typecatalogus staat in [src/js/module-types.js](src/js/module-types.js), de gedeelde gegevenstypen, validatie en migraties in [src/js/schema.js](src/js/schema.js).
 
-Groepen kunnen optioneel `items` bevatten: een array van strings met de aansluitingen. Bestaande bestanden zonder dit veld blijven werken; de schemaversie blijft 4. Een leeg tekstveld wordt na bewerking opgeslagen als `items: []`.
+Elke box bewaart een stabiele `id`, de geordende `moduleIds` en een `supply`-object of `null`. Modules staan één keer in `modules`; `boxId` legt hun fysieke kast vast. `boxId: null` betekent dat de locatie nog onbekend is. `protectedByModuleId` verwijst naar een RCD- of RCBO-module. Een onderverdeler verwijst met `sourceModuleId` naar de bronmodule; het omgekeerde “voedt kast” wordt afgeleid. Verwijzingen gebruiken IDs, niet de bewerkbare kast- of modulenummers.
 
-`qrEnabled` is een verplichte boolean in versie 4 en geeft aan of de PDF een QR-code met alle gegevens krijgt. De instelling geldt voor de hele installatie en wordt met **Alles wissen** teruggezet naar `false`.
+`supply.type` is `mains` of `subdistribution`. Een hoofdaansluiting kan een standaard `connectionRating` of `Anders` met `customConnectionRating`, netbeheerder en hoofdschakelaargegevens bevatten. Een onderverdeler kan een bronmodule, voorbeveiliging, aantal kabeladers, kabeldoorsnede en hoofdschakelaargegevens bevatten. Niet-ingevulde eigenschappen worden weggelaten.
 
-`phaseEnabled` is een verplichte boolean sinds versie 3 en geeft aan of faseregistratie voor een 3-faseninstallatie aanstaat. De instelling geldt voor de hele installatie en wordt met **Alles wissen** teruggezet naar `false`. Uitzetten verbergt de fasekeuze en de fasen in de PDF, maar bewaart de bestaande selecties.
+RCD-modules kunnen optioneel `sensitivity` (10, 30, 100 of 300 mA), `rcdType` (AC, A, F, B of B+) en `ratedCurrent` bevatten. `ratedCurrent` is een getal in ampère. `characteristic` is een vrije notitie. Moduletype bepaalt de DIN-breedte; breedte en railcoördinaten worden niet opgeslagen. Fasen blijven een lijst met unieke codes `L1`, `L2`, `L3`; een 2-polige RCD heeft maximaal één fase en een 4-polige RCD alle drie.
 
-Elke aardlekschakelaar heeft de verplichte velden `amountOfPoles` (2 of 4) en `phases` (een lijst met unieke codes `L1`, `L2`, `L3`). Een 2-polige aardlekschakelaar heeft maximaal één fase; een lege lijst betekent **Niet gekozen**. Een 4-polige aardlekschakelaar heeft altijd alle drie de fasen. Terugzetten van 4 naar 2 polen maakt de fasekeuze leeg, zodat je opnieuw een fase kiest.
+Het [JSON Schema voor versie 5](schemas/groepenkaart-v5.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v5.schema.json). Schema's v1-v4 blijven ongewijzigd gepubliceerd en oude JSON-bestanden worden automatisch gemigreerd. Elke voormalige groep wordt een `MCB`-module met nummer, omschrijving, aansluitingen, fasen en bescherming behouden. Oude RCD-ID's blijven behouden als RCD-module-ID's; omdat v4 geen fysieke kastlocatie voor RCD's vastlegde, worden die modules gemigreerd met `boxId: null`. `qrEnabled`, `phaseEnabled` en waarschuwingen blijven behouden.
 
-Elke groep bewaart in het verplichte veld `phases` de eigen selectie (nul tot drie fasen). Zonder koppeling of bij een 4-polige aardlekschakelaar wordt deze selectie gebruikt. Bij een 2-polige aardlekschakelaar wordt alleen de fase van de aardlekschakelaar getoond; de eigen selectie blijft bewaard voor als je de groep later ontkoppelt of aan een 4-polige aardlekschakelaar koppelt. Een niet gekozen fase wordt ook in de PDF als **Niet gekozen** vermeld.
-
-Het [JSON Schema voor versie 4](schemas/groepenkaart-v4.schema.json) is beschikbaar via [raw.githubusercontent.com](https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v4.schema.json), zodat andere tools exportbestanden kunnen valideren. De schema's voor [versie 3](schemas/groepenkaart-v3.schema.json), [versie 2](schemas/groepenkaart-v2.schema.json) en [versie 1](schemas/groepenkaart-v1.schema.json) blijven ongewijzigd gepubliceerd. Elke export bevat `$schema` met de URL van de huidige versie; browseropslag bevat dit metadataveld niet. Het veld is optioneel voor import en externe validatie. De app gebruikt `schemaVersion` voor validatie en migraties en haalt geen schema op tijdens import. Versie 4 vereist `schemaVersion`, `warnings`, `qrEnabled`, `rcdEnabled`, `phaseEnabled`, `rcds` en `boxes`, per aardlekschakelaar `amountOfPoles` en `phases`, en per groep `number`, `description`, `rcdId` en `phases`. Een groep heeft sinds versie 3 geen `name` meer; kasten behouden hun `name`. Een `rcdId` moet naar een bestaande aardlekschakelaar verwijzen, en `rcds` moet leeg zijn als `rcdEnabled` uit staat. De persistente `id` van een aardlekschakelaar wordt wel opgeslagen; interne UI-ID's van kasten en groepen niet.
-
-Bestanden zonder `schemaVersion` (of met versie `0`) zijn het oude formaat en worden automatisch gemigreerd. Ontbrekende waarschuwingen worden een lege lijst; de bestaande omzetting van numerieke velden naar tekst blijft behouden. Bij de migratie van versie 1 naar 2 staat de koppeling met Aardlekschakelaars uit, zonder Aardlekschakelaars, en krijgt elke groep `rcboId: null` (versie 1 en 2 gebruiken de veldnamen `rcboEnabled`, `rcbos` en `rcboId`, naar de oude term RCBO). Bij de migratie van versie 2 naar 3 blijven alle bestaande gegevens behouden: de velden worden hernoemd naar RCD (`rcboEnabled` wordt `rcdEnabled`, `rcbos` wordt `rcds` en `rcboId` van elke groep wordt `rcdId`, met dezelfde waarden en volgorde, en de oude velden verdwijnen), `phaseEnabled` wordt `false`, elke aardlekschakelaar krijgt `amountOfPoles: 2` en `phases: []`, en elke groep krijgt `phases: []`, dus niets staat vooraf op een fase. Daarnaast verdwijnt de `name` van elke groep: de naam wordt als voorvoegsel in de `description` gezet, gescheiden door ` – `. Een groep met naam `Keuken` en omschrijving `Wandcontactdozen` krijgt `Keuken – Wandcontactdozen`; is er maar één van de twee ingevuld, dan wordt dat de omschrijving, en een lege naam laat de omschrijving ongewijzigd. Aansluitingen (`items`) en de naam van de kast veranderen niet. Fasevelden die al in een versie 2-bestand staan blijven behouden, en een ontbrekende fasenlijst van een 4-polige aardlekschakelaar wordt aangevuld met alle drie de fasen. Apps van vóór versie 3 weigeren versie 3-bestanden, zodat fasegegevens niet ongemerkt verloren gaan. Bij de migratie van versie 3 naar 4 blijven alle gegevens behouden en wordt `qrEnabled` `false`; apps van vóór versie 4 weigeren versie 4-bestanden, zodat de QR-instelling niet ongemerkt verloren gaat. Browseropslag blijft dezelfde sleutel `groepenkaart:v1` gebruiken om bestaande gegevens terug te vinden en wordt na succesvol laden in het huidige formaat opgeslagen.
+Compacte deellinks gebruiken `c2` voor v5. Bestaande `c1`-links voor v4 en `#data=`-links blijven leesbaar. In een compact link worden stabiele IDs vervangen door lijstposities en bij openen opnieuw aangemaakt; alle module-, bescherming- en voedingsrelaties blijven intact. Dezelfde browseropslagsleutel `groepenkaart:v1` blijft in gebruik; oude versies van de app weigeren v5-bestanden in plaats van gegevens stilzwijgend te verliezen.
 
 Een onbekende nieuwere versie wordt geweigerd met een melding. Bij een mislukte import blijven de huidige gegevens intact. Als browseropslag niet kan worden geladen, blijft die bewaard en schrijven bewerkingen er niet overheen totdat je bewust een geldig bestand importeert of **Alles wissen** bevestigt.
 
@@ -150,6 +160,7 @@ Dit maakt de map `dist/` met daarin:
 - `app.<hash>.js`: de eigen scripts uit `src/js/`, geminificeerd
 - `app.<hash>.css`: de opmaak uit `src/css/`, geminificeerd
 - `index.html` met de juiste bestandsnamen ingevuld
+- SVG-waarschuwingsiconen uit `src/images/`
 - alles uit `public/` (favicons, deelafbeelding, `.nojekyll`)
 
 De hash in de bestandsnaam is gebaseerd op de inhoud. Verandert een bestand, dan krijgt het een nieuwe naam en laadt de browser altijd de nieuwste versie. In `src/index.html` staan daarvoor placeholders (`{{app.css}}`, `{{vendor.js}}`, `{{app.js}}`) die de build vervangt.
@@ -164,6 +175,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── index.html                # Pagina en werkbalk (met placeholders)
 │   ├── css/style.css             # Opmaak voor scherm en print
 │   ├── js/warnings.js             # Gedeelde installatiewaarschuwingen en pictogrammen
+│   ├── js/module-types.js         # DIN-moduletypecatalogus
 │   ├── js/rcd.js                 # Gedeelde hulpfuncties voor Aardlekschakelaars (kleuren, labels)
 │   ├── js/schema.js              # Gegevenstypen, schemaversies, validatie en migraties
 │   ├── js/share.js               # Deellink en QR-code: comprimeren, coderen en lezen van de gegevens
@@ -178,7 +190,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 
 ## Tests
 
-Voer `npm test` uit voor regressietests van schemaversies, migraties, browseropslag, import/export, waarschuwingselectie, Aardlekschakelaars en de echte PDF-uitvoer, inclusief oudere gegevens, alle vier kaarten en meerdere pagina's. De tests gebruiken de ingebouwde Node.js-testrunner.
+Voer `npm test` uit voor regressietests van schemaversies en migraties, modules en voedingsverwijzingen, browseropslag, import/export, c1/c2/legacy-deellinks, waarschuwingselectie, RCD-attributen en echte PDF-uitvoer. De tests gebruiken de ingebouwde Node.js-testrunner.
 
 ## Bibliotheken
 
