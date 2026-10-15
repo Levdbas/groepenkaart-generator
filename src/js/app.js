@@ -4,6 +4,7 @@
    const STORAGE_KEY = 'groepenkaart:v1';
    const FILL_ROWS_KEY = 'groepenkaart:fill-rows';
    const RCD_FIRST_KEY = 'groepenkaart:rcd-first';
+   const EXPERT_MODE_KEY = 'groepenkaart:expert-mode';
    const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
@@ -18,6 +19,7 @@
    let state = load();
    let fillRows = loadFillRows();
    let rcdFirst = loadRcdFirst();
+   let expertMode = loadExpertMode();
 
    const boxesEl = document.getElementById('boxes');
    const emptyEl = document.getElementById('empty-state');
@@ -26,6 +28,7 @@
    const fillRowsEl = document.getElementById('fill-rows');
    const rcdFirstEl = document.getElementById('rcd-first');
    rcdFirstEl.checked = rcdFirst;
+   const expertModeEl = document.getElementById('expert-mode');
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
    const phaseEnabledEl = document.getElementById('phase-enabled');
@@ -84,6 +87,23 @@
    function saveRcdFirst() {
       try {
          localStorage.setItem(RCD_FIRST_KEY, String(rcdFirst));
+      } catch (e) {
+         console.warn('Opslaan mislukt', e);
+      }
+   }
+
+   // Expert mode only shows extra editor fields; it is a preference of this device, not card data.
+   function loadExpertMode() {
+      try {
+         return localStorage.getItem(EXPERT_MODE_KEY) === 'true';
+      } catch (e) {
+         return false;
+      }
+   }
+
+   function saveExpertMode() {
+      try {
+         localStorage.setItem(EXPERT_MODE_KEY, String(expertMode));
       } catch (e) {
          console.warn('Opslaan mislukt', e);
       }
@@ -251,6 +271,10 @@
       return el('button', { type: 'button', className: 'btn btn-icon ' + (className || ''), title: title, 'aria-label': title, text: text, onclick: onClick });
    }
 
+   function labelField(text, control, className) {
+      return el('label', { className: 'field' + (className ? ' ' + className : '') }, [el('span', { text: text }), control]);
+   }
+
    function groupItemsInput(group) {
       const node = el('textarea', {
          rows: '3', placeholder: 'Eén aansluiting per regel',
@@ -262,9 +286,7 @@
          save();
          renderPrint();
       });
-      return el('label', { className: 'field group-items-field' }, [
-         el('span', { text: 'Aansluitingen (één per regel)' }), node
-      ]);
+      return labelField('Aansluitingen (één per regel)', node, 'field-wide');
    }
 
    function moduleTypeControl(module) {
@@ -279,10 +301,10 @@
       select.addEventListener('change', function () {
          changeModuleType(module, select.value);
       });
-      return el('div', { className: 'module-type-control' }, [
+      return labelField('Moduletype', el('div', { className: 'module-type-control' }, [
          select,
          el('span', { className: 'module-width', text: current.width + (current.width === 1 ? ' DIN-module' : ' DIN-modules') })
-      ]);
+      ]), 'field-wide');
    }
 
    function moduleWarningControl(module) {
@@ -300,7 +322,7 @@
          save();
          renderPrint();
       });
-      return el('label', { className: 'field' }, [el('span', { text: 'Bijzondere installatie (waarschuwing)' }), select]);
+      return labelField('Bijzondere installatie (waarschuwing)', select, 'field-wide');
    }
 
    // Warning cards follow the modules that flag an installation, in the fixed card order.
@@ -310,8 +332,9 @@
    }
 
    function moduleTechnicalControls(module) {
+      if (!expertMode) return null;
       const rcdType = el('select', { 'aria-label': 'Aardlektype voor module ' + module.number }, [
-         el('option', { value: '', text: 'Aardlektype' }),
+         el('option', { value: '', text: 'Niet ingesteld' }),
          ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
       ]);
       rcdType.value = module.rcdType || '';
@@ -333,7 +356,9 @@
          save();
          renderPrint();
       });
-      return el('div', { className: 'module-technical-controls' }, [rcdType, ratedCurrent]);
+      return el('div', { className: 'module-technical-controls' }, [
+         labelField('Aardlektype', rcdType), labelField('Nominale stroom (A)', ratedCurrent)
+      ]);
    }
 
    function changeModuleType(module, type) {
@@ -469,11 +494,16 @@
          group.characteristic = v;
       });
       const items = groupItemsInput(group);
+      const moduleFields = [
+         moduleTypeControl(group), moduleWarningControl(group),
+         labelField('Omschrijving', description), labelField('Vrij kenmerk', characteristic),
+         moduleTechnicalControls(group)
+      ];
       // With phases the connections get their own row; otherwise they stay stacked under the description.
       const descriptionCells = state.phaseEnabled ? [
-         el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [moduleTypeControl(group), moduleWarningControl(group), description, characteristic, moduleTechnicalControls(group)]),
+         el('td', { className: 'group-description' }, [el('div', { className: 'module-fields' }, moduleFields)]),
          el('td', { className: 'group-items' }, [items])
-      ] : [el('td', { className: 'group-description', 'data-label': 'Omschrijving' }, [moduleTypeControl(group), moduleWarningControl(group), description, characteristic, moduleTechnicalControls(group), items])];
+      ] : [el('td', { className: 'group-description' }, [el('div', { className: 'module-fields' }, moduleFields.concat(items))])];
       return el('tr', null, [
          el('td', { className: 'group-number', 'data-label': 'Module' }, [input(group.number, 'Nr', 'Modulenummer', function (v) {
             group.number = v;
@@ -606,11 +636,11 @@
          if (select.value !== 'Anders') delete supply.customConnectionRating;
          update();
       });
-      return el('div', { className: 'field' }, [
-         el('span', { text: 'Aansluitwaarde' }), select,
+      return [
+         labelField('Aansluitwaarde', select),
          supply.connectionRating === 'Anders'
             ? supplyTextField(supply, 'customConnectionRating', 'Andere aansluitwaarde', 'Bijv. 3x45A') : null
-      ]);
+      ];
    }
 
    function supplyNumberField(supply, key, label, step) {
@@ -658,7 +688,7 @@
       });
       const fields = [];
       if (supply && supply.type === 'mains') {
-         fields.push(supplyRatingField(supply));
+         fields.push(...supplyRatingField(supply));
          fields.push(supplyTextField(supply, 'supplier', 'Netbeheerder', 'Bijv. Stedin'));
          fields.push(supplyNumberField(supply, 'mainSwitchCurrent', 'Nominale stroom hoofdschakelaar'));
          fields.push(supplyPolesField(supply));
@@ -693,9 +723,8 @@
          fields.push(supplyPolesField(supply));
       }
       return el('section', { className: 'box-supply-editor' }, [
-         el('label', { className: 'field' }, [el('span', { text: 'Voeding' }), type]),
-         fields.length ? el('div', { className: 'box-supply-fields' }, fields) : null
-      ]);
+         el('label', { className: 'field' }, [el('span', { text: 'Voeding' }), type])
+      ].concat(fields));
    }
 
    function linkedGroupCount(rcd) {
@@ -757,8 +786,9 @@
    }
 
    function rcdTechnicalControls(rcd) {
+      if (!expertMode) return null;
       const sensitivity = el('select', { 'aria-label': 'Gevoeligheid aardlekschakelaar ' + rcd.number }, [
-         el('option', { value: '', text: 'Gevoeligheid' }),
+         el('option', { value: '', text: 'Niet ingesteld' }),
          ...[10, 30, 100, 300].map(function (value) { return el('option', { value: String(value), text: value + ' mA' }); })
       ]);
       sensitivity.value = rcd.sensitivity === undefined ? '' : String(rcd.sensitivity);
@@ -768,7 +798,7 @@
          rcdChanged();
       });
       const type = el('select', { 'aria-label': 'Aardlektype aardlekschakelaar ' + rcd.number }, [
-         el('option', { value: '', text: 'Aardlektype' }),
+         el('option', { value: '', text: 'Niet ingesteld' }),
          ...['AC', 'A', 'F', 'B', 'B+'].map(function (value) { return el('option', { value: value, text: 'Type ' + value }); })
       ]);
       type.value = rcd.rcdType || '';
@@ -788,7 +818,9 @@
          else delete rcd.ratedCurrent;
          rcdChanged();
       });
-      return el('div', { className: 'rcd-technical-controls' }, [sensitivity, type, current]);
+      return el('div', { className: 'rcd-technical-controls' }, [
+         labelField('Gevoeligheid', sensitivity), labelField('Aardlektype', type), labelField('Nominale stroom (A)', current)
+      ]);
    }
 
    function renderRcd(rcd, index) {
@@ -991,6 +1023,7 @@
       phaseEnabledEl.checked = state.phaseEnabled;
       qrEnabledEl.checked = state.qrEnabled;
       fillRowsEl.checked = fillRows;
+      expertModeEl.checked = expertMode;
       renderQrStatus();
       renderRcds();
       renderBoxes();
@@ -1126,6 +1159,13 @@
       rcdFirst = rcdFirstEl.checked;
       saveRcdFirst();
       renderPrint();
+   });
+
+   expertModeEl.addEventListener('change', function () {
+      expertMode = expertModeEl.checked;
+      saveExpertMode();
+      renderRcds();
+      renderBoxes();
    });
 
    phaseEnabledEl.addEventListener('change', function () {

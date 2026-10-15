@@ -6,6 +6,8 @@
   --text: #1e1e1e;
   --muted: #5b6573;
   --radius: 6px;
+  --control-height: 2.25rem;
+  --label-height: 1.45rem;
 }
 
 * {
@@ -172,24 +174,35 @@ textarea:focus-visible {
 
 .installation-checkboxes label {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.6rem;
   min-height: 44px;
+  padding: 11px 0;
   cursor: pointer;
 }
 
 .installation-checkboxes input {
+  flex: 0 0 auto;
   width: 1.25rem;
   height: 1.25rem;
-  margin: 0;
+  margin: 1px 0 0;
   accent-color: var(--blue);
 }
 
 .pdf-option {
-  align-items: center;
+  align-items: flex-start;
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 0.5rem;
+}
+
+.pdf-option .tooltip-anchor {
+  margin-top: 12px;
+}
+
+.pdf-option label {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .tooltip-anchor {
@@ -274,13 +287,23 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+/* Controls sit on the bottom edge so they line up when a label wraps. */
+.field > :last-child {
+  margin-top: auto;
 }
 
 .field-grow {
   flex: 1;
   min-width: 200px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
 }
 
 .box-actions,
@@ -290,32 +313,62 @@ textarea:focus-visible {
 }
 
 input[type="text"],
+input[type="number"],
+select,
 textarea {
   width: 100%;
-  padding: 0.4rem 0.5rem;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
   font: inherit;
+  font-size: 1rem;
   color: var(--text);
+  background-color: #fff;
   border: 1px solid var(--border);
   border-radius: 4px;
 }
 
-input[type="text"] {
-  height: 2.25rem;
-  min-height: 2.25rem;
+input[type="text"],
+input[type="number"],
+select {
+  height: var(--control-height);
+  min-height: var(--control-height);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8a94a1;
+}
+
+select {
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23003f7d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 6 5 5 5-5'/%3E%3C/svg%3E");
+  background-position: right 0.6rem center;
+  background-repeat: no-repeat;
+  background-size: 0.9rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select:hover {
+  border-color: var(--blue);
+}
+
+select:disabled {
+  color: var(--muted);
+  background-color: #f4f6f9;
+  cursor: not-allowed;
 }
 
 .box-actions .btn-icon,
 .group-actions .btn-icon {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--control-height);
+  height: var(--control-height);
 }
 
 textarea {
   resize: vertical;
-}
-
-.group-items-field {
-  margin-top: 0.4rem;
 }
 
 .box-header .input-number {
@@ -324,17 +377,10 @@ textarea {
 
 .box-supply-editor {
   display: grid;
-  grid-template-columns: minmax(12rem, 0.3fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: 0.75rem;
-  align-items: start;
-  padding: 0.75rem 0;
+  padding: 0.75rem 0 1rem;
   border-bottom: 1px solid var(--border);
-}
-
-.box-supply-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.5rem;
 }
 
 .groups-table {
@@ -342,30 +388,76 @@ textarea {
   border-collapse: collapse;
 }
 
-.groups-table th {
-  background: var(--blue);
-  color: #fff;
-  text-align: left;
-  padding: 0.5rem;
-  font-weight: 600;
+/* Every cell carries its own label, so the header row is only kept for assistive technology. */
+.groups-table thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 .groups-table td {
-  padding: 0.6rem 0.3rem;
+  padding: 0.75rem 0.4rem;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
-.groups-table .col-number {
+.groups-table td[data-label]::before {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  content: attr(data-label);
+}
+
+.groups-table .group-number {
   width: 6rem;
 }
 
-.groups-table .col-actions {
+.groups-table .group-description {
+  width: 100%;
+}
+
+.groups-table .group-rcd {
+  width: 15rem;
+  min-width: 15rem;
+}
+
+.groups-table .group-actions {
   width: 8rem;
+  padding-top: calc(0.75rem + var(--label-height));
 }
 
 .groups-table .input-number {
   width: 100%;
+}
+
+.module-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 0.5rem 0.75rem;
+}
+
+.module-type-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.module-type-select {
+  flex: 1;
+}
+
+.module-width {
+  flex: 0 0 auto;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.module-technical-controls {
+  display: contents;
 }
 
 .btn-add-group {
@@ -378,7 +470,7 @@ textarea {
 
 .rcd-list {
   display: grid;
-  gap: 2.5rem;
+  gap: 1rem;
   margin: 0 0 0.75rem;
   padding: 0;
   list-style: none;
@@ -388,12 +480,14 @@ textarea {
   display: grid;
   grid-template-columns: 2.75rem 6rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .rcd-color {
   width: 2.75rem;
-  height: 2.25rem;
+  height: var(--control-height);
   padding: 2px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -401,58 +495,33 @@ textarea {
   cursor: pointer;
 }
 
-.groups-table .col-rcd {
-  width: 12rem;
-}
-
 .rcd-select {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-}
-
-.rcd-select select,
-.rcd-phase-controls select {
-  flex: 1;
-  min-width: 0;
-  padding: 0.4rem 0.3rem;
-  font: inherit;
-  color: var(--text);
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  height: 2.25rem;
-  min-height: 2.25rem;
-}
-
-.rcd-technical-controls {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
+.rcd-select select {
+  flex: 1;
+}
+
+.rcd-technical-controls,
 .rcd-phase-controls {
-  grid-column: 1 / 4;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: flex-end;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
   gap: 0.75rem;
-  padding: 0.5rem 0;
 }
 
-.rcd-phase-controls .field {
-  min-width: 0;
-}
-
-.rcd-phase-controls select {
-  width: 100%;
+.rcd-phase-selection {
+  display: contents;
 }
 
 .rcd-phase-controls .phase-inherited {
   display: flex;
   align-items: center;
-  min-height: 2.25rem;
+  min-height: var(--control-height);
 }
 
 .groups-table.has-phases,
@@ -477,17 +546,10 @@ textarea {
 }
 
 .groups-table.has-phases td {
+  width: auto;
   min-width: 0;
   padding: 0;
   border: 0;
-}
-
-.groups-table.has-phases td[data-label]::before {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-  content: attr(data-label);
 }
 
 .groups-table.has-phases .group-number {
@@ -503,7 +565,8 @@ textarea {
 .groups-table.has-phases .group-actions {
   grid-column: 4;
   grid-row: 1;
-  align-self: end;
+  align-self: start;
+  padding-top: var(--label-height);
 }
 
 .groups-table.has-phases .group-items {
@@ -530,59 +593,14 @@ textarea {
   width: 1px;
   height: 1px;
   overflow: hidden;
-  .module-type-control {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .module-type-select {
-    width: min(100%, 24rem);
-    min-width: 0;
-    min-height: 2.25rem;
-  }
-
-  .module-width {
-    flex: 0 0 auto;
-    color: var(--muted);
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-
-  .module-technical-controls {
-    display: grid;
-    grid-template-columns: minmax(8rem, 0.5fr) minmax(6rem, 0.3fr);
-    gap: 0.5rem;
-    margin: 0.4rem 0;
-  }
-
-  .group-description > .field {
-    margin-top: 0.4rem;
-  }
-
   clip-path: inset(50%);
 }
 
-.groups-table .col-phases {
-  width: 10rem;
-}
-
-.module-type-control {
-  flex-wrap: wrap;
-}
-
-.module-type-select {
-  width: 100%;
-  min-height: 44px;
-  font-size: 1rem;
-}
-
-.module-technical-controls {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .phase-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -599,18 +617,34 @@ textarea {
 .phase-choices label {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  min-height: 44px;
-  margin-right: 0.5rem;
+  gap: 0.4rem;
+  min-height: var(--control-height);
+  padding: 0 0.75rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
   cursor: pointer;
 }
 
+.phase-choices label:has(input:checked) {
+  background: var(--blue-light);
+  border-color: var(--blue);
+}
+
 .phase-choices input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
   accent-color: var(--blue);
 }
 
+.phase-choices input:disabled,
+.phase-choices label:has(input:disabled) {
+  cursor: default;
+}
+
 .phase-status {
-  display: block;
+  flex-basis: 100%;
 }
 
 .rcd-swatch {
@@ -640,15 +674,29 @@ select:focus-visible,
 }
 
 @media (max-width: 640px) {
+  :root {
+    --control-height: 44px;
+  }
+
   .installation-options {
     margin: 1rem;
     padding: 0.75rem;
     min-width: 0;
   }
 
-  .installation-checkboxes {
-    flex-direction: column;
-    gap: 0;
+  .pdf-option {
+    position: relative;
+  }
+
+  .pdf-option .tooltip-anchor {
+    position: static;
+  }
+
+  .tooltip-content {
+    right: 0;
+    left: 0;
+    width: auto;
+    max-width: none;
   }
 
   .app-header {
@@ -735,14 +783,8 @@ select:focus-visible,
     justify-content: flex-end;
   }
 
-  .box-supply-editor {
-    grid-template-columns: 1fr;
-  }
-
-  input[type="text"],
   textarea {
     min-height: 44px;
-    font-size: 1rem;
   }
 
   .groups-table,
@@ -758,7 +800,7 @@ select:focus-visible,
   .groups-table tr {
     display: grid;
     grid-template-columns: 4rem minmax(0, 1fr);
-    gap: 0.5rem;
+    gap: 0.75rem;
     padding: 0.75rem 0;
     border-bottom: 1px solid var(--border);
   }
@@ -769,25 +811,58 @@ select:focus-visible,
     padding: 0;
   }
 
-  .groups-table .group-actions {
-    grid-column: 1 / -1;
-  }
-
+  .groups-table .group-number,
+  .groups-table .group-description,
   .groups-table .group-rcd,
-  .groups-table .group-phases {
-    grid-column: 1 / -1;
+  .groups-table .group-actions {
+    width: auto;
   }
 
-  .rcd-select select,
-  .rcd-phase-controls select {
-    min-height: 44px;
-    font-size: 1rem;
+  /* Number and row actions share the first line so the fields below use the full width. */
+  .groups-table .group-number,
+  .groups-table.has-phases .group-number {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .groups-table .group-actions,
+  .groups-table.has-phases .group-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    justify-self: end;
+    padding-top: 0;
+  }
+
+  .groups-table .group-description,
+  .groups-table .group-items,
+  .groups-table .group-rcd,
+  .groups-table .group-phases,
+  .groups-table.has-phases .group-description,
+  .groups-table.has-phases .group-items,
+  .groups-table.has-phases .group-rcd,
+  .groups-table.has-phases .group-phases,
+  .groups-table.has-phases.has-rcds .group-phases {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .module-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .module-type-control {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .module-type-select {
+    flex: 1 1 100%;
   }
 
   .rcd-item {
     grid-template-columns: 44px minmax(0, 1fr);
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.75rem;
   }
 
   .rcd-color {
@@ -806,6 +881,10 @@ select:focus-visible,
     grid-template-columns: 1fr;
   }
 
+  .rcd-phase-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .rcd-panel .btn-primary {
     width: 100%;
   }
@@ -820,25 +899,7 @@ select:focus-visible,
 
   .groups-table.has-phases tr {
     grid-template-columns: 4rem minmax(0, 1fr);
-    gap: 0.75rem;
     padding: 0.75rem;
-  }
-
-  .groups-table.has-phases .group-description {
-    grid-column: 2;
-  }
-
-  .groups-table.has-phases .group-items,
-  .groups-table.has-phases .group-rcd,
-  .groups-table.has-phases .group-phases,
-  .groups-table.has-phases.has-rcds .group-phases,
-  .groups-table.has-phases .group-actions {
-    grid-column: 1 / -1;
-    grid-row: auto;
-  }
-
-  .groups-table.has-phases .group-actions {
-    order: 1;
   }
 }
 

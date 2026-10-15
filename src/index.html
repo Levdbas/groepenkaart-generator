@@ -159,6 +159,33 @@
       </div>
     </fieldset>
 
+    <fieldset class="installation-options no-print">
+      <legend>Weergave</legend>
+      <div class="installation-checkboxes pdf-option">
+        <label>
+          <input type="checkbox" id="expert-mode" />
+          <span>Expertmodus</span>
+        </label>
+        <span class="tooltip-anchor">
+          <button
+            type="button"
+            class="tooltip-trigger"
+            aria-label="Meer informatie over de expertmodus"
+            aria-describedby="expert-mode-help"
+          >
+            i
+          </button>
+          <span id="expert-mode-help" class="tooltip-content" role="tooltip">
+            Toont extra technische velden: gevoeligheid, aardlektype en
+            nominale stroom bij aardlekschakelaars, en aardlektype en nominale
+            stroom bij modules. Ingevulde waarden blijven bewaard als de
+            expertmodus uit staat. Deze instelling is alleen voor deze browser
+            en wordt niet opgeslagen met of gedeeld via de groepenkaart.
+          </span>
+        </span>
+      </div>
+    </fieldset>
+
     <fieldset
       class="installation-options no-print"
       aria-describedby="phase-help"

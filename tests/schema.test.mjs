@@ -285,7 +285,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    });
 });
 
-function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null, rcdFirst = null) {
+function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null, rcdFirst = null, expertMode = null) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl, publishedSchema.$id);
    assert.equal(publishedSchema.$id, schema.schemaUrl);
@@ -311,6 +311,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
    let storage = stored;
    let fillRowsStorage = fillRows;
    let rcdFirstStorage = rcdFirst;
+   let expertModeStorage = expertMode;
    let exported;
    let confirmation = confirmAnswer;
    const pdfCalls = [];
@@ -333,12 +334,14 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
          getItem(key) {
             if (key === 'groepenkaart:fill-rows') return fillRowsStorage;
             if (key === 'groepenkaart:rcd-first') return rcdFirstStorage;
+            if (key === 'groepenkaart:expert-mode') return expertModeStorage;
             assert.equal(key, 'groepenkaart:v1');
             return storage;
          },
          setItem(key, value) {
             if (key === 'groepenkaart:fill-rows') { fillRowsStorage = value; return; }
             if (key === 'groepenkaart:rcd-first') { rcdFirstStorage = value; return; }
+            if (key === 'groepenkaart:expert-mode') { expertModeStorage = value; return; }
             assert.equal(key, 'groepenkaart:v1');
             storage = value;
          }
@@ -400,6 +403,12 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
          checkbox.checked = value;
          checkbox.listeners.change();
       },
+      setExpertMode(value) {
+         const checkbox = nodes.get('expert-mode');
+         checkbox.checked = value;
+         checkbox.listeners.change();
+      },
+      expertModeStorage: () => expertModeStorage,
       setPhaseEnabled(value) {
          const checkbox = nodes.get('phase-enabled');
          checkbox.checked = value;
@@ -917,7 +926,7 @@ test('phase options precede RCD options and expanded group layout follows featur
    app.setPhaseEnabled(true);
    assert.equal(table().className, 'groups-table has-phases has-rcds');
    const description = app.findAll(table(), (n) => n.className === 'group-description')[0];
-   assert.equal(description.attrs['data-label'], 'Omschrijving');
+   assert.ok(description);
    app.setRcdEnabled(false);
    assert.equal(table().className, 'groups-table has-phases');
    assert.equal(app.findAll(table(), (n) => n.className === 'group-rcd').length, 0);
@@ -985,6 +994,7 @@ test('module type controls derive width, preserve characteristics and create pro
    characteristic.listeners.input();
    let persisted = JSON.parse(app.storage()).modules[0];
    assert.equal(persisted.characteristic, 'C32');
+   app.setExpertMode(true);
    const protectionType = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Aardlektype voor module 1')[0];
    protectionType.value = 'A';
    protectionType.listeners.change();
@@ -1231,9 +1241,9 @@ test('RCDs can be added and linked to groups in any box, and linked groups are c
 });
 
 test('RCD technical attributes persist and appear in the print legend only when set', () => {
-   const app = setupApp(JSON.stringify(withRcds));
+   const app = setupApp(JSON.stringify(withRcds), '', true, null, null, 'true');
    const controls = app.findAll(app.nodes.get('rcd-list'), (node) => node.className === 'rcd-technical-controls')[0];
-   const [sensitivity, type, current] = controls.children;
+   const [sensitivity, type, current] = controls.children.map((field) => field.children[1]);
    sensitivity.value = '30';
    sensitivity.listeners.change();
    type.value = 'A';
@@ -1464,6 +1474,42 @@ test('empty rows are only added when the device preference is on, and the prefer
    assert.equal(reloaded.nodes.get('fill-rows').checked, true);
    reloaded.nodes.get('download-pdf').listeners.click();
    assert.equal(reloaded.pdfCalls[0][1], 15);
+});
+
+test('expert mode is off by default, shows the technical fields per device and keeps their values when hidden', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   const technical = () => ({
+      rcd: app.findAll(app.nodes.get('rcd-list'), (node) => node.className === 'rcd-technical-controls'),
+      module: app.findAll(app.nodes.get('boxes'), (node) => node.className === 'module-technical-controls')
+   });
+   assert.equal(app.nodes.get('expert-mode').checked, false);
+   assert.equal(technical().rcd.length, 0);
+   assert.equal(technical().module.length, 0);
+
+   app.setExpertMode(true);
+   assert.equal(app.expertModeStorage(), 'true');
+   assert.ok(technical().rcd.length > 0);
+   assert.ok(technical().module.length > 0);
+   const [sensitivity] = technical().rcd[0].children.map((field) => field.children[1]);
+   sensitivity.value = '30';
+   sensitivity.listeners.change();
+   const [moduleType, moduleCurrent] = technical().module[0].children.map((field) => field.children[1]);
+   moduleType.value = 'A';
+   moduleType.listeners.change();
+   moduleCurrent.value = '16';
+   moduleCurrent.listeners.input();
+
+   app.setExpertMode(false);
+   assert.equal(technical().rcd.length, 0);
+   assert.equal(technical().module.length, 0);
+   const stored = JSON.parse(app.storage());
+   assert.ok(!('expertMode' in stored));
+   assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
+   assert.ok(stored.modules.some((module) => module.rcdType === 'A' && module.ratedCurrent === 16));
+
+   const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
+   assert.equal(reloaded.nodes.get('expert-mode').checked, true);
+   assert.ok(reloaded.findAll(reloaded.nodes.get('boxes'), (node) => node.className === 'module-technical-controls').length > 0);
 });
 
 test('a QR code is skipped with a visible message when the data does not fit', () => {
