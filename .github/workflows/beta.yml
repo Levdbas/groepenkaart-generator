@@ -37,7 +37,7 @@ jobs:
         with:
           switches: -avzr --delete
           path: dist/
-          remote_path: ${{ secrets.BETA_SSH_PATH }}
-          remote_host: ${{ secrets.BETA_SSH_HOST }}
+          remote_path: "./files"
+          remote_host: beta.groepenkaart-generator.nl
           remote_user: ${{ secrets.BETA_SSH_USER }}
           remote_key: ${{ secrets.BETA_SSH_KEY }}
