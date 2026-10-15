@@ -13,7 +13,7 @@
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
-   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD.
+   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD; mcbLinkable means it can also be connected to an MCB.
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-2P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
@@ -24,7 +24,7 @@
       { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three', protectable: false },
       { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1 },
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three' },
-      { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3 },
+      { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3, mcbLinkable: true },
       { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2 },
       { slug: 'KWH-2P', label: 'KWh meter 2P', description: 'Write kWh with a lowercase k', phases: 1, width: 1 },
       { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4 },
@@ -37,6 +37,10 @@
       protectable: function (slug) {
          const definition = typesBySlug[slug];
          return !definition || definition.protectable !== false;
+      },
+      mcbLinkable: function (slug) {
+         const definition = typesBySlug[slug];
+         return !!definition && definition.mcbLinkable === true;
       },
       available: function (slug, phaseEnabled) {
          const definition = typesBySlug[slug];
@@ -52,6 +56,8 @@
       }
    };
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
+   // mcbLinkable types connect to a circuit breaker (an RCBO counts as one) and never to an RCD.
+   const mcbLinkTargets = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const boxLimits = { minRails: 1, maxRails: 99, minRailWidth: 4, maxRailWidth: 48, defaultRailWidth: 12 };
 
    /**
@@ -521,8 +527,11 @@
             if (!moduleTypes.protectable(module.type)) {
                throw new Error('Ongeldig bestand: moduletype ' + module.type + ' staat voor de aardlekschakelaar en kan er niet aan gekoppeld zijn.');
             }
-            if (!protection || !protectiveTypes.includes(protection.type)) {
-               throw new Error('Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
+            const linkable = moduleTypes.mcbLinkable(module.type);
+            if (!protection || !(linkable ? mcbLinkTargets : protectiveTypes).includes(protection.type)) {
+               throw new Error(linkable
+                  ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een installatieautomaat of aardlekautomaat.'
+                  : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
             }
          }
       });
@@ -561,7 +570,10 @@
          }
       });
       validateFeedGraph(boxes, modules);
-      if (!data.rcdEnabled && modules.some(function (module) { return module.protectedByModuleId !== null; })) {
+      if (!data.rcdEnabled && modules.some(function (module) {
+         return module.protectedByModuleId !== null && protectiveTypes.includes(moduleById[module.protectedByModuleId].type) &&
+            !moduleTypes.mcbLinkable(module.type);
+      })) {
          throw new Error('Ongeldig bestand: modulebeveiliging is uitgeschakeld maar een module heeft een beveiligingskoppeling.');
       }
       return {

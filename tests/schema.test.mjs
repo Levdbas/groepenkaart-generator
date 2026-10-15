@@ -798,6 +798,21 @@ test('v5 validates module types, protection references, box order and phase card
    assert.throws(() => schema.normalize(variant((d) => { d.rcdEnabled = false; })), /beveiligingsmodules bestaan/);
 });
 
+test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD, other types only to an RCD or RCBO', () => {
+   const { schema, moduleTypes } = setupSchema();
+   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET']);
+   assert.equal(moduleTypes.mcbLinkable('unknown'), false);
+   const data = schema.normalize(withRcds);
+   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
+   const outlet = (d) => { d.modules[1].type = 'DIN-OUTLET'; d.modules[1].protectedByModuleId = d.modules[0].id; };
+   assert.equal(schema.normalize(variant(outlet)).modules[1].protectedByModuleId, data.modules[0].id);
+   const rcbo = variant((d) => { outlet(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; });
+   assert.equal(schema.normalize(rcbo).modules[1].protectedByModuleId, data.modules[0].id);
+   assert.throws(() => schema.normalize(variant((d) => { outlet(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
+      /installatieautomaat of aardlekautomaat/);
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[1].protectedByModuleId = d.modules[0].id; })), /verwijst niet naar een RCD- of RCBO-module\./);
+});
+
 test('optional group items preserve arrays across schema versions without changing the version', () => {
    const { schema } = setupSchema();
    for (const source of [legacy, v1, v2, v3, v4, withRcdsV2, withRcds]) {
@@ -1521,6 +1536,41 @@ test('disabling RCDs clears all RCDs and links only after confirmation', () => {
    empty.setRcdEnabled(false);
    assert.equal(empty.confirms.length, count, 'no confirmation needed without RCDs');
    assert.equal(JSON.parse(empty.storage()).rcdEnabled, false);
+});
+
+test('a dinrail outlet connects to a circuit breaker only, follows the RCD of its MCB and keeps the link without RCDs', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   app.editModule('legacy-module-1-2');
+   assert.equal(app.field('protection').attrs['aria-label'], 'Aardlekschakelaar');
+   app.set('type', 'DIN-OUTLET');
+   assert.equal(app.field('protection').attrs['aria-label'], 'Aangesloten op');
+   assert.deepEqual(app.field('protection').children.map((child) => child.attrs.value),
+      ['', 'legacy-module-1-1', 'legacy-module-2-1', 'legacy-module-2-2'], 'only circuit breakers are offered, no RCD');
+   app.set('protection', 'legacy-module-1-1');
+   app.save();
+   const stored = JSON.parse(app.storage());
+   assert.equal(stored.modules[1].protectedByModuleId, 'legacy-module-1-1');
+   assert.equal(app.printCells()[1].textContent, 'A1 · 2', 'the outlet takes the RCD color of the MCB it hangs on');
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][0][0].groups[1].connectedTo, '1');
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'MCB');
+   assert.equal(app.field('protection').attrs['aria-label'], 'Aardlekschakelaar');
+   assert.equal(app.field('protection').value, '', 'a type without MCB links drops the MCB link');
+   app.cancel();
+
+   app.editModule('legacy-module-1-1');
+   app.set('type', 'DIN-OUTLET');
+   assert.equal(app.field('protection').value, '', 'a link to an RCD is dropped when the type becomes an outlet');
+   app.cancel();
+
+   app.setRcdEnabled(false);
+   const kept = JSON.parse(app.storage());
+   assert.equal(kept.modules[1].protectedByModuleId, 'legacy-module-1-1');
+   assert.equal(kept.modules[0].protectedByModuleId, null);
+   app.editModule('legacy-module-1-2');
+   assert.equal(app.field('protection').children.length, 4);
 });
 
 test('failed storage loads cannot be overwritten by edits or cancelled imports', () => {

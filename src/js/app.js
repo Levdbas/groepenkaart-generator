@@ -15,6 +15,7 @@
    const share = window.GroepenkaartShare;
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
    const circuitTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
+   const mcbLinkTargets = circuitTypes;
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const warningBadges = { pv: 'PV', ev: 'EV', battery: 'EOS' };
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
@@ -173,6 +174,26 @@
       return box.moduleIds.map(findModule).filter(Boolean);
    }
 
+   // The RCD or RCBO that protects a module, directly or through the MCB it is connected to.
+   function rcdOf(module) {
+      let protection = module.protectedByModuleId && findModule(module.protectedByModuleId);
+      if (protection && !isProtective(protection)) {
+         protection = protection.protectedByModuleId && findModule(protection.protectedByModuleId);
+      }
+      return protection && isProtective(protection) ? protection : null;
+   }
+
+   // Types that can connect to an MCB link to a circuit breaker only; every other type links to an RCD or RCBO.
+   function canLink(type, target) {
+      return moduleTypes.mcbLinkable(type) ? mcbLinkTargets.includes(target.type) : isProtective(target);
+   }
+
+   // The circuit breaker a module is connected to, for types that can be linked to one.
+   function mcbOf(module) {
+      const target = module.protectedByModuleId && findModule(module.protectedByModuleId);
+      return target && moduleTypes.mcbLinkable(module.type) ? target : null;
+   }
+
    function unplacedModules() {
       return state.modules.filter(function (module) { return module.boxId === null; });
    }
@@ -220,11 +241,14 @@
    }
 
    function groupView(module) {
+      const rcd = rcdOf(module);
+      const mcb = mcbOf(module);
       return {
          ...module,
          // RCDs migrated from v4 only carry a name.
          description: module.description || (isProtective(module) && module.name) || '',
-         rcdId: module.protectedByModuleId,
+         rcdId: rcd ? rcd.id : null,
+         ...(mcb ? { connectedTo: mcb.number || mcb.description || mcb.type } : {}),
          phases: moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
          ...(module.items ? { items: module.items.slice() } : {})
       };
@@ -239,7 +263,7 @@
 
    function moduleColor(module) {
       if (isProtective(module)) return module.color;
-      const protection = module.protectedByModuleId && findModule(module.protectedByModuleId);
+      const protection = rcdOf(module);
       return protection ? protection.color : null;
    }
 
@@ -398,6 +422,8 @@
       }
       if (draft.warning && (definition.warnings || []).indexOf(draft.warning) === -1) delete draft.warning;
       if (!moduleTypes.protectable(type)) draft.protectedByModuleId = null;
+      const linkedTarget = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
+      if (linkedTarget && !canLink(type, linkedTarget)) draft.protectedByModuleId = null;
       draft.type = type;
    }
 
@@ -456,19 +482,26 @@
    }
 
    function protectionField(draft) {
-      const options = rcdViews().filter(function (rcd) { return rcd.id !== draft.id; });
-      const linked = options.find(function (rcd) { return rcd.id === draft.protectedByModuleId; });
-      const select = el('select', { 'data-field': 'protection', 'aria-label': 'Aardlekschakelaar' }, [
+      const mcbLinkable = moduleTypes.mcbLinkable(draft.type);
+      const options = mcbLinkable ? state.boxes.flatMap(boxModules).concat(unplacedModules()).filter(function (module) {
+         return mcbLinkTargets.includes(module.type) && module.id !== draft.id;
+      }) : rcdViews().filter(function (rcd) { return rcd.id !== draft.id; });
+      const select = el('select', { 'data-field': 'protection', 'aria-label': mcbLinkable ? 'Aangesloten op' : 'Aardlekschakelaar' }, [
          el('option', { value: '', text: 'Geen koppeling' })
-      ].concat(options.map(function (rcd, index) {
-         return el('option', { value: rcd.id, text: rcdOptionText(rcd, index) });
+      ].concat(options.map(function (item, index) {
+         return el('option', {
+            value: item.id,
+            text: mcbLinkable ? [item.number, item.description].filter(Boolean).join(' – ') || item.type : rcdOptionText(item, index)
+         });
       })));
       select.value = draft.protectedByModuleId || '';
       select.addEventListener('change', function () {
          draft.protectedByModuleId = select.value || null;
          rerenderModuleDialog('protection');
       });
-      return labelField('Aardlekschakelaar', el('div', { className: 'rcd-select' }, [swatch(linked && linked.color), select]), 'field-wide');
+      const linked = rcdOf(draft);
+      return labelField(mcbLinkable ? 'Aangesloten op' : 'Aardlekschakelaar',
+         el('div', { className: 'rcd-select' }, [swatch(linked && linked.color), select]), 'field-wide');
    }
 
    function phaseField(draft) {
@@ -486,7 +519,7 @@
          });
          return labelField('Fase', select);
       }
-      const protection = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
+      const protection = rcdOf(draft);
       if (protection && ['RCD-2P', 'RCBO-2P'].includes(protection.type)) {
          return labelField('Fasen', el('span', {
             className: 'phase-inherited', text: rcdHelpers.phaseText(protection.phases) + ' (via aardlekschakelaar)'
@@ -589,7 +622,8 @@
          isProtective(draft) ? colorField(draft) : null,
          warningField(draft),
          dialogText(draft, 'characteristic', 'Vrij kenmerk', 'Bijv. B16'),
-         state.rcdEnabled && moduleTypes.protectable(draft.type) && (!isProtective(draft) || draft.protectedByModuleId) ? protectionField(draft) : null,
+         state.rcdEnabled && moduleTypes.protectable(draft.type) && (!isProtective(draft) || draft.protectedByModuleId) ||
+            moduleTypes.mcbLinkable(draft.type) ? protectionField(draft) : null,
          state.phaseEnabled ? phaseField(draft) : null,
          expertMode ? technicalFields(draft) : null,
          itemsField(draft)
@@ -622,15 +656,16 @@
       if (isProtective(draft)) {
          draft.name = draft.description;
       }
-      if (original && isProtective(original) && !isProtective(draft)) {
-         const dependents = state.modules.filter(function (module) { return module.protectedByModuleId === original.id; }).length;
-         if (dependents && !confirm('Dit moduletype levert geen aardlekbeveiliging meer. ' + dependents +
+      if (original && original.type !== draft.type) {
+         const unlinked = state.modules.filter(function (module) {
+            return module.protectedByModuleId === original.id && !canLink(module.type, draft);
+         });
+         const dependents = unlinked.length;
+         if (isProtective(original) && !isProtective(draft) && dependents && !confirm('Dit moduletype levert geen aardlekbeveiliging meer. ' + dependents +
             (dependents === 1 ? ' gekoppelde module wordt ontkoppeld. Doorgaan?' : ' gekoppelde modules worden ontkoppeld. Doorgaan?'))) {
             return;
          }
-         state.modules.forEach(function (module) {
-            if (module.protectedByModuleId === original.id) module.protectedByModuleId = null;
-         });
+         unlinked.forEach(function (module) { module.protectedByModuleId = null; });
       }
       if (isProtective(draft)) state.rcdEnabled = true;
       if (original) {
@@ -1040,7 +1075,7 @@
 
    function supplyPolesField(supply) {
       const select = el('select', { 'aria-label': 'Polen hoofdschakelaar' }, [
-         el('option', { value: '', text: 'Polen' }),
+         el('option', { value: '', text: '-- selecteer --' }),
          el('option', { value: '2', text: '2P' }),
          el('option', { value: '4', text: '4P' })
       ]);
@@ -1116,7 +1151,8 @@
    function moduleMeta(module) {
       const type = moduleTypes.get(module.type);
       return [module.type, type ? widthText(type.width) : '',
-      module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '']
+      module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '',
+      module.connectedTo ? 'op module ' + module.connectedTo : '']
          .filter(Boolean).join(' · ');
    }
 
@@ -1405,7 +1441,7 @@
          return;
       }
       const protective = state.modules.filter(isProtective);
-      if ((protective.length || state.modules.some(function (module) { return module.protectedByModuleId; })) &&
+      if (protective.length &&
          !confirm('Alle aardlekschakelaars en de koppelingen van modules worden gewist. Geplaatste aardlekschakelaars en aardlekautomaten worden installatieautomaten. Doorgaan?')) {
          rcdEnabledEl.checked = true;
          return;
@@ -1413,12 +1449,16 @@
       state.rcdEnabled = false;
       state.modules = state.modules.filter(function (module) { return !(isProtective(module) && module.boxId === null); });
       state.modules.forEach(function (module) {
-         module.protectedByModuleId = null;
          if (isProtective(module)) {
             module.type = 'MCB';
             module.phases = [];
             protectiveKeys.forEach(function (key) { delete module[key]; });
          }
+      });
+      // Links that no longer fit survive only for types that connect to a circuit breaker.
+      state.modules.forEach(function (module) {
+         const target = module.protectedByModuleId && findModule(module.protectedByModuleId);
+         if (!target || !canLink(module.type, target)) module.protectedByModuleId = null;
       });
       update();
    });
