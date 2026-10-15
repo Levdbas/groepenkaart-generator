@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "release-type": "html",
+  "release-type": "node",
   "changelog-sections": [
     { "type": "feat", "section": "⛰️ Features" },
     { "type": "fix", "section": "🐛 Bug Fixes" },
@@ -27,10 +27,7 @@
   "bootstrap-sha": "598958c88007c72ea67c92d373f2153d9625822c",
   "packages": {
     ".": {
-      "changelog-path": "CHANGELOG.md",
-      "extra-files": [
-        { "type": "json", "path": "package.json", "jsonpath": "$.version" }
-      ]
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }
