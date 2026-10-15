@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "html",
+  "changelog-sections": [
+    { "type": "feat", "section": "⛰️ Features" },
+    { "type": "fix", "section": "🐛 Bug Fixes" },
+    { "type": "bug", "section": "🐛 Bug Fixes" },
+    { "type": "refactor", "section": "🚜 Refactor" },
+    { "type": "enhance", "section": "⚡ Enhancements" },
+    { "type": "enhancement", "section": "⚡ Enhancements" },
+    { "type": "docs", "section": "📚 Documentation" },
+    { "type": "doc", "section": "📚 Documentation" },
+    { "type": "style", "section": "🎨 Styling" },
+    { "type": "scss", "section": "🎨 Styling" },
+    { "type": "test", "section": "🧪 Testing" },
+    { "type": "tests", "section": "🧪 Testing" },
+    { "type": "deprecate", "section": "🪦 Deprecate" },
+    { "type": "chore", "section": "⚙️ Miscellaneous Tasks" },
+    { "type": "ci", "section": "⚙️ Miscellaneous Tasks" },
+    { "type": "security", "section": "🛡️ Security" },
+    { "type": "revert", "section": "◀️ Revert" }
+  ],
+  "date-format": "%d-%m-%Y",
+  "include-component-in-tag": false,
+  "include-v-in-tag": false,
+  "include-v-in-release-name": false,
+  "bootstrap-sha": "598958c88007c72ea67c92d373f2153d9625822c",
+  "packages": {
+    ".": {
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        { "type": "json", "path": "package.json", "jsonpath": "$.version" }
+      ]
+    }
+  }
+}
