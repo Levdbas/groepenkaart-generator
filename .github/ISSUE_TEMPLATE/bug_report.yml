@@ -1,0 +1,72 @@
+name: Bug melden
+description: Meld een fout in de Groepenkaart generator.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: version
+    attributes:
+      label: Versie
+      description: Op welke versie van de app doet de fout zich voor?
+      options:
+        - Live
+        - Beta
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Beschrijving
+      description: Beschrijf de fout.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Stappen om de fout te reproduceren
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Verwacht gedrag
+      description: Wat had er moeten gebeuren?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Werkelijk gedrag
+      description: Wat gebeurt er in plaats daarvan? Voeg eventueel een foutmelding of schermafbeelding toe.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser en versie
+      placeholder: Bijvoorbeeld Firefox 130
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Besturingssysteem en apparaat
+      placeholder: Bijvoorbeeld Windows 11, laptop
+    validations:
+      required: true
+  - type: textarea
+    id: json
+    attributes:
+      label: JSON-bestand (optioneel)
+      description: |
+        Klik in de app op **Exporteren** om je `groepenkaart.json` te downloaden. Sleep het bestand naar dit tekstveld of gebruik de bijlageknop onder het veld. Accepteert GitHub het JSON-bestand niet, voeg het dan toe als `.zip`.
+
+        **Let op: deze melding en de bijlagen zijn openbaar. Je kunt de gegevens vóór het uploaden anonimiseren.** Werk in een kopie van het bestand en vervang herkenbare kastnamen, omschrijvingen, aansluitingen en namen van aardlekschakelaars door fictieve gegevens. Verwijder ook eventuele namen, adressen en andere persoonlijke informatie uit foutmeldingen en schermafbeeldingen. Behoud de JSON-structuur, instellingen, ID's en verwijzingen, zodat de fout reproduceerbaar blijft. Controleer de kopie met **Importeren**, bij voorkeur in een aparte browser of een privévenster om je oorspronkelijke gegevens te behouden.
+  - type: textarea
+    id: additional
+    attributes:
+      label: Aanvullende informatie
+      description: Andere informatie die kan helpen bij het onderzoeken van de fout.

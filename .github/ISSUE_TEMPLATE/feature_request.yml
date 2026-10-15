@@ -1,0 +1,46 @@
+name: Functie aanvragen
+description: Stel een nieuwe functie of verbetering voor.
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: version
+    attributes:
+      label: Versie
+      description: Gaat je voorstel over de live of de beta versie van de app?
+      options:
+        - Live
+        - Beta
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Probleem of behoefte
+      description: Welk probleem wil je oplossen? Beschrijf waarvoor je de functie zou gebruiken.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Gewenste oplossing
+      description: Beschrijf de functie of verbetering die je graag zou zien.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatieven
+      description: Welke andere oplossingen heb je overwogen?
+  - type: textarea
+    id: json
+    attributes:
+      label: JSON-bestand (optioneel)
+      description: |
+        Wil je je voorstel toelichten met een voorbeeldkaart? Klik in de app op **Exporteren** om je `groepenkaart.json` te downloaden. Sleep het bestand naar dit tekstveld of gebruik de bijlageknop onder het veld. Accepteert GitHub het JSON-bestand niet, voeg het dan toe als `.zip`.
+
+        **Let op: dit verzoek en de bijlagen zijn openbaar. Je kunt de gegevens vóór het uploaden anonimiseren.** Werk in een kopie van het bestand en vervang herkenbare kastnamen, omschrijvingen, aansluitingen en namen van aardlekschakelaars door fictieve gegevens. Verwijder ook eventuele namen, adressen en andere persoonlijke informatie uit schermafbeeldingen. Behoud de JSON-structuur, instellingen, ID's en verwijzingen, zodat het voorbeeld bruikbaar blijft. Controleer de kopie met **Importeren**, bij voorkeur in een aparte browser of een privévenster om je oorspronkelijke gegevens te behouden.
+  - type: textarea
+    id: additional
+    attributes:
+      label: Aanvullende informatie
+      description: Voeg eventueel voorbeelden of schermafbeeldingen toe die je voorstel verduidelijken.
