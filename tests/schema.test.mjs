@@ -1677,6 +1677,41 @@ test('a dinrail outlet connects to a circuit breaker only, follows the RCD of it
    assert.equal(app.field('protection').children.length, 4);
 });
 
+test('a dinrail outlet inherits phases and rated current from the circuit breaker it hangs on', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   app.setPhaseEnabled(true);
+   app.setExpertMode(true);
+   const inherited = () => app.findAll(app.dialog(), (node) => node.className === 'phase-inherited').map((node) => node.textContent);
+   const printed = () => { app.nodes.get('download-pdf').listeners.click(); return app.pdfCalls.at(-1)[0][0].groups[1]; };
+
+   app.editModule('legacy-module-1-1');
+   app.set('phase-L2', true);
+   app.set('ratedCurrent', '16');
+   app.save();
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'DIN-OUTLET');
+   app.set('phase-L3', true);
+   app.set('ratedCurrent', '25');
+   app.set('protection', 'legacy-module-1-1');
+   assert.equal(app.field('phase-L1'), undefined, 'the phases come from the circuit breaker');
+   assert.equal(app.field('ratedCurrent'), undefined, 'the rated current comes from the circuit breaker');
+   assert.deepEqual(inherited(), ['L2 (via installatieautomaat)', '16 A (via installatieautomaat)']);
+   app.save();
+   assert.deepEqual([printed().phases, printed().ratedCurrent], [['L2'], 16]);
+   assert.equal(JSON.parse(app.storage()).modules[1].ratedCurrent, 25, 'own values are kept for when the link is removed');
+
+   app.editModule('legacy-module-1-1');
+   app.set('ratedCurrent', '');
+   app.save();
+   assert.equal(printed().ratedCurrent, undefined);
+   app.editModule('legacy-module-1-2');
+   assert.deepEqual(inherited(), ['L2 (via installatieautomaat)', 'Niet ingesteld (via installatieautomaat)']);
+   app.set('protection', '');
+   assert.equal(app.field('phase-L3').checked, true, 'without a link the own phases are back');
+   assert.equal(app.field('ratedCurrent').value, '25');
+});
+
 test('failed storage loads cannot be overwritten by edits or cancelled imports', () => {
    for (const stored of [JSON.stringify({ schemaVersion: 5, boxes: [] }), '{broken']) {
       const app = setupApp(stored);

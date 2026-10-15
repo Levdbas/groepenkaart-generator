@@ -194,6 +194,16 @@
       return target && moduleTypes.mcbLinkable(module.type) ? target : null;
    }
 
+   // The phases a module effectively has: those of the circuit breaker it is connected to, all three for three-phase
+   // types, those of a 2-pole RCD or RCBO that protects it, or its own selection.
+   function effectivePhases(module) {
+      const mcb = mcbOf(module);
+      if (mcb) return effectivePhases(mcb);
+      if (moduleTypes.allPhases(module.type)) return rcdHelpers.phaseCodes.slice();
+      const protection = rcdOf(module) || (isProtective(module) ? module : null);
+      return protection && ['RCD-2P', 'RCBO-2P'].includes(protection.type) ? protection.phases.slice() : module.phases.slice();
+   }
+
    function unplacedModules() {
       return state.modules.filter(function (module) { return module.boxId === null; });
    }
@@ -243,15 +253,21 @@
    function groupView(module) {
       const rcd = rcdOf(module);
       const mcb = mcbOf(module);
-      return {
+      const view = {
          ...module,
          // RCDs migrated from v4 only carry a name.
          description: module.description || (isProtective(module) && module.name) || '',
          rcdId: rcd ? rcd.id : null,
          ...(mcb ? { connectedTo: mcb.number || mcb.description || mcb.type } : {}),
-         phases: moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
+         phases: mcb ? effectivePhases(mcb) : moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
          ...(module.items ? { items: module.items.slice() } : {})
       };
+      // A module connected to a circuit breaker takes over its rated current.
+      if (mcb) {
+         if (mcb.ratedCurrent !== undefined) view.ratedCurrent = mcb.ratedCurrent;
+         else delete view.ratedCurrent;
+      }
+      return view;
    }
 
    // Boxes with their modules in physical order, as used by the print output and the PDF.
@@ -513,6 +529,12 @@
    }
 
    function phaseField(draft) {
+      const mcb = mcbOf(draft);
+      if (mcb) {
+         return labelField('Fasen', el('span', {
+            className: 'phase-inherited', text: rcdHelpers.phaseText(effectivePhases(mcb)) + ' (via installatieautomaat)'
+         }));
+      }
       if (moduleTypes.allPhases(draft.type)) {
          return labelField('Fasen', el('span', { className: 'phase-inherited', text: rcdHelpers.phaseText(rcdHelpers.phaseCodes) }));
       }
@@ -574,6 +596,14 @@
             else delete draft.rcdType;
          });
          fields.push(labelField('Aardlektype', rcdType));
+      }
+      const mcb = mcbOf(draft);
+      if (mcb) {
+         fields.push(labelField('Nominale stroom (A)', el('span', {
+            className: 'phase-inherited',
+            text: (mcb.ratedCurrent === undefined ? 'Niet ingesteld' : mcb.ratedCurrent + ' A') + ' (via installatieautomaat)'
+         })));
+         return el('div', { className: 'module-technical-controls' }, fields);
       }
       const ratedCurrent = el('input', { type: 'number', min: '1', step: '1', placeholder: 'A', 'data-field': 'ratedCurrent', 'aria-label': 'Nominale stroom' });
       ratedCurrent.value = draft.ratedCurrent === undefined ? '' : String(draft.ratedCurrent);
