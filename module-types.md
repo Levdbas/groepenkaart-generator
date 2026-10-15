@@ -1,0 +1,16 @@
+| Nederlands               | slug             | Toelichting                                                                                     | conditioneel                 | fases | module breedte | Warning types   |
+| ------------------------ | ---------------- | ----------------------------------------------------------------------------------------------- | ---------------------------- | ----- | -------------- | --------------- |
+| Installatieautomaat      | MCB              | Korte label in de UI: "Circuit breaker"                                                         |                              | 1     | 1              | EV, PV, Battery |
+| Krachtgroep              | MCB-2P           | Ook wel "3-phase power circuit"                                                                 | alleen in 3 fase beschikbaar | 3     | 4              | EV, PV, Battery |
+| Fornuisgroep             | MCB-3P           | Meestal een 2P MCB. In de VS: "Range circuit"                                                   |                              | 2     | 2              |
+| Aardlekschakelaar 2P     | RCD-2P           | Voluit: Residual Current Device                                                                 |                              |       | 2              |
+| Aardlekschakelaar 4P     | RCD-4P           | Voluit: Residual Current Device                                                                 | alleen in 3 fase beschikbaar |       | 4              |
+| Hoofdschakelaar 2P       | MAINS-2P         | Technisch: "Switch-disconnector" of "Main isolator". Staat vóór de aardlek, dus niet koppelbaar | alleen in 1 fase beschikbaar | 1     | 2              |
+| Hoofdschakelaar 4P       | MAINS-4P         | Technisch: "Switch-disconnector" of "Main isolator". Staat vóór de aardlek, dus niet koppelbaar | alleen in 3 fase beschikbaar | 3     | 4              |
+| Aardlekautomaat 2P       | RCBO-2P          | RCBO = aardlekautomaat (MCB + RCD in één)                                                       |                              | 2     | 1              |
+| Aardlekautomaat 4P       | RCBO-4P          | RCBO = aardlekautomaat (MCB + RCD in één)                                                       | alleen in 3 fase beschikbaar | 3     | 4              |
+| Dinrail stopcontact      | DIN-OUTLET       |                                                                                                 |                              | 1     | 3              |
+| Beltrafo                 | Bell-TRANSFORMER | Ook wel "Doorbell transformer"                                                                  |                              | 1     | 2              |
+| KWh meter 2P             | KWH-2P           | Schrijf "kWh" met een kleine k                                                                  |                              | 1     | 1              |
+| KWh meter 4P             | KWH-4P           | Schrijf "kWh" met een kleine k                                                                  |                              | 3     | 4              |
+| Overspanningsbeveiliging | SPD              |                                                                                                 |                              | 1     | 1              |

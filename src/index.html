@@ -6,7 +6,7 @@
     <title>Groepenkaart generator</title>
     <meta
       name="description"
-      content="Maak gratis je eigen groepenkaart voor de meterkast. Voeg kasten en groepen toe en download de groepenindeling als PDF."
+      content="Maak gratis je eigen groepenkaart voor de meterkast. Voeg kasten en modules toe en download de groepenindeling als PDF."
     />
     <meta name="theme-color" content="#003f7d" />
 
@@ -128,7 +128,7 @@
             i
           </button>
           <span id="fill-rows-help" class="tooltip-content" role="tooltip">
-            Vul elke kast aan tot 15 regels om later met de hand groepen toe te
+            Vul elke kast aan tot 15 regels om later met de hand modules toe te
             voegen. Deze instelling is alleen voor deze browser en wordt niet
             opgeslagen met of gedeeld via de groepenkaart.
           </span>
@@ -138,37 +138,52 @@
       <div class="installation-checkboxes pdf-option">
         <label>
           <input type="checkbox" id="rcd-first" checked />
-          <span>Aardlekschakelaar vóór groepsnummer</span>
+          <span>Aardlekschakelaar vóór modulenummer</span>
         </label>
         <span class="tooltip-anchor">
           <button
             type="button"
             class="tooltip-trigger"
-            aria-label="Meer informatie over de volgorde in de groepkolom"
+            aria-label="Meer informatie over de volgorde in de modulekolom"
             aria-describedby="rcd-first-help"
           >
             i
           </button>
           <span id="rcd-first-help" class="tooltip-content" role="tooltip">
-            Bepaalt de volgorde in de groepskolom van de PDF en afdruk.
-            Aangevinkt: aardlekschakelaar vóór groepsnummer (A1 · 1).
-            Uitgevinkt: groepsnummer vóór aardlekschakelaar (1 · A1). Geldt
-            alleen voor gekoppelde groepen.
+            Bepaalt de volgorde in de modulekolom van de PDF en afdruk.
+            Aangevinkt: aardlekschakelaar vóór modulenummer (A1 · 1).
+            Uitgevinkt: modulenummer vóór aardlekschakelaar (1 · A1). Geldt
+            alleen voor gekoppelde modules.
           </span>
         </span>
       </div>
     </fieldset>
 
-    <fieldset
-      class="installation-options no-print"
-      aria-describedby="installation-help"
-    >
-      <legend>Aanwezige installaties</legend>
-      <p id="installation-help">
-        Vink aan wat aanwezig is. Deze waarschuwingen verschijnen bovenaan de
-        eerste pagina van de groepenkaart, onder de afdrukdatum.
-      </p>
-      <div id="installation-options" class="installation-checkboxes"></div>
+    <fieldset class="installation-options no-print">
+      <legend>Weergave</legend>
+      <div class="installation-checkboxes pdf-option">
+        <label>
+          <input type="checkbox" id="expert-mode" />
+          <span>Expertmodus</span>
+        </label>
+        <span class="tooltip-anchor">
+          <button
+            type="button"
+            class="tooltip-trigger"
+            aria-label="Meer informatie over de expertmodus"
+            aria-describedby="expert-mode-help"
+          >
+            i
+          </button>
+          <span id="expert-mode-help" class="tooltip-content" role="tooltip">
+            Toont extra technische velden: gevoeligheid, aardlektype en
+            nominale stroom bij aardlekschakelaars, en aardlektype en nominale
+            stroom bij modules. Ingevulde waarden blijven bewaard als de
+            expertmodus uit staat. Deze instelling is alleen voor deze browser
+            en wordt niet opgeslagen met of gedeeld via de groepenkaart.
+          </span>
+        </span>
+      </div>
     </fieldset>
 
     <fieldset
@@ -178,8 +193,8 @@
       <legend>Fasen</legend>
       <p id="phase-help">
         Documenteer de fasen van een 3-faseninstallatie. Kies bij een 2-polige
-        aardlekschakelaar één fase; gekoppelde groepen nemen die over. Een
-        4-polige aardlekschakelaar heeft alle drie de fasen. Kies bij groepen
+        aardlekschakelaar één fase; gekoppelde modules nemen die over. Een
+        4-polige aardlekschakelaar heeft alle drie de fasen. Kies bij modules
         hierop, of zonder koppeling, zelf één of meer fasen. De fasen
         verschijnen ook in de PDF.
       </p>
@@ -197,27 +212,37 @@
     >
       <legend>Aardlekschakelaars</legend>
       <p id="rcd-help">
-        Koppel groepen aan een aardlekschakelaar. Op de groepenkaart krijgt het
-        groepnummer de kleur en code van de gekoppelde aardlekschakelaar.
+        Plaats aardlekschakelaars en aardlekautomaten als module in de kast en
+        koppel andere modules eraan. Op de groepenkaart krijgt het modulenummer
+        de kleur en code van de gekoppelde aardlekschakelaar.
       </p>
       <div class="installation-checkboxes">
         <label>
           <input type="checkbox" id="rcd-enabled" />
-          <span>Groepen koppelen aan aardlekschakelaars</span>
+          <span>Modules koppelen aan aardlekschakelaars</span>
         </label>
       </div>
-      <div id="rcd-panel" class="rcd-panel" hidden>
-        <ul id="rcd-list" class="rcd-list"></ul>
-        <button type="button" id="add-rcd" class="btn btn-primary">
-          + Aardlekschakelaar toevoegen
-        </button>
-      </div>
     </fieldset>
+
+    <section
+      id="unplaced"
+      class="unplaced no-print"
+      aria-labelledby="unplaced-title"
+      hidden
+    >
+      <h2 id="unplaced-title">Niet geplaatst</h2>
+      <p>
+        Deze modules hebben nog geen plek in een kast. Klik in een kast op een
+        lege plek (+) om ze daar te plaatsen.
+      </p>
+      <ul id="unplaced-list" class="unplaced-list"></ul>
+    </section>
 
     <main id="boxes" class="boxes no-print"></main>
 
     <p id="empty-state" class="empty-state no-print" hidden>
-      Nog geen kasten. Klik op <strong>+ Kast toevoegen</strong> om te beginnen.
+      Nog geen kasten. Klik op <strong>+ Kast toevoegen</strong> en kies het
+      aantal rails en modules per rail om te beginnen.
     </p>
 
     <div class="add-box-action no-print">
@@ -225,6 +250,17 @@
         + Kast toevoegen
       </button>
     </div>
+
+    <dialog
+      id="module-dialog"
+      class="app-dialog no-print"
+      aria-label="Module"
+    ></dialog>
+    <dialog
+      id="box-dialog"
+      class="app-dialog no-print"
+      aria-label="Kast toevoegen"
+    ></dialog>
 
     <section id="print-area" class="print-area" aria-hidden="true"></section>
 
