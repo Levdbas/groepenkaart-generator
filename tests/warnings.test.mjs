@@ -12,14 +12,25 @@ const sources = await Promise.all(['warnings', 'rcd', 'pdf'].map((name) =>
 function setup() {
    let document;
    const lines = [];
+   const warningCards = [];
+   const warningImages = [];
    const window = {
       jspdf: {
          jsPDF: function (options) {
             document = new jsPDF(options);
             const line = document.line;
+            const roundedRect = document.roundedRect;
             document.line = function (x1, y1, x2, y2) {
                lines.push({ x1, y1, x2, y2, color: document.getDrawColor(), width: document.getLineWidth() });
                return line.call(document, x1, y1, x2, y2);
+            };
+            document.roundedRect = function () {
+               warningCards.push(Array.from(arguments));
+               return roundedRect.apply(document, arguments);
+            };
+            document.addImage = function () {
+               warningImages.push(Array.from(arguments));
+               return document;
             };
             document.save = (filename) => { document.savedFilename = filename; };
             return document;
@@ -28,11 +39,11 @@ function setup() {
    };
    const context = vm.createContext({ window });
    sources.forEach((source) => vm.runInContext(source, context));
-   return { window, warnings: window.GroepenkaartWarnings, pdf: window.GroepenkaartPdf, lines, document: () => document };
+   return { window, warnings: window.GroepenkaartWarnings, pdf: window.GroepenkaartPdf, lines, warningCards, warningImages, document: () => document };
 }
 
 const ids = ['pv', 'ev', 'battery', 'heat-pump'];
-const displayedIds = ['pv', 'battery', 'heat-pump'];
+const displayedIds = ['pv', 'ev', 'battery'];
 function box(number = '1', count = 1) {
    return {
       number, name: `Meterkast ${number}`,
@@ -56,7 +67,8 @@ test('normalization validates codes and gives unique, stable display order', () 
    const { warnings } = setup();
    assert.deepEqual(Array.from(warnings.normalize(['heat-pump', 'pv', 'pv'])), ['pv', 'heat-pump']);
    assert.deepEqual(Array.from(warnings.normalize(ids)), ids);
-   assert.deepEqual(Array.from(warnings.selected(['ev'])), []);
+   assert.deepEqual(Array.from(warnings.selected(['ev']), (warning) => warning.id), ['ev']);
+   assert.deepEqual(Array.from(warnings.selected(['heat-pump'])), []);
    assert.deepEqual(Array.from(warnings.definitions, (warning) => warning.id), displayedIds);
    for (const value of [null, true, 'pv', {}, ['unknown'], ['pv', 1], [null]]) {
       assert.throws(() => warnings.normalize(value), /warnings/);
@@ -78,25 +90,12 @@ test('JSON round-trip preserves selections', () => {
    assert.deepEqual(Array.from(warnings.normalize(data.warnings)), ids);
 });
 
-test('all warning labels and text fit inside the compact cards', () => {
+test('warnings use the supplied icon assets without warning copy', () => {
    const { warnings } = setup();
-   const document = new jsPDF({ unit: 'mm', format: 'a4' });
-   const width = (180 - 6) / 3;
-   document.setFont('helvetica', 'bold');
-   document.setFontSize(7);
-   for (const warning of warnings.definitions) {
-      assert.ok(document.getTextWidth(warning.heading.join(' ')) <= width - 6, `${warning.id} heading must fit within the card padding`);
-   }
-   document.setFont('helvetica', 'normal');
-   for (const warning of warnings.definitions) {
-      const message = warning.message || warnings.message;
-      const fontSize = warning.message ? 5.8 : 6.4;
-      document.setFontSize(fontSize);
-      const lines = document.splitTextToSize(message.toUpperCase(), width - 26);
-      assert.ok(lines.length * fontSize * 1.2 / document.internal.scaleFactor <= 10,
-         `${warning.id} warning text must fit beside the pictogram`);
-      for (const line of lines) assert.ok(document.getTextWidth(line) <= width - 26);
-   }
+   assert.deepEqual(Array.from(warnings.definitions, (warning) => warning.image), [
+      'images/pv.svg', 'images/ev.svg', 'images/eos.svg'
+   ]);
+   assert.ok(warnings.definitions.every((warning) => !('heading' in warning) && !('message' in warning) && !('icon' in warning)));
 });
 
 test('PDF only pads the table to 15 rows when asked to', () => {
@@ -272,25 +271,22 @@ test('long group item lists preserve all items across PDF overflow pages', () =>
    for (const item of data.groups[0].items) assert.ok(text.includes(item), `${item} is preserved`);
 });
 
-test('warning cards fit below the print date and above the standard table on A4', () => {
+test('warning cards retain red-bordered boxes without warning copy', () => {
    for (const selected of [['pv'], ids]) {
       const harness = setup();
-      harness.pdf.download([box()], 15, selected);
+      const images = Array.from({ length: 3 }, () => ({ naturalWidth: 100, naturalHeight: 100 }));
+      harness.pdf.download([box()], 15, selected, [], false, null, true, images);
       const document = harness.document();
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
-      assert.equal((text.match(/LET OP!/g) || []).length, selected.filter((id) => id !== 'ev').length);
-      assert.ok(text.indexOf('LET OP!') > text.indexOf('Groepenindeling'));
-      assert.ok(text.indexOf('Afgedrukt op') < text.indexOf('LET OP!'));
+      const displayedCount = selected.filter((id) => displayedIds.includes(id)).length;
+      assert.equal(harness.warningCards.length, displayedCount);
+      assert.equal(harness.warningImages.length, displayedCount);
+      assert.ok(!text.includes('LET OP!'));
+      assert.ok(!text.includes('GEVAARLIJKE DC-SPANNING'));
+      assert.ok(!text.includes('OMVORMER:'));
       assert.equal(document.lastAutoTable.settings.startY, 58);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
-      assert.ok(text.includes('GEVAARLIJKE DC-SPANNING'));
-      if (selected.includes('heat-pump')) {
-         assert.ok(text.includes('OMVORMER:'));
-         assert.ok(text.includes('CONDENSATOREN'));
-         assert.ok(text.includes('SPANNING HOUDEN.'));
-      }
-      assert.ok(!text.includes('EV-LADER'));
       assert.ok(text.includes('Group-1-1'));
       assert.ok(document.output().startsWith('%PDF-'));
    }
@@ -301,7 +297,7 @@ test('warnings appear only on the first page with multiple kasten', () => {
    harness.pdf.download([box('1'), box('2')], 15, ids);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
-   assert.equal((pageText(document, 1).match(/LET OP!/g) || []).length, 3);
+   assert.equal(harness.warningCards.length, 3);
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
    assert.equal(document.lastAutoTable.settings.startY, 30);
@@ -318,6 +314,7 @@ test('overflow pages preserve all groups without repeating warning cards', () =>
       allText += text;
       if (page > 1) assert.ok(!text.includes('LET OP!'));
    }
+   assert.equal(harness.warningCards.length, 3);
    for (let group = 1; group <= 65; group++) {
       assert.ok(allText.includes(`(Group-1-${group})`), `Group ${group} should be preserved`);
    }

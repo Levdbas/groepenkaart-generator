@@ -841,30 +841,12 @@ select:focus-visible,
     break-inside: avoid;
   }
 
-  .print-warning strong {
+  .print-warning img {
     display: block;
-    font-size: 7.4pt;
-    line-height: 4mm;
-    white-space: nowrap;
-  }
-
-  .print-warning strong:first-child {
-    font-size: 8pt;
-  }
-
-  .print-warning p {
-    margin: 2mm 0 1mm;
-    min-height: 9mm;
-    font-size: 6.8pt;
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-
-  .print-warning svg {
-    display: block;
-    width: 24mm;
-    height: 12mm;
+    width: 34mm;
+    height: 34mm;
     margin: 0 auto;
+    object-fit: contain;
   }
 
   .print-page h1 {

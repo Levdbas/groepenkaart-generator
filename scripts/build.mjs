@@ -31,6 +31,7 @@ async function build() {
    await rm(dist, { recursive: true, force: true });
    await mkdir(dist, { recursive: true });
    await cp(join(root, 'public'), dist, { recursive: true });
+   await cp(join(src, 'images'), join(dist, 'images'), { recursive: true });
 
    const vendor = (await Promise.all(vendorFiles.map(read)))
       .map((code) => code.replace(/^\/\/# sourceMappingURL=.*$/gm, ''))

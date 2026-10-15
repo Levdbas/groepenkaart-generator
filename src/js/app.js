@@ -518,11 +518,7 @@
       if (!selected.length) return null;
       return el('div', { className: 'print-warnings' }, selected.map(function (warning) {
          return el('div', { className: 'print-warning' }, [
-            el('strong', { text: 'LET OP!' }),
-            el('strong', { text: warning.heading[0] }),
-            el('strong', { text: warning.heading[1] }),
-            el('p', { text: warning.message || warnings.message }),
-            warnings.svg(warning.icon)
+            el('img', { src: warning.image, alt: warning.label })
          ]);
       }));
    }
@@ -639,7 +635,22 @@
          return;
       }
       const qr = state.qrEnabled ? share.qr(shareUrl()) : null;
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), state.warnings, state.rcds, state.phaseEnabled, qr, rcdFirst)) {
+      const imageElements = typeof document.querySelectorAll === 'function'
+         ? Array.from(document.querySelectorAll('.print-warning img'))
+         : [];
+      const warningImages = imageElements.map(function (image) {
+         if (!image.complete || !image.naturalWidth) return null;
+         const canvas = document.createElement('canvas');
+         canvas.width = image.naturalWidth;
+         canvas.height = image.naturalHeight;
+         canvas.getContext('2d').drawImage(image, 0, 0);
+         return canvas;
+      });
+      if (warningImages.some(function (image) { return !image; })) {
+         window.print();
+         return;
+      }
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(state.boxes, minRows(), state.warnings, state.rcds, state.phaseEnabled, qr, rcdFirst, warningImages)) {
          window.print();
       }
    });
