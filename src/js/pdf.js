@@ -214,11 +214,11 @@
       const headWidth = innerWidth - badgeWidth;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
-      const description = hasDescription ? doc.splitTextToSize(group.description, innerWidth) : [];
+      const description = hasDescription ? doc.splitTextToSize(group.description, headWidth) : [];
       const metadataText = moduleMetadata(group, boxes);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(metadataSize);
-      const metadata = metadataText ? doc.splitTextToSize(metadataText, innerWidth) : [];
+      const metadata = metadataText ? doc.splitTextToSize(metadataText, headWidth) : [];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(ITEM_SIZE);
       const items = (group.items || []).map(function (item) {
@@ -229,7 +229,7 @@
       const itemsGap = description.length && itemLines ? 0.8 : 0;
       const textHeight = description.length * descriptionStep + metadataGap + metadata.length * metadataStep + itemsGap + itemLines * itemStep;
       return {
-         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep,
+         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep, badges: badges,
          metadataStep: metadataStep, metadataGap: metadataGap, itemStep: itemStep,
          itemsGap: itemsGap, textHeight: textHeight, height: textHeight + CELL_PADDING * 2
       };
@@ -301,7 +301,7 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(13);
-         doc.text('Module-indeling', margin, 15);
+         doc.text('Groepenkaart', margin, 15); // keep this title as it is.
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);

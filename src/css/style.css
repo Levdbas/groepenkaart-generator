@@ -1177,6 +1177,22 @@ select:focus-visible,
     line-height: 1.15;
   }
 
+  .print-badges {
+    display: flex;
+    gap: 1mm;
+    margin: 0.5mm 0;
+  }
+
+  .print-badge {
+    padding: 0 1mm;
+    color: #fff;
+    font-size: 7pt;
+    font-weight: 700;
+    line-height: 1.4;
+    background: var(--red);
+    border-radius: 0.8mm;
+  }
+
   .print-page table {
     width: 100%;
     border-collapse: collapse;
