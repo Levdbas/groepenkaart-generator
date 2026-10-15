@@ -213,20 +213,20 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
       'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD'
    ]);
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => [type.slug, type.phases, type.width]), [
-      ['MCB', 1, 1], ['MCB-2P', 3, 4], ['MCB-3P', 2, 2], ['RCD-2P', null, 2],
+      ['MCB', 1, 1], ['MCB-2P', 2, 2], ['MCB-3P', 3, 4], ['RCD-2P', null, 2],
       ['RCD-4P', null, 4], ['MAINS-2P', 1, 2], ['MAINS-4P', 3, 4], ['RCBO-2P', 2, 1],
       ['RCBO-4P', 3, 4], ['DIN-OUTLET', 1, 3], ['Bell-TRANSFORMER', 1, 2],
       ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 1]
    ]);
-   assert.equal(moduleTypes.available('MCB-2P', false), false);
-   assert.equal(moduleTypes.available('MCB-2P', true), true);
+   assert.equal(moduleTypes.available('MCB-3P', false), false);
+   assert.equal(moduleTypes.available('MCB-3P', true), true);
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
    assert.equal(moduleTypes.available('unknown', true), false);
-   assert.equal(moduleTypes.allPhases('MCB-2P'), true);
+   assert.equal(moduleTypes.allPhases('MCB-3P'), true);
    assert.equal(moduleTypes.allPhases('RCD-4P'), true);
    assert.equal(moduleTypes.allPhases('MCB'), false);
-   assert.equal(moduleTypes.allPhases('MCB-3P'), false);
+   assert.equal(moduleTypes.allPhases('MCB-2P'), false);
    assert.deepEqual(Array.from(moduleTypes.get('MCB').warnings), ['ev', 'pv', 'battery']);
 });
 
@@ -270,7 +270,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
       [(d) => { delete d.boxes[0].railWidth; }, /"railWidth"/],
       [(d) => { d.modules[0].slot = 13; }, /valt buiten de rails/],
       [(d) => { d.modules[0].rail = 2; }, /valt buiten de rails/],
-      [(d) => { d.modules[1].type = 'MCB-2P'; d.modules[1].slot = 10; }, /valt buiten de rails/],
+      [(d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].slot = 10; }, /valt buiten de rails/],
       [(d) => { d.modules[1].slot = 1; }, /overlappen/],
       [(d) => { d.modules[0].type = 'RCD-2P'; d.modules[0].color = '#ff0000'; }, /overlappen/],
       [(d) => { delete d.modules[0].rail; }, /geen rail en plek/],
@@ -280,7 +280,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    ]) {
       assert.throws(() => schema.normalize(variant(change)), message);
    }
-   const wide = schema.normalize(variant((d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].slot = 11; }));
+   const wide = schema.normalize(variant((d) => { d.modules[1].type = 'MCB-2P'; d.modules[1].slot = 11; }));
    assert.equal(wide.modules[1].slot, 11);
 
    const reordered = schema.normalize(variant((d) => {
@@ -294,7 +294,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    const draft = variant((d) => {
       d.boxes.forEach((box) => { delete box.rails; delete box.railWidth; });
       d.modules.forEach((module) => { delete module.rail; delete module.slot; });
-      d.modules[1].type = 'MCB-2P';
+      d.modules[1].type = 'MCB-3P';
    });
    const laidOut = plain(schema.normalize(draft));
    assert.deepEqual(laidOut.boxes.map((box) => [box.rails, box.railWidth]), [[1, 12], [1, 12]]);
@@ -304,7 +304,7 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    const migrated = schema.normalize(full);
    assert.equal(migrated.boxes[0].rails, 2, 'a 13th module starts a second rail');
    assert.deepEqual([migrated.modules[12].rail, migrated.modules[12].slot], [2, 1]);
-   assert.equal(schema.autoLayout(['MCB', 'MCB-2P', 'MCB-2P', 'MCB-2P'], 12).rails, 2,
+   assert.equal(schema.autoLayout(['MCB', 'MCB-3P', 'MCB-3P', 'MCB-3P'], 12).rails, 2,
       'a module that does not fit on the rest of a rail moves to the next one');
    assert.deepEqual(plain(schema.autoLayout([], 12)), { rails: 1, positions: [] });
 });
@@ -1118,14 +1118,14 @@ test('module type controls derive width, only offer types that fit, keep charact
    const app = setupApp(JSON.stringify(noWarnings));
    const option = (slug) => app.field('type').children.find((item) => item.value === slug);
    app.editModule('legacy-module-1-1');
-   assert.equal(option('MCB-2P'), undefined);
+   assert.equal(option('MCB-3P'), undefined);
    app.cancel();
    app.setPhaseEnabled(true);
    app.editModule('legacy-module-1-1');
-   assert.equal(option('MCB-2P').attrs.disabled, 'disabled', 'a 4-wide type does not fit before module 2');
-   assert.match(option('MCB-2P').textContent, /past hier niet/);
+   assert.equal(option('MCB-3P').attrs.disabled, 'disabled', 'a 4-wide type does not fit before module 2');
+   assert.match(option('MCB-3P').textContent, /past hier niet/);
    assert.equal(option('MCB').attrs.disabled, undefined);
-   app.set('type', 'MCB-2P');
+   app.set('type', 'MCB-3P');
    app.save();
    assert.match(app.messages.at(-1), /Module niet opgeslagen.*overlappen/);
    assert.equal(JSON.parse(app.storage()).modules[0].type, 'MCB', 'a rejected save leaves the data untouched');
@@ -1133,14 +1133,14 @@ test('module type controls derive width, only offer types that fit, keep charact
 
    app.setExpertMode(true);
    app.editModule('legacy-module-1-2');
-   assert.equal(option('MCB-2P').attrs.disabled, undefined);
-   app.set('type', 'MCB-2P');
+   assert.equal(option('MCB-3P').attrs.disabled, undefined);
+   app.set('type', 'MCB-3P');
    app.set('characteristic', 'C32');
    assert.equal(app.field('rcdType'), undefined, 'only RCDs have an RCD type');
    app.set('ratedCurrent', '16');
    app.save();
    let module = JSON.parse(app.storage()).modules[1];
-   assert.equal(module.type, 'MCB-2P');
+   assert.equal(module.type, 'MCB-3P');
    assert.ok(!('width' in module));
    assert.equal(app.shareContext.GroepenkaartSchema.moduleTypes.get(module.type).width, 4);
    assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 4');
@@ -1229,7 +1229,7 @@ test('choosing a module type clears one-phase selections and locks three-phase m
    assert.deepEqual(stored(), ['L2']);
 
    app.editModule('legacy-module-1-2');
-   app.set('type', 'MCB-2P');
+   app.set('type', 'MCB-3P');
    assert.equal(app.field('phase-L1'), undefined, 'three-phase modules have no phase choice');
    assert.ok(app.findAll(app.dialog(), (n) => n.className === 'phase-inherited' && n.textContent === 'L1, L2, L3').length);
    app.save();
