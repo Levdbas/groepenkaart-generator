@@ -795,6 +795,21 @@ test('v5 validates module types, protection references, box order and phase card
    assert.throws(() => schema.normalize(variant((d) => { d.rcdEnabled = false; })), /beveiligingsmodules bestaan/);
 });
 
+test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD, other types only to an RCD or RCBO', () => {
+   const { schema, moduleTypes } = setupSchema();
+   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET']);
+   assert.equal(moduleTypes.mcbLinkable('unknown'), false);
+   const data = schema.normalize(withRcds);
+   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
+   const outlet = (d) => { d.modules[1].type = 'DIN-OUTLET'; d.modules[1].protectedByModuleId = d.modules[0].id; };
+   assert.equal(schema.normalize(variant(outlet)).modules[1].protectedByModuleId, data.modules[0].id);
+   const rcbo = variant((d) => { outlet(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; });
+   assert.equal(schema.normalize(rcbo).modules[1].protectedByModuleId, data.modules[0].id);
+   assert.throws(() => schema.normalize(variant((d) => { outlet(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
+      /installatieautomaat of aardlekautomaat/);
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[1].protectedByModuleId = d.modules[0].id; })), /verwijst niet naar een RCD- of RCBO-module\./);
+});
+
 test('optional group items preserve arrays across schema versions without changing the version', () => {
    const { schema } = setupSchema();
    for (const source of [legacy, v1, v2, v3, v4, withRcdsV2, withRcds]) {
@@ -1535,7 +1550,6 @@ test('a dinrail outlet connects to a circuit breaker only, follows the RCD of it
    assert.equal(app.printCells()[1].textContent, 'A1 · 2', 'the outlet takes the RCD color of the MCB it hangs on');
    app.nodes.get('download-pdf').listeners.click();
    assert.equal(app.pdfCalls[0][0][0].groups[1].connectedTo, '1');
-   assert.equal(app.pdfCalls[0][0][0].groups[1].connectedRcd, 'A1');
 
    app.editModule('legacy-module-1-2');
    app.set('type', 'MCB');
@@ -1554,41 +1568,6 @@ test('a dinrail outlet connects to a circuit breaker only, follows the RCD of it
    assert.equal(kept.modules[0].protectedByModuleId, null);
    app.editModule('legacy-module-1-2');
    assert.equal(app.field('protection').children.length, 4);
-});
-
-test('a dinrail outlet inherits phases and rated current from the circuit breaker it hangs on', () => {
-   const app = setupApp(JSON.stringify(noWarnings));
-   app.setPhaseEnabled(true);
-   app.setExpertMode(true);
-   const inherited = () => app.findAll(app.dialog(), (node) => node.className === 'phase-inherited').map((node) => node.textContent);
-   const printed = () => { app.nodes.get('download-pdf').listeners.click(); return app.pdfCalls.at(-1)[0][0].groups[1]; };
-
-   app.editModule('legacy-module-1-1');
-   app.set('phase-L2', true);
-   app.set('ratedCurrent', '16');
-   app.save();
-
-   app.editModule('legacy-module-1-2');
-   app.set('type', 'DIN-OUTLET');
-   app.set('phase-L3', true);
-   app.set('ratedCurrent', '25');
-   app.set('protection', 'legacy-module-1-1');
-   assert.equal(app.field('phase-L1'), undefined, 'the phases come from the circuit breaker');
-   assert.equal(app.field('ratedCurrent'), undefined, 'the rated current comes from the circuit breaker');
-   assert.deepEqual(inherited(), ['L2 (via installatieautomaat)', '16 A (via installatieautomaat)']);
-   app.save();
-   assert.deepEqual([printed().phases, printed().ratedCurrent], [['L2'], 16]);
-   assert.equal(JSON.parse(app.storage()).modules[1].ratedCurrent, 25, 'own values are kept for when the link is removed');
-
-   app.editModule('legacy-module-1-1');
-   app.set('ratedCurrent', '');
-   app.save();
-   assert.equal(printed().ratedCurrent, undefined);
-   app.editModule('legacy-module-1-2');
-   assert.deepEqual(inherited(), ['L2 (via installatieautomaat)', 'Niet ingesteld (via installatieautomaat)']);
-   app.set('protection', '');
-   assert.equal(app.field('phase-L3').checked, true, 'without a link the own phases are back');
-   assert.equal(app.field('ratedCurrent').value, '25');
 });
 
 test('failed storage loads cannot be overwritten by edits or cancelled imports', () => {

@@ -97,7 +97,10 @@
         "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
         "characteristic": { "type": "string" },
         "phases": { "$ref": "#/$defs/phases" },
-        "protectedByModuleId": { "type": ["string", "null"] },
+        "protectedByModuleId": {
+          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead, never to an RCD. Always null for MAINS types.",
+          "type": ["string", "null"]
+        },
         "items": { "type": "array", "items": { "type": "string" } },
         "sensitivity": { "type": "integer", "enum": [10, 30, 100, 300] },
         "rcdType": { "enum": ["AC", "A", "F", "B", "B+"] },

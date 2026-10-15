@@ -9,7 +9,7 @@
 | Hoofdschakelaar 4P       | MAINS-4P         | Technisch: "Switch-disconnector" of "Main isolator". Staat vóór de aardlek, dus niet koppelbaar | alleen in 3 fase beschikbaar | 3     | 4              |
 | Aardlekautomaat 2P       | RCBO-2P          | RCBO = aardlekautomaat (MCB + RCD in één)                                                       |                              | 2     | 1              |
 | Aardlekautomaat 4P       | RCBO-4P          | RCBO = aardlekautomaat (MCB + RCD in één)                                                       | alleen in 3 fase beschikbaar | 3     | 4              |
-| Dinrail stopcontact      | DIN-OUTLET       |                                                                                                 |                              | 1     | 3              |
+| Dinrail stopcontact      | DIN-OUTLET       | Koppelbaar aan een installatieautomaat of aardlekautomaat(`mcbLinkable`)                        |                              | 1     | 3              |
 | Beltrafo                 | Bell-TRANSFORMER | Ook wel "Doorbell transformer"                                                                  |                              | 1     | 2              |
 | KWh meter 2P             | KWH-2P           | Schrijf "kWh" met een kleine k                                                                  |                              | 1     | 1              |
 | KWh meter 4P             | KWH-4P           | Schrijf "kWh" met een kleine k                                                                  |                              | 3     | 4              |
