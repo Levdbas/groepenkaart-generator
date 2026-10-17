@@ -1099,7 +1099,7 @@
    }
 
    function supplyRatingField(supply) {
-      const options = ['1x25A', '1x35A', '1x40A', '3x25A', '3x35A', '3x40A', '3x50A', '3x63A', '3x80A', 'Anders'];
+      const options = ['1x10A', '1x25A', '1x35A', '1x40A', '3x25A', '3x35A', '3x40A', '3x50A', '3x63A', '3x80A', 'Anders'];
       const select = el('select', { 'aria-label': 'Aansluitwaarde' }, [
          el('option', { value: '', text: 'Aansluitwaarde' }),
          ...options.map(function (value) { return el('option', { value: value, text: value }); })
