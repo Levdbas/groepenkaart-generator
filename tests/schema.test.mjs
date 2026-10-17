@@ -210,16 +210,19 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    const { moduleTypes } = setupSchema();
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => type.slug), [
       'MCB', 'MCB-2P', 'MCB-3P', 'RCD-2P', 'RCD-4P', 'MAINS-2P', 'MAINS-4P',
-      'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD'
+      'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD', 'SPD-4P'
    ]);
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => [type.slug, type.phases, type.width]), [
       ['MCB', 1, 1], ['MCB-2P', 2, 2], ['MCB-3P', 3, 4], ['RCD-2P', null, 2],
       ['RCD-4P', null, 4], ['MAINS-2P', 1, 2], ['MAINS-4P', 3, 4], ['RCBO-2P', 2, 1],
       ['RCBO-4P', 3, 4], ['DIN-OUTLET', 1, 3], ['Bell-TRANSFORMER', 1, 2],
-      ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 1]
+      ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 2], ['SPD-4P', 3, 4]
    ]);
    assert.equal(moduleTypes.available('MCB-3P', false), false);
    assert.equal(moduleTypes.available('MCB-3P', true), true);
+   assert.equal(moduleTypes.available('SPD-4P', false), false);
+   assert.equal(moduleTypes.available('SPD-4P', true), true);
+   assert.equal(moduleTypes.allPhases('SPD-4P'), true);
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
    assert.equal(moduleTypes.available('unknown', true), false);

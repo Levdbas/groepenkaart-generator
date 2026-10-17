@@ -28,7 +28,8 @@
       { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2 },
       { slug: 'KWH-2P', label: 'KWh meter 2P', description: 'Write kWh with a lowercase k', phases: 1, width: 1 },
       { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4 },
-      { slug: 'SPD', label: 'Overspanningsbeveiliging', description: '', phases: 1, width: 1 }
+      { slug: 'SPD', label: 'Overspanningsbeveiliging', description: '', phases: 1, width: 2 },
+      { slug: 'SPD-4P', label: 'Overspanningsbeveiliging 3P+N', description: '', phases: 3, width: 4, phaseMode: 'three' }
    ];
    const typesBySlug = Object.fromEntries(typeDefinitions.map(function (definition) { return [definition.slug, definition]; }));
    const moduleTypes = {
