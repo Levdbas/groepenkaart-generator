@@ -223,6 +223,7 @@
         "type": { "const": "mains" },
         "connectionRating": {
           "enum": [
+            "1x10A",
             "1x25A",
             "1x35A",
             "1x40A",

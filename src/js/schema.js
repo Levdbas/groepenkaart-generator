@@ -102,7 +102,7 @@
       box.railWidth = boxLimits.defaultRailWidth;
    }
 
-   const connectionRatings = ['1x25A', '1x35A', '1x40A', '3x25A', '3x35A', '3x40A', '3x50A', '3x63A', '3x80A', 'Anders'];
+   const connectionRatings = ['1x10A', '1x25A', '1x35A', '1x40A', '3x25A', '3x35A', '3x40A', '3x50A', '3x63A', '3x80A', 'Anders'];
 
    function isObject(value) {
       return value !== null && typeof value === 'object' && !Array.isArray(value);
