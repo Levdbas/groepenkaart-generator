@@ -74,7 +74,7 @@
           "minimum": 1
         },
         "width": {
-          "description": "Width in DIN modules. Only for types with a variable width (RCBO-2P: 1 or 2); other types use the fixed width of their type. When absent the type default applies.",
+          "description": "Width in DIN modules. Only for types with a variable width (RCBO-2P: 1 or 2; OTHER: 1 to 4); other types use the fixed width of their type. When absent the type default applies.",
           "type": "integer",
           "minimum": 1
         },
@@ -94,7 +94,8 @@
             "KWH-2P",
             "KWH-4P",
             "SPD",
-            "SPD-4P"
+            "SPD-4P",
+            "OTHER"
           ]
         },
         "number": { "type": "string" },
@@ -104,7 +105,7 @@
         "characteristic": { "type": "string" },
         "phases": { "$ref": "#/$defs/phases" },
         "protectedByModuleId": {
-          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead, never to an RCD. Always null for MAINS types.",
+          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET, OTHER) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead, never to an RCD. Always null for MAINS types.",
           "type": ["string", "null"]
         },
         "items": { "type": "array", "items": { "type": "string" } },
@@ -151,10 +152,17 @@
           "if": { "required": ["width"] },
           "then": {
             "properties": {
-              "type": { "const": "RCBO-2P" },
-              "width": { "maximum": 2 }
+              "type": { "enum": ["RCBO-2P", "OTHER"] },
+              "width": { "maximum": 4 }
             }
           }
+        },
+        {
+          "if": {
+            "required": ["width"],
+            "properties": { "type": { "const": "RCBO-2P" } }
+          },
+          "then": { "properties": { "width": { "maximum": 2 } } }
         },
         {
           "if": { "properties": { "type": { "enum": ["RCD-4P", "RCBO-4P"] } } },

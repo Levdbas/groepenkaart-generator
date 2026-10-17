@@ -210,13 +210,13 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    const { moduleTypes } = setupSchema();
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => type.slug), [
       'MCB', 'MCB-2P', 'MCB-3P', 'RCD-2P', 'RCD-4P', 'MAINS-2P', 'MAINS-4P',
-      'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD', 'SPD-4P'
+      'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD', 'SPD-4P', 'OTHER'
    ]);
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => [type.slug, type.phases, type.width]), [
       ['MCB', 1, 1], ['MCB-2P', 2, 2], ['MCB-3P', 3, 4], ['RCD-2P', null, 2],
       ['RCD-4P', null, 4], ['MAINS-2P', 1, 2], ['MAINS-4P', 3, 4], ['RCBO-2P', 2, 1],
       ['RCBO-4P', 3, 4], ['DIN-OUTLET', 1, 3], ['Bell-TRANSFORMER', 1, 2],
-      ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 2], ['SPD-4P', 3, 4]
+      ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 2], ['SPD-4P', 3, 4], ['OTHER', 1, 1]
    ]);
    assert.equal(moduleTypes.available('MCB-3P', false), false);
    assert.equal(moduleTypes.available('MCB-3P', true), true);
@@ -224,7 +224,7 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('SPD-4P', true), true);
    assert.equal(moduleTypes.allPhases('SPD-4P'), true);
    assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
-      [['RCBO-2P', 1, 1, 2]]);
+      [['RCBO-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
    assert.equal(moduleTypes.widthRange('MCB'), null);
    assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P' }), 1, 'a module without its own width takes the type default');
@@ -807,10 +807,18 @@ test('v5 validates module types, protection references, box order and phase card
 
 test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD, other types only to an RCD or RCBO', () => {
    const { schema, moduleTypes } = setupSchema();
-   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET']);
+   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET', 'OTHER']);
    assert.equal(moduleTypes.mcbLinkable('unknown'), false);
    const data = schema.normalize(withRcds);
    const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
+   const free = schema.normalize(variant((d) => {
+      Object.assign(d.modules[1], { type: 'OTHER', width: 4, protectedByModuleId: d.modules[0].id });
+   }));
+   assert.deepEqual([free.modules[1].width, free.modules[1].protectedByModuleId], [4, data.modules[0].id]);
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[1].type = 'OTHER'; d.modules[1].width = 5; })), /1 tot 4/);
+   assert.throws(() => schema.normalize(variant((d) => {
+      Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: d.modules[4].id });
+   })), /installatieautomaat of aardlekautomaat/);
    const outlet = (d) => { d.modules[1].type = 'DIN-OUTLET'; d.modules[1].protectedByModuleId = d.modules[0].id; };
    assert.equal(schema.normalize(variant(outlet)).modules[1].protectedByModuleId, data.modules[0].id);
    const rcbo = variant((d) => { outlet(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; });
