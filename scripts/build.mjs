@@ -15,7 +15,8 @@ const vendorFiles = [
    // Must come after jsPDF: it attaches autoTable to window.jspdf on load.
    'node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js',
 ];
-const appFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/share.js', 'src/js/pdf.js', 'src/js/app.js'];
+const appFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/layout.js', 'src/js/share.js', 'src/js/pdf.js', 'src/js/app.js'];
+const anonymizeFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/anonymize.js', 'src/js/anonymize-page.js'];
 
 const read = (file) => readFile(join(root, file), 'utf8');
 const hash = (content) => createHash('sha256').update(content).digest('hex').slice(0, 8);
@@ -43,6 +44,12 @@ async function build() {
       target: 'es2019',
    });
 
+   const anonymize = await transform((await Promise.all(anonymizeFiles.map(read))).join('\n'), {
+      loader: 'js',
+      minify: true,
+      target: 'es2019',
+   });
+
    const css = await transform(await read('src/css/style.css'), {
       loader: 'css',
       minify: true,
@@ -51,14 +58,17 @@ async function build() {
    const assets = {
       'vendor.js': await emit('vendor', 'js', vendor),
       'app.js': await emit('app', 'js', app.code),
+      'anonymize.js': await emit('anonymize', 'js', anonymize.code),
       'app.css': await emit('app', 'css', css.code),
    };
 
-   const html = (await read('src/index.html')).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
-      if (!assets[key]) throw new Error(`Onbekende placeholder in index.html: ${match}`);
-      return assets[key];
-   });
-   await writeFile(join(dist, 'index.html'), html);
+   for (const page of ['index.html', 'anonimiseren.html']) {
+      const html = (await read(`src/${page}`)).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
+         if (!assets[key]) throw new Error(`Onbekende placeholder in ${page}: ${match}`);
+         return assets[key];
+      });
+      await writeFile(join(dist, page), html);
+   }
 
    console.log(`Build klaar in ${Date.now() - started} ms:`, Object.values(assets).join(', '));
 }

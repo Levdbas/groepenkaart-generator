@@ -60,26 +60,48 @@
    // RCDs linked to at least one of the groups, in RCD list order, for the per-page key.
    function used(rcds, groups) {
       return (rcds || []).map(function (rcd, i) { return { rcd: rcd, label: label(rcd, i) }; })
-         .filter(function (entry) { return groups.some(function (g) { return g.rcdId === entry.rcd.id; }); });
+         .filter(function (entry) {
+            return groups.some(function (module) {
+               return module.rcdId === entry.rcd.id || (module.id === entry.rcd.id && /^(RCD|RCBO)-/.test(module.type || ''));
+            });
+         });
    }
 
    function unused(rcds, groups) {
       return (rcds || []).map(function (rcd, i) { return { rcd: rcd, label: label(rcd, i) }; })
-         .filter(function (entry) { return !groups.some(function (g) { return g.rcdId === entry.rcd.id; }); });
+         .filter(function (entry) {
+            return !groups.some(function (module) {
+               return module.rcdId === entry.rcd.id || (module.id === entry.rcd.id && /^(RCD|RCBO)-/.test(module.type || ''));
+            });
+         });
    }
 
+   // A placed RCD is colored as its own protection; its code is then shown once instead of "A1 · A1".
    function cellText(groupNumber, entry, rcdFirst) {
+      if (entry && entry.label === groupNumber) return groupNumber;
       return entry ? (rcdFirst === false ? [groupNumber, entry.label] : [entry.label, groupNumber]).filter(Boolean).join(' · ') : groupNumber;
    }
 
+   // "aangesloten op module A1 · 2": the RCD code of the circuit breaker, then its own number.
+   function connectionText(group) {
+      return 'aangesloten op module ' + [group.connectedRcd, group.connectedTo].filter(Boolean).join(' · ');
+   }
+
    function keyText(entry, phaseEnabled) {
-      const text = entry.rcd.name.trim() ? entry.label + ' – ' + entry.rcd.name.trim() : entry.label;
-      return phaseEnabled ? text + ' (' + (entry.rcd.amountOfPoles || 2) + 'P; ' + phaseText(rcdPhases(entry.rcd)) + ')' : text;
+      const rcd = entry.rcd;
+      const text = rcd.name.trim() ? entry.label + ' – ' + rcd.name.trim() : entry.label;
+      const attributes = [];
+      if (rcd.sensitivity !== undefined) attributes.push(rcd.sensitivity + ' mA');
+      if (rcd.rcdType) attributes.push('type ' + rcd.rcdType);
+      if (rcd.ratedCurrent !== undefined) attributes.push(rcd.ratedCurrent + ' A');
+      const details = attributes.length ? ' - ' + attributes.join(' - ') : '';
+      const phases = phaseEnabled ? ' (' + (rcd.amountOfPoles || 2) + 'P; ' + phaseText(rcdPhases(rcd)) + ')' : '';
+      return text + details + phases;
    }
 
    window.GroepenkaartRcd = {
       defaultColors: defaultColors, fallbackColor: fallbackColor, isColor: isColor, rgb: rgb, textColor: textColor, label: label,
-      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, keyText: keyText,
+      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, connectionText: connectionText, keyText: keyText,
       phaseCodes: phaseCodes, phaseColors: phaseColors, rcdPhases: rcdPhases, groupPhases: groupPhases, phaseText: phaseText
    };
 })();

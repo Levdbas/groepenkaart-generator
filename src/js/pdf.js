@@ -11,6 +11,10 @@
    const ITEM_SIZE = 9;
    const ITEM_INDENT = 2.5;
    const LINE_FACTOR = 1.2;
+   const BADGE_SIZE = 6;
+   const BADGE_HEIGHT = 3.4;
+   const BADGE_PADDING = 1;
+   const BADGE_GAP = 1;
 
    function today() {
       const d = new Date();
@@ -22,26 +26,27 @@
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
    }
 
-   // Draws one compact, rectangular card per selected warning and returns the vertical space they take.
+   // Draws one square card per warning, matching the browser print, and returns the vertical space they take.
+   // images are indexed like the warning definitions.
    function drawWarnings(doc, ids, margin, top, images) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
       if (!selected.length) return 0;
 
-      const gap = 3;
-      const width = (doc.internal.pageSize.getWidth() - margin * 2 - gap * 2) / 3;
-      const height = 24;
+      const gap = 2;
+      const width = 21;
+      const height = 21;
       selected.forEach(function (warning, index) {
          const x = margin + index * (width + gap);
          doc.setDrawColor(180, 35, 24);
-         doc.setLineWidth(0.8);
-         doc.roundedRect(x, top, width, height, 2, 2);
-         const image = images && images[index];
+         doc.setLineWidth(0.6);
+         doc.roundedRect(x, top, width, height, 1.5, 1.5);
+         const image = images && images[warnings.definitions.indexOf(warning)];
          const naturalWidth = image && (image.naturalWidth || image.width);
          const naturalHeight = image && (image.naturalHeight || image.height);
          if (naturalWidth && naturalHeight) {
-            const maxWidth = 18;
-            const maxHeight = 18;
+            const maxWidth = 17;
+            const maxHeight = 17;
             const ratio = naturalWidth / naturalHeight;
             const imageWidth = Math.min(maxWidth, maxHeight * ratio);
             const imageHeight = imageWidth / ratio;
@@ -144,26 +149,90 @@
          margin + size + 8, top + 8);
    }
 
-   // Lays out a group's bold description and small bullet list for a cell of the given inner width. The height
+   function moduleMetadata(module, boxes) {
+      const definition = window.GroepenkaartSchema.moduleTypes.get(module.type || 'MCB');
+      const width = window.GroepenkaartSchema.moduleTypes.widthOf(module);
+      const details = definition ? [definition.slug, width + (width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
+      if (module.characteristic) details.push(module.characteristic);
+      if (module.rcdType) details.push('type ' + module.rcdType);
+      if (module.ratedCurrent) details.push(module.ratedCurrent + ' A');
+      if (module.connectedTo) details.push(window.GroepenkaartRcd.connectionText(module));
+      boxes.forEach(function (box) {
+         if (box.supply && box.supply.type === 'subdistribution' && box.supply.sourceModuleId === module.id) {
+            details.push('voedt kast ' + box.number + (box.name ? ' (' + box.name + ')' : ''));
+         }
+      });
+      return details.join(' - ');
+   }
+
+   function supplySummary(box, boxes) {
+      const supply = box.supply;
+      if (!supply) return '';
+      const details = [];
+      if (supply.type === 'linked') {
+         const source = boxes.find(function (candidate) { return candidate.id === supply.sourceBoxId; });
+         details.push(source ? 'gekoppeld aan de hoofdaansluiting van kast ' + source.number : 'gekoppeld aan een hoofdaansluiting');
+      } else if (supply.type === 'mains') {
+         details.push('hoofdaansluiting');
+         if (supply.connectionRating === 'Anders') details.push(supply.customConnectionRating || 'Anders');
+         else if (supply.connectionRating) details.push(supply.connectionRating);
+         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+            details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
+               (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
+         }
+         if (supply.supplier) details.push(supply.supplier);
+      } else {
+         const sourceBox = boxes.find(function (candidate) {
+            return candidate.groups.some(function (module) { return module.id === supply.sourceModuleId; });
+         });
+         const source = sourceBox && sourceBox.groups.find(function (module) { return module.id === supply.sourceModuleId; });
+         if (sourceBox && source) details.push('vanuit kast ' + sourceBox.number + ', module ' + source.number);
+         if (supply.preFuse) details.push(supply.preFuse);
+         if (supply.cableCores && supply.cableCrossSection) details.push(supply.cableCores + 'x ' + supply.cableCrossSection + ' mm2');
+         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+            details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
+               (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
+         }
+      }
+      return details.length ? 'Voeding: ' + details.join(' - ') : '';
+   }
+
+   // Lays out a module's description, type details, and small bullet list for a cell of the given inner width. The height
    // includes the cell padding; the table row is made exactly this tall so the text can be drawn inside it.
-   function layoutGroup(doc, group, innerWidth) {
+   function layoutGroup(doc, group, innerWidth, boxes) {
       const scale = doc.internal.scaleFactor;
       const descriptionStep = DESCRIPTION_SIZE * LINE_FACTOR / scale;
+      const metadataSize = 6.3;
+      const metadataStep = metadataSize * LINE_FACTOR / scale;
       const itemStep = ITEM_SIZE * LINE_FACTOR / scale;
       const hasDescription = !!group.description;
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(BADGE_SIZE);
+      const badges = window.GroepenkaartWarnings.selected(group.warnings || []).map(function (warning) {
+         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2 };
+      });
+      // The first lines leave room for the badges at the right edge of the cell.
+      const badgeWidth = badges.reduce(function (sum, badge) { return sum + badge.width + BADGE_GAP; }, 0);
+      const headWidth = innerWidth - badgeWidth;
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
-      const description = hasDescription ? doc.splitTextToSize(group.description, innerWidth) : [];
+      const description = hasDescription ? doc.splitTextToSize(group.description, headWidth) : [];
+      const metadataText = moduleMetadata(group, boxes);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(metadataSize);
+      const metadata = metadataText ? doc.splitTextToSize(metadataText, headWidth) : [];
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(ITEM_SIZE);
       const items = (group.items || []).map(function (item) {
          return doc.splitTextToSize(item, innerWidth - ITEM_INDENT);
       });
       const itemLines = items.reduce(function (sum, lines) { return sum + lines.length; }, 0);
+      const metadataGap = description.length && metadata.length ? 0.5 : 0;
       const itemsGap = description.length && itemLines ? 0.8 : 0;
-      const textHeight = description.length * descriptionStep + itemsGap + itemLines * itemStep;
+      const textHeight = description.length * descriptionStep + metadataGap + metadata.length * metadataStep + itemsGap + itemLines * itemStep;
       return {
-         description: description, items: items, descriptionStep: descriptionStep, itemStep: itemStep,
+         description: description, metadata: metadata, items: items, descriptionStep: descriptionStep, badges: badges,
+         metadataStep: metadataStep, metadataGap: metadataGap, itemStep: itemStep,
          itemsGap: itemsGap, textHeight: textHeight, height: textHeight + CELL_PADDING * 2
       };
    }
@@ -171,12 +240,32 @@
    function drawGroup(doc, layout, cell) {
       const x = cell.x + CELL_PADDING;
       let y = cell.y + (cell.height - layout.textHeight) / 2;
+      let badgeX = cell.x + cell.width - CELL_PADDING;
+      for (let i = layout.badges.length - 1; i >= 0; i--) {
+         const badge = layout.badges[i];
+         badgeX -= badge.width;
+         doc.setFillColor(180, 35, 24);
+         doc.roundedRect(badgeX, y, badge.width, BADGE_HEIGHT, 0.7, 0.7, 'F');
+         doc.setFont('helvetica', 'bold');
+         doc.setFontSize(BADGE_SIZE);
+         doc.setTextColor(255, 255, 255);
+         doc.text(badge.text, badgeX + BADGE_PADDING, y + BADGE_HEIGHT / 2, { baseline: 'middle' });
+         badgeX -= BADGE_GAP;
+      }
       doc.setTextColor(30, 30, 30);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(DESCRIPTION_SIZE);
       layout.description.forEach(function (line) {
          doc.text(line, x, y, { baseline: 'top' });
          y += layout.descriptionStep;
+      });
+      y += layout.metadataGap;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.3);
+      doc.setTextColor(91, 101, 115);
+      layout.metadata.forEach(function (line) {
+         doc.text(line, x, y, { baseline: 'top' });
+         y += layout.metadataStep;
       });
       y += layout.itemsGap;
       doc.setFont('helvetica', 'normal');
@@ -192,13 +281,14 @@
 
    // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
-   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
+   function download(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
       if (!window.jspdf || !window.jspdf.jsPDF) return false;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       if (typeof doc.autoTable !== 'function') return false;
 
       const rcd = window.GroepenkaartRcd;
+      const warningModule = window.GroepenkaartWarnings;
       const lookup = rcd.index(rcds);
       const allGroups = boxes.flatMap(function (box) { return box.groups; });
       const unusedRcds = rcd.unused(rcds, allGroups);
@@ -213,43 +303,59 @@
          doc.setTextColor.apply(doc, BLUE);
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(13);
-         doc.text('Groepenindeling', margin, 15);
+         doc.text('Groepenkaart', margin, 15); // keep this title as it is.
          doc.setFont('helvetica', 'normal');
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);
          doc.text(date, pageWidth - margin, 15, { align: 'right' });
-         let offset = index === 0 ? drawWarnings(doc, warningIds || [], margin, 19, warningImages) : 0;
+         let offset = drawWarnings(doc, warningModule.forPage(box, index, warningIds || [], boxes), margin, 19, warningImages);
          if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(11);
          doc.text(title(box), margin, 24 + offset);
-         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset, phaseEnabled);
+         const supply = supplySummary(box, boxes);
+         let supplyHeight = 0;
+         if (supply) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(30, 30, 30);
+            doc.text(doc.splitTextToSize(supply, pageWidth - margin * 2), margin, 28 + offset);
+            supplyHeight = 4.5;
+         }
+         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset + supplyHeight, phaseEnabled);
 
-         const entries = box.groups.map(function (g) { return lookup[g.rcdId]; });
+         // A null row is a free slot, drawn as an empty row.
+         const rows = box.rows || box.groups;
+         const entries = rows.map(function (module) {
+            if (!module) return undefined;
+            return lookup[module.rcdId] || (module.type && /^(RCD|RCBO)-/.test(module.type) ? lookup[module.id] : undefined);
+         });
          const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
          // Groups are drawn by hand (bold description, small bullets) unless one is taller than a page: that one
          // stays plain text so the table can still split it and no text is lost.
-         const layouts = box.groups.map(function (g) {
-            const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2);
+         const layouts = rows.map(function (g) {
+            if (!g) return null;
+            const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2, boxes);
             return layout.height <= maxRowHeight ? layout : null;
          });
-         const body = box.groups.map(function (g, i) {
+         const body = rows.map(function (g, i) {
+            if (!g) return phaseEnabled ? ['', '', ''] : ['', ''];
             const description = layouts[i]
                ? { content: '', styles: { minCellHeight: Math.max(10, layouts[i].height) } }
-               : [g.description].filter(Boolean).concat((g.items || []).map(function (item) {
+               : [g.description, moduleMetadata(g, boxes)].filter(Boolean).concat((g.items || []).map(function (item) {
                   return '\u2022 ' + item;
                })).join('\n');
             const row = [rcd.cellText(g.number, entries[i], rcdFirst), description];
-            if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, entries[i] && entries[i].rcd)));
+            const protection = window.GroepenkaartSchema.moduleTypes.allPhases(g.type) ? null : entries[i] && entries[i].rcd;
+            if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, protection)));
             return row;
          });
-         for (let i = box.groups.length; i < minRows; i++) body.push(phaseEnabled ? ['', '', ''] : ['', '']);
 
          doc.autoTable({
-            startY: 30 + offset + keyHeight,
+            startY: 30 + offset + supplyHeight + keyHeight,
             margin: { top: MARGIN_Y, bottom: MARGIN_Y, left: margin, right: margin },
             rowPageBreak: 'avoid',
-            head: [phaseEnabled ? ['Groep', 'Omschrijving', 'Fasen'] : ['Groep', 'Omschrijving']],
+            head: [phaseEnabled ? ['Module', 'Omschrijving', 'Fasen'] : ['Module', 'Omschrijving']],
             body: body,
             theme: 'grid',
             styles: {

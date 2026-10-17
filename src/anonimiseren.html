@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Groepenkaart anonimiseren</title>
+    <meta name="theme-color" content="#003f7d" />
+
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+    <link rel="stylesheet" href="{{app.css}}" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <h1>Groepenkaart anonimiseren</h1>
+        <p>Haal herkenbare gegevens uit je JSON-bestand voordat je een bug meldt.</p>
+      </div>
+    </header>
+
+    <main class="anonymize-page">
+      <p>
+        Kies een met <strong>Exporteren</strong> opgeslagen
+        <code>groepenkaart.json</code>. Het bestand wordt alleen in je browser
+        verwerkt en gaat niet naar een server.
+      </p>
+      <p>
+        Omschrijvingen, namen van kasten en aardlekschakelaars, lijsten met
+        aangesloten apparaten en gegevens van de netbeheerder of voeding worden
+        onherkenbaar gemaakt: letters worden <code>x</code>, cijfers
+        <code>0</code>. Lengte, structuur, moduletypes, nummers en verwijzingen
+        blijven gelijk, zodat het probleem reproduceerbaar blijft.
+      </p>
+
+      <label class="btn btn-primary" for="anonymize-input">Bestand kiezen</label>
+      <input
+        type="file"
+        id="anonymize-input"
+        accept="application/json,.json"
+        hidden
+      />
+
+      <p id="anonymize-status" class="anonymize-status" role="status" hidden></p>
+
+      <section id="anonymize-result" hidden>
+        <button type="button" id="anonymize-download" class="btn btn-primary">
+          Geanonimiseerd bestand downloaden
+        </button>
+        <h2>Voorbeeld</h2>
+        <pre id="anonymize-preview" class="anonymize-preview" tabindex="0"></pre>
+        <p>
+          Controleer het resultaat zelf: alleen de hierboven genoemde velden
+          worden onherkenbaar gemaakt. Voeg het gedownloade bestand daarna toe
+          aan je
+          <a
+            href="https://github.com/Levdbas/groepenkaart-generator/issues/new/choose"
+            target="_blank"
+            rel="noopener noreferrer"
+            >melding op GitHub</a
+          >.
+        </p>
+      </section>
+
+      <p><a href="./">Terug naar de groepenkaart generator</a></p>
+    </main>
+
+    <script src="{{anonymize.js}}" defer></script>
+  </body>
+</html>

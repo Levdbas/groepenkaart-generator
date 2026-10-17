@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
-const sources = await Promise.all(['warnings', 'rcd', 'pdf'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'schema', 'pdf'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 
 function setup() {
@@ -57,6 +57,11 @@ function pageText(document, number) {
    return document.internal.pages[number].join('\n');
 }
 
+// Rows as the app supplies them when free slots are shown: the groups followed by empty rows.
+function padded(data, total = 15) {
+   return { ...data, rows: data.groups.concat(Array(Math.max(0, total - data.groups.length)).fill(null)) };
+}
+
 test('older files default to no warnings', () => {
    const { warnings } = setup();
    assert.deepEqual(Array.from(warnings.normalize(undefined)), []);
@@ -98,19 +103,21 @@ test('warnings use the supplied icon assets without warning copy', () => {
    assert.ok(warnings.definitions.every((warning) => !('heading' in warning) && !('message' in warning) && !('icon' in warning)));
 });
 
-test('PDF only pads the table to 15 rows when asked to', () => {
+test('PDF only draws empty rows for the free slots the app supplies', () => {
    const harness = setup();
-   assert.equal(harness.pdf.download([box('1', 3)], 0), true);
-   assert.equal(harness.document().lastAutoTable.body.length, 3);
    assert.equal(harness.pdf.download([box('1', 3)]), true);
    assert.equal(harness.document().lastAutoTable.body.length, 3);
-   assert.equal(harness.pdf.download([box('1', 20)], 15), true);
+   assert.equal(harness.pdf.download([padded(box('1', 3), 5)]), true);
+   const body = harness.document().lastAutoTable.body;
+   assert.equal(body.length, 5);
+   assert.deepEqual(body[4].cells[1].text, ['']);
+   assert.equal(harness.pdf.download([padded(box('1', 20), 15)]), true);
    assert.equal(harness.document().lastAutoTable.body.length, 20);
 });
 
-test('PDF without warnings starts the table high on the page and fills 15 rows', () => {
+test('PDF without warnings starts the table high on the page and fits 15 rows', () => {
    const harness = setup();
-   assert.equal(harness.pdf.download([box()], 15), true);
+   assert.equal(harness.pdf.download([padded(box())]), true);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 1);
    assert.equal(document.lastAutoTable.settings.startY, 30);
@@ -134,7 +141,7 @@ test('PDF shows effective phases, pole counts and unassigned selections only whe
    data.groups[2] = { ...data.groups[2], rcdId: null, phases: ['L1', 'L2', 'L3'] };
    data.groups[3] = { ...data.groups[3], rcdId: 'four', phases: [] };
    data.groups[4] = { ...data.groups[4], rcdId: null, phases: ['L2'] };
-   assert.equal(harness.pdf.download([data], 15, [], rcds, true), true);
+   assert.equal(harness.pdf.download([padded(data)], [], rcds, true), true);
    const document = harness.document();
    const table = document.lastAutoTable;
    assert.equal(table.columns.length, 3);
@@ -166,7 +173,7 @@ test('PDF shows effective phases, pole counts and unassigned selections only whe
       });
    });
    harness.lines.length = 0;
-   harness.pdf.download([data], 15, [], rcds, false);
+   harness.pdf.download([data], [], rcds, false);
    assert.equal(harness.document().lastAutoTable.columns.length, 2);
    assert.ok(!pageText(harness.document(), 1).includes('Fasen'));
    assert.ok(!pageText(harness.document(), 1).includes('2P;'));
@@ -178,7 +185,7 @@ test('phase borders are drawn on every fragment of a group split across PDF page
    const data = box();
    data.groups[0].phases = ['L1', 'L3'];
    data.groups[0].items = Array.from({ length: 90 }, (_, i) => `Connection ${i}`);
-   harness.pdf.download([data], 15, [], [], true);
+   harness.pdf.download([data], [], [], true);
    assert.ok(harness.document().getNumberOfPages() > 1);
    const borders = harness.lines.filter((line) => line.width === 1);
    assert.ok(borders.length >= 4);
@@ -194,7 +201,7 @@ test('phase PDF columns and long RCD labels fit inside the page and survive over
    const rcds = [{ id: 'r1', number: 'A1', name: 'Lange omschrijving '.repeat(9), color: '#ed8c01', amountOfPoles: 4 }];
    const data = box('1', 65);
    data.groups.forEach((group) => { group.rcdId = 'r1'; group.phases = ['L1', 'L2', 'L3']; });
-   harness.pdf.download([data, box('2')], 15, ['pv'], rcds, true);
+   harness.pdf.download([data, box('2')], ['pv'], rcds, true);
    const document = harness.document();
    assert.ok(document.getNumberOfPages() > 2);
    const output = Array.from({ length: document.getNumberOfPages() }, (_, i) => pageText(document, i + 1)).join('\n');
@@ -221,7 +228,7 @@ test('PDF group descriptions are bold and items are small bullets that wrap with
       };
       return document;
    };
-   harness.pdf.download([data], 15);
+   harness.pdf.download([padded(data)]);
    const document = harness.document();
    const description = drawn.find((entry) => entry.value === data.groups[0].description);
    assert.equal(description.font, 'helvetica-bold');
@@ -244,7 +251,7 @@ test('a group is never split over two pages', () => {
    const harness = setup();
    const data = box('1', 40);
    data.groups.forEach((group, index) => { group.items = index % 2 ? ['A', 'B', 'C'] : ['A']; });
-   harness.pdf.download([data], 0);
+   harness.pdf.download([data]);
    const document = harness.document();
    assert.ok(document.getNumberOfPages() > 1);
    const table = document.lastAutoTable;
@@ -264,7 +271,7 @@ test('long group item lists preserve all items across PDF overflow pages', () =>
    const data = box();
    data.groups[0].description = '';
    data.groups[0].items = Array.from({ length: 100 }, (_, i) => `Connection-${i + 1}`);
-   harness.pdf.download([data], 15);
+   harness.pdf.download([data]);
    const document = harness.document();
    assert.ok(document.getNumberOfPages() > 1);
    const text = document.internal.pages.slice(1).map((page) => page.join('\n')).join('\n');
@@ -275,7 +282,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
    for (const selected of [['pv'], ids]) {
       const harness = setup();
       const images = Array.from({ length: 3 }, () => ({ naturalWidth: 100, naturalHeight: 100 }));
-      harness.pdf.download([box()], 15, selected, [], false, null, true, images);
+      harness.pdf.download([padded(box())], selected, [], false, null, true, images);
       const document = harness.document();
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
@@ -283,9 +290,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       assert.equal(harness.warningCards.length, displayedCount);
       assert.equal(harness.warningImages.length, displayedCount);
       assert.ok(!text.includes('LET OP!'));
-      assert.ok(!text.includes('GEVAARLIJKE DC-SPANNING'));
-      assert.ok(!text.includes('OMVORMER:'));
-      assert.equal(document.lastAutoTable.settings.startY, 58);
+      assert.equal(document.lastAutoTable.settings.startY, 55);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('Group-1-1'));
       assert.ok(document.output().startsWith('%PDF-'));
@@ -294,7 +299,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
 
 test('warnings appear only on the first page with multiple kasten', () => {
    const harness = setup();
-   harness.pdf.download([box('1'), box('2')], 15, ids);
+   harness.pdf.download([box('1'), box('2')], ids);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
    assert.equal(harness.warningCards.length, 3);
@@ -303,9 +308,54 @@ test('warnings appear only on the first page with multiple kasten', () => {
    assert.equal(document.lastAutoTable.settings.startY, 30);
 });
 
+test('a sub-distribution page shows its own warnings, a linked page none, and the first page all of them', () => {
+   const flagged = (number, warnings) => {
+      const data = box(number);
+      data.groups[0].warnings = warnings;
+      return data;
+   };
+   const harness = setup();
+   const first = { ...flagged('1', ['pv']), supply: { type: 'mains' } };
+   const sub = { ...flagged('2', ['ev', 'battery']), supply: { type: 'subdistribution' } };
+   const linked = { ...flagged('3', ['pv']), supply: { type: 'linked', sourceBoxId: 'x' } };
+   harness.pdf.download([first, sub, linked], ['pv', 'ev', 'battery']);
+   assert.equal(harness.document().getNumberOfPages(), 3);
+   // Three cards on the first page, two on the sub-distribution page, none on the linked page.
+   assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, 5);
+   assert.deepEqual(Array.from(harness.warnings.forPage(sub, 1, ['pv', 'ev', 'battery'])), ['ev', 'battery']);
+   assert.deepEqual(Array.from(harness.warnings.forPage(linked, 2, ['pv'])), []);
+});
+
+test('a sub-distribution page also shows the warnings of boxes it feeds', () => {
+   const harness = setup();
+   const make = (number, id, supply, warnings) => ({
+      number, name: '', supply, groups: [{ id, number: '1', description: 'G', ...(warnings ? { warnings } : {}) }]
+   });
+   const boxes = [
+      make('1', 'a', { type: 'mains' }),
+      make('2', 'b', { type: 'subdistribution', sourceModuleId: 'a' }, ['ev']),
+      make('3', 'c', { type: 'subdistribution', sourceModuleId: 'b' }, ['pv']),
+      make('4', 'd', { type: 'subdistribution', sourceModuleId: 'a' })
+   ];
+   const forPage = (index) => Array.from(harness.warnings.forPage(boxes[index], index, ['pv', 'ev'], boxes));
+   assert.deepEqual(forPage(1), ['pv', 'ev']);
+   assert.deepEqual(forPage(2), ['pv']);
+   assert.deepEqual(forPage(3), [], 'a sibling box does not inherit warnings');
+});
+
+test('flagged modules get a small red badge text in their row', () => {
+   const harness = setup();
+   const data = box('1', 2);
+   data.groups[0].warnings = ['pv', 'battery'];
+   harness.pdf.download([data], ['pv', 'battery']);
+   const text = pageText(harness.document(), 1);
+   assert.equal((text.match(/\(EOS\) Tj/g) || []).length, 1);
+   assert.equal((text.match(/\(PV\) Tj/g) || []).length, 1);
+});
+
 test('overflow pages preserve all groups without repeating warning cards', () => {
    const harness = setup();
-   harness.pdf.download([box('1', 65), box('2')], 15, ids);
+   harness.pdf.download([box('1', 65), box('2')], ids);
    const document = harness.document();
    assert.ok(document.getNumberOfPages() > 2);
    let allText = '';
@@ -324,9 +374,9 @@ test('overflow pages preserve all groups without repeating warning cards', () =>
 test('missing PDF dependencies still trigger the existing print fallback', () => {
    const harness = setup();
    delete harness.window.jspdf;
-   assert.equal(harness.pdf.download([box()], 15, ids), false);
+   assert.equal(harness.pdf.download([box()], ids), false);
    harness.window.jspdf = { jsPDF: function () { return {}; } };
-   assert.equal(harness.pdf.download([box()], 15, ids), false);
+   assert.equal(harness.pdf.download([box()], ids), false);
 });
 
 const rcds = [
@@ -342,7 +392,7 @@ function linkedBox(number = '1', links = ['r1', null, 'r2']) {
 
 test('linked groups get a colored group-number cell with the RCD code and readable text', () => {
    const harness = setup();
-   assert.equal(harness.pdf.download([linkedBox()], 15, [], rcds), true);
+   assert.equal(harness.pdf.download([padded(linkedBox())], [], rcds), true);
    const document = harness.document();
    const cells = document.lastAutoTable.body.map((row) => row.cells[0]);
    assert.equal(cells[0].text.join(' '), 'A1 · 1');
@@ -367,7 +417,7 @@ test('unused RCDs are listed below warnings once across all boxes', () => {
       linkedBox('1', ['r1']),
       linkedBox('2', ['r2'])
    ];
-   assert.equal(harness.pdf.download(boxes, 15, ['pv'], rcds), true);
+   assert.equal(harness.pdf.download(boxes, ['pv'], rcds), true);
    const firstPage = pageText(harness.document(), 1);
    const unusedHeading = 'Aardlekschakelaars niet in gebruik';
    const unusedStart = firstPage.indexOf(unusedHeading);
@@ -385,12 +435,12 @@ test('the RCD key is per page and the table still fits with warnings and a wrapp
       id: `r${i}`, number: `A${i + 1}`, name: `Aardlekschakelaar met lange naam ${i + 1}`, color: '#e53935'
    }));
    const harness = setup();
-   harness.pdf.download([linkedBox('1', many.map((r) => r.id).concat(Array(7).fill(null)))], 15, ids, many);
+   harness.pdf.download([linkedBox('1', many.map((r) => r.id).concat(Array(7).fill(null)))], ids, many);
    assert.equal(harness.document().getNumberOfPages(), 1);
    assert.ok(harness.document().lastAutoTable.finalY < 287, '15 rows must fit with warnings and a wrapped key');
    assert.ok(pageText(harness.document(), 1).includes('lange naam 8'));
 
-   harness.pdf.download([linkedBox('1', many.map((r) => r.id)), box('2')], 15, ids, many);
+   harness.pdf.download([linkedBox('1', many.map((r) => r.id)), box('2')], ids, many);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
    assert.ok(!pageText(document, 2).includes('Aardlekschakelaars:'));
@@ -399,8 +449,34 @@ test('the RCD key is per page and the table still fits with warnings and a wrapp
 
 test('without RCDs the PDF output is unchanged', () => {
    const harness = setup();
-   harness.pdf.download([box()], 15, [], []);
+   harness.pdf.download([box()], [], []);
    const document = harness.document();
    assert.equal(document.lastAutoTable.settings.startY, 30);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
+});
+
+test('PDF shows module metadata, supply details and derived feed references', () => {
+   const harness = setup();
+   const source = box('1');
+   source.groups[0] = { ...source.groups[0], id: 'source', type: 'MCB', characteristic: 'C16', rcdId: 'r1' };
+   const branch = box('2');
+   branch.supply = {
+      type: 'subdistribution', sourceModuleId: 'source', preFuse: 'C32', cableCores: 5,
+      cableCrossSection: 6, mainSwitchCurrent: 40, mainSwitchPoles: 4
+   };
+   const rcds = [{
+      id: 'r1', number: 'A1', name: 'Keuken', color: '#ed8c01', amountOfPoles: 2,
+      phases: [], sensitivity: 30, rcdType: 'A', ratedCurrent: 40
+   }];
+   harness.pdf.download([source, branch], [], rcds, false);
+   const document = harness.document();
+   const firstPage = pageText(document, 1);
+   const secondPage = pageText(document, 2);
+   for (const value of ['MCB', '1 DIN-module', 'C16', 'voedt kast 2', '30 mA - type A - 40 A']) {
+      assert.ok(firstPage.includes(value), `${value} appears on the source module page`);
+   }
+   for (const value of ['Voeding: vanuit kast 1, module 1', 'C32', '5x 6 mm2']) {
+      assert.ok(secondPage.includes(value), `${value} appears on the sub-distribution page`);
+   }
+   assert.deepEqual(document.lastAutoTable.head[0].cells[0].text, ['Module']);
 });
