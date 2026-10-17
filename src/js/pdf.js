@@ -174,7 +174,8 @@
          details.push(source ? 'gekoppeld aan de hoofdaansluiting van kast ' + source.number : 'gekoppeld aan een hoofdaansluiting');
       } else if (supply.type === 'mains') {
          details.push('hoofdaansluiting');
-         if (supply.connectionRating) details.push(supply.connectionRating);
+         if (supply.connectionRating === 'Anders') details.push(supply.customConnectionRating || 'Anders');
+         else if (supply.connectionRating) details.push(supply.connectionRating);
          if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
             details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
                (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
