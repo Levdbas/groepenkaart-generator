@@ -17,15 +17,11 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 - **Fasen**: zet **Fasen documenteren (3-faseninstallatie)** aan. Kies bij elke RCD-module het 2- of 4-polige type. Een 2-polige beveiliging heeft één te kiezen fase (L1, L2 of L3); gekoppelde modules nemen die fase over. Een 4-polige beveiliging heeft alle drie de fasen; modules hierop kiezen zelf één of meer fasen, net als modules zonder koppeling. De fasen verschijnen in de PDF.
 - **Voeding per kast**: leg een hoofdaansluiting, onderverdeler of gekoppelde kast vast. Een onderverdeler verwijst met een stabiele module-ID naar de bronbeveiliging; voorbeveiliging en kabelgegevens verschijnen in de PDF. Een gekoppelde kast deelt de hoofdaansluiting van een andere kast, die je bij **Gekoppeld aan** kiest.
 - **QR-code**: zet **QR-code toevoegen aan de PDF** aan (de bovenste optie) en de laatste pagina van de PDF krijgt een QR-code. Scannen opent de app met alle gegevens, zodat je de groepenkaart op een andere telefoon of computer kunt aanpassen. Zie [QR-code en deellink](#qr-code-en-deellink).
-- **PDF downloaden**: in de stijl van een standaard groepenkaart, met de modules in de fysieke volgorde (rail 1 van links naar rechts, dan rail 2, enzovoort). De moduleomschrijving staat vet, het type, de DIN-breedte en het kenmerk eronder; aansluitingen verschijnen als kleine opsomming. Een module wordt nooit over twee pagina's verdeeld. Met **Tabel aanvullen tot 15 regels** (standaard uit) worden lege regels toegevoegd. Deze instelling wordt per browser bewaard en zit niet in de kaartgegevens.
+Elke vrije plek op een rail krijgt een lege regel, op de plek in de fysieke volgorde waar de module zou zitten; een brede module blijft één regel. Zo is de tabel makkelijk te vergelijken met de kast en blijft er ruimte om met de hand een module toe te voegen.
 - Automatisch **opslaan in de browser** (localStorage)
 - **Exporteren en importeren** als JSON-bestand, voor een back-up of om op een andere computer verder te werken
 
 De optie **Fasen** staat boven **Aardlekschakelaars**. Met faseregistratie aan toont het modulevenster de fasekeuze; met koppelen aan aardlekschakelaars aan de keuze van de aardlekschakelaar.
-
-Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot genoeg blijft om aan te tikken.
-
-Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot genoeg blijft om aan te tikken.
 
 Op een smal scherm schuift de visuele kast horizontaal, zodat elke plek groot genoeg blijft om aan te tikken.
 
@@ -191,6 +187,9 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── js/schema.js              # Moduletypecatalogus, gegevenstypen, schemaversies, validatie en migraties
 │   ├── js/layout.js              # Plekken in een kast: passen, vrije ruimte en verplaatsen tussen rails
 │   ├── js/share.js               # Deellink en QR-code: comprimeren, coderen en lezen van de gegevens
+│   ├── anonimiseren.html         # Hulppagina om een JSON-bestand te anonimiseren voor bugmeldingen
+│   ├── js/anonymize.js           # Herkenbare tekstvelden onherkenbaar maken
+│   ├── js/anonymize-page.js      # Bestand kiezen, voorbeeld tonen en downloaden
 │   ├── js/app.js                 # Gegevens, visuele kast, modulevenster, opslag, import/export
 │   └── js/pdf.js                 # PDF genereren met jsPDF
 ├── public/                       # Wordt ongewijzigd naar dist/ gekopieerd

@@ -94,7 +94,21 @@
       return items.slice().sort(function (a, b) { return a.rail - b.rail || a.slot - b.slot; });
    }
 
+   /** One entry per module and per free slot in reading order: the item id, or null for a free slot. */
+   function rows(box, items) {
+      const result = [];
+      for (let rail = 1; rail <= box.rails; rail++) {
+         let slot = 1;
+         while (slot <= box.railWidth) {
+            const item = itemAt(items, rail, slot);
+            result.push(item ? item.id : null);
+            slot = item ? item.slot + item.width : slot + 1;
+         }
+      }
+      return result;
+   }
+
    window.GroepenkaartLayout = {
-      itemAt: itemAt, fits: fits, freeRun: freeRun, move: move, outside: outside, sortByPosition: sortByPosition
+      itemAt: itemAt, fits: fits, freeRun: freeRun, move: move, outside: outside, sortByPosition: sortByPosition, rows: rows
    };
 })();

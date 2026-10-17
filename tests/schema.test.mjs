@@ -355,7 +355,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    });
 });
 
-function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null, rcdFirst = null, expertMode = null) {
+function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = null, expertMode = null) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl, publishedSchema.$id);
    assert.equal(publishedSchema.$id, schema.schemaUrl);
@@ -1195,7 +1195,7 @@ test('installation warnings are chosen per module, can be combined and drive the
    assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg', 'images/eos.svg']);
    assert.deepEqual(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className === 'din-module-badge').map((n) => n.textContent), ['PV', 'EOS']);
    app.nodes.get('download-pdf').listeners.click();
-   assert.deepEqual(app.pdfCalls[0][2], ['pv', 'battery']);
+   assert.deepEqual(app.pdfCalls[0][1], ['pv', 'battery']);
 
    app.editModule('legacy-module-1-1');
    assert.equal(app.field('warning-pv').checked, true);
@@ -1502,7 +1502,7 @@ test('RCDs are placed in a box like any module and linked groups in any box are 
 });
 
 test('RCD technical attributes persist and appear in the print legend only when set', () => {
-   const app = setupApp(JSON.stringify(withRcds), '', true, null, null, 'true');
+   const app = setupApp(JSON.stringify(withRcds), '', true, null, 'true');
    assert.equal(app.nodes.get('unplaced').hidden, false);
    app.editModule('r1');
    assert.equal(app.field('description').value, 'Keuken', 'a migrated RCD name is edited as its description');
@@ -1836,76 +1836,6 @@ test('expert mode is off by default, shows the technical fields per device and k
    assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
 });
 
-test('expert mode is off by default, shows the technical fields per device and keeps their values when hidden', () => {
-   const app = setupApp(JSON.stringify(withRcds));
-   const technical = () => app.findAll(app.dialog(), (node) => node.className === 'module-technical-controls');
-   assert.equal(app.nodes.get('expert-mode').checked, false);
-   app.editModule('r1');
-   assert.equal(technical().length, 0);
-   app.cancel();
-
-   app.setExpertMode(true);
-   assert.equal(app.expertModeStorage(), 'true');
-   app.editModule('r1');
-   assert.equal(technical().length, 1);
-   app.set('sensitivity', '30');
-   app.save();
-   app.editModule('legacy-module-1-1');
-   assert.equal(app.field('sensitivity'), undefined, 'only RCDs have a sensitivity');
-   app.set('rcdType', 'A');
-   app.set('ratedCurrent', '16');
-   app.save();
-
-   app.setExpertMode(false);
-   app.editModule('r1');
-   assert.equal(technical().length, 0);
-   app.save();
-   const stored = JSON.parse(app.storage());
-   assert.ok(!('expertMode' in stored));
-   assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
-   assert.ok(stored.modules.some((module) => module.rcdType === 'A' && module.ratedCurrent === 16));
-
-   const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
-   assert.equal(reloaded.nodes.get('expert-mode').checked, true);
-   reloaded.editModule('legacy-module-1-1');
-   assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
-});
-
-test('expert mode is off by default, shows the technical fields per device and keeps their values when hidden', () => {
-   const app = setupApp(JSON.stringify(withRcds));
-   const technical = () => app.findAll(app.dialog(), (node) => node.className === 'module-technical-controls');
-   assert.equal(app.nodes.get('expert-mode').checked, false);
-   app.editModule('r1');
-   assert.equal(technical().length, 0);
-   app.cancel();
-
-   app.setExpertMode(true);
-   assert.equal(app.expertModeStorage(), 'true');
-   app.editModule('r1');
-   assert.equal(technical().length, 1);
-   app.set('sensitivity', '30');
-   app.save();
-   app.editModule('legacy-module-1-1');
-   assert.equal(app.field('sensitivity'), undefined, 'only RCDs have a sensitivity');
-   assert.equal(app.field('rcdType'), undefined, 'only RCDs have an RCD type');
-   app.set('ratedCurrent', '16');
-   app.save();
-
-   app.setExpertMode(false);
-   app.editModule('r1');
-   assert.equal(technical().length, 0);
-   app.save();
-   const stored = JSON.parse(app.storage());
-   assert.ok(!('expertMode' in stored));
-   assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
-   assert.ok(stored.modules.some((module) => module.ratedCurrent === 16));
-
-   const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
-   assert.equal(reloaded.nodes.get('expert-mode').checked, true);
-   reloaded.editModule('legacy-module-1-1');
-   assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
-});
-
 test('a QR code is skipped with a visible message when the data does not fit', () => {
    const big = structuredClone(withRcds);
    let seed = 1;
@@ -2124,8 +2054,9 @@ test('a selected module moves left and right, swaps with neighbours and wraps be
    assert.deepEqual(app.position(id), [1, 4]);
    app.action('Naar rechts').listeners.click();
    assert.deepEqual(app.position(id), [2, 1], 'wraps to the start of the next rail');
-   const printed = () => app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.map((row) => row.children[0].textContent);
+   const printed = () => app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.map((row) => row.children[0].textContent).filter(Boolean);
    assert.deepEqual(printed(), ['2', '1'], 'print follows the physical order');
+   assert.equal(app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.length, 8, 'free slots are empty rows');
    app.moduleButton(id).listeners.keydown({ key: 'ArrowLeft', preventDefault() { } });
    assert.deepEqual(app.position(id), [1, 4], 'arrow keys move the module too');
    app.moduleButton(id).listeners.keydown({ key: 'Escape', preventDefault() { } });

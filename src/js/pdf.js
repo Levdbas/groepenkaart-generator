@@ -322,13 +322,17 @@
          }
          const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset + supplyHeight, phaseEnabled);
 
-         const entries = box.groups.map(function (module) {
+         // A null row is a free slot, drawn as an empty row.
+         const rows = box.rows || box.groups;
+         const entries = rows.map(function (module) {
+            if (!module) return undefined;
             return lookup[module.rcdId] || (module.type && /^(RCD|RCBO)-/.test(module.type) ? lookup[module.id] : undefined);
          });
          const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
          // Groups are drawn by hand (bold description, small bullets) unless one is taller than a page: that one
          // stays plain text so the table can still split it and no text is lost.
-         const layouts = box.groups.map(function (g) {
+         const layouts = rows.map(function (g) {
+            if (!g) return null;
             const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2, boxes);
             return layout.height <= maxRowHeight ? layout : null;
          });

@@ -318,7 +318,7 @@ test('a sub-distribution page shows its own warnings, a linked page none, and th
    const first = { ...flagged('1', ['pv']), supply: { type: 'mains' } };
    const sub = { ...flagged('2', ['ev', 'battery']), supply: { type: 'subdistribution' } };
    const linked = { ...flagged('3', ['pv']), supply: { type: 'linked', sourceBoxId: 'x' } };
-   harness.pdf.download([first, sub, linked], 15, ['pv', 'ev', 'battery']);
+   harness.pdf.download([first, sub, linked], ['pv', 'ev', 'battery']);
    assert.equal(harness.document().getNumberOfPages(), 3);
    // Three cards on the first page, two on the sub-distribution page, none on the linked page.
    assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, 5);
@@ -347,7 +347,7 @@ test('flagged modules get a small red badge text in their row', () => {
    const harness = setup();
    const data = box('1', 2);
    data.groups[0].warnings = ['pv', 'battery'];
-   harness.pdf.download([data], 15, ['pv', 'battery']);
+   harness.pdf.download([data], ['pv', 'battery']);
    const text = pageText(harness.document(), 1);
    assert.equal((text.match(/\(EOS\) Tj/g) || []).length, 1);
    assert.equal((text.match(/\(PV\) Tj/g) || []).length, 1);
@@ -468,7 +468,7 @@ test('PDF shows module metadata, supply details and derived feed references', ()
       id: 'r1', number: 'A1', name: 'Keuken', color: '#ed8c01', amountOfPoles: 2,
       phases: [], sensitivity: 30, rcdType: 'A', ratedCurrent: 40
    }];
-   harness.pdf.download([source, branch], 0, [], rcds, false);
+   harness.pdf.download([source, branch], [], rcds, false);
    const document = harness.document();
    const firstPage = pageText(document, 1);
    const secondPage = pageText(document, 2);

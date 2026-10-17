@@ -4,7 +4,6 @@
    const STORAGE_KEY = 'groepenkaart:v1';
    const RCD_FIRST_KEY = 'groepenkaart:rcd-first';
    const EXPERT_MODE_KEY = 'groepenkaart:expert-mode';
-   const MIN_ROWS = 15;
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
    const moduleTypes = schema.moduleTypes;
@@ -71,23 +70,6 @@
       return normalize(schema.empty());
    }
 
-   // Padding with empty rows is a print preference of this device, not part of the card data.
-   function loadFillRows() {
-      try {
-         return localStorage.getItem(FILL_ROWS_KEY) === 'true';
-      } catch (e) {
-         return false;
-      }
-   }
-
-   function saveFillRows() {
-      try {
-         localStorage.setItem(FILL_ROWS_KEY, String(fillRows));
-      } catch (e) {
-         console.warn('Opslaan mislukt', e);
-      }
-   }
-
    function loadRcdFirst() {
       try {
          return localStorage.getItem(RCD_FIRST_KEY) !== 'false';
@@ -119,10 +101,6 @@
       } catch (e) {
          console.warn('Opslaan mislukt', e);
       }
-   }
-
-   function minRows() {
-      return fillRows ? MIN_ROWS : 0;
    }
 
    // Building the QR code takes a moment, so after typing it only runs once the typing pauses.
@@ -267,10 +245,15 @@
       return view;
    }
 
-   // Boxes with their modules in physical order, as used by the print output and the PDF.
+   // Boxes with their modules in physical order, as used by the print output and the PDF. rows holds the table rows:
+   // the groups, with a null for every free slot.
    function printBoxes() {
       return state.boxes.map(function (box) {
-         return { id: box.id, number: box.number, name: box.name, supply: box.supply, groups: boxModules(box).map(groupView) };
+         const groups = boxModules(box).map(groupView);
+         const byId = {};
+         groups.forEach(function (group) { byId[group.id] = group; });
+         const rows = layout.rows(box, layoutItems(box)).map(function (id) { return id && byId[id]; });
+         return { id: box.id, number: box.number, name: box.name, supply: box.supply, groups: groups, rows: rows };
       });
    }
 
@@ -1274,7 +1257,8 @@
       const boxes = printBoxes();
       const allWarnings = activeWarnings();
       printEl.replaceChildren.apply(printEl, boxes.map(function (box, index) {
-         const rows = box.groups.map(function (g) {
+         const rows = box.rows.map(function (g) {
+            if (!g) return el('tr', null, [el('td'), el('td'), state.phaseEnabled ? el('td') : null]);
             const entry = lookup[g.rcdId];
             const protection = entry || (protectiveTypes.includes(g.type) ? lookup[g.id] : null);
             const phases = rcdHelpers.groupPhases(g, moduleTypes.allPhases(g.type) ? null : protection && protection.rcd);
@@ -1370,7 +1354,6 @@
       phaseEnabledEl.checked = state.phaseEnabled;
       rcdEnabledEl.checked = state.rcdEnabled;
       qrEnabledEl.checked = state.qrEnabled;
-      fillRowsEl.checked = fillRows;
       expertModeEl.checked = expertMode;
       renderQrStatus();
       renderUnplaced();
@@ -1475,7 +1458,7 @@
          window.print();
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(printBoxes(), minRows(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages)) {
+      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(printBoxes(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages)) {
          window.print();
       }
    });
