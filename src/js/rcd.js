@@ -82,6 +82,11 @@
       return entry ? (rcdFirst === false ? [groupNumber, entry.label] : [entry.label, groupNumber]).filter(Boolean).join(' · ') : groupNumber;
    }
 
+   // "aangesloten op module A1 · 2": the RCD code of the circuit breaker, then its own number.
+   function connectionText(group) {
+      return 'aangesloten op module ' + [group.connectedRcd, group.connectedTo].filter(Boolean).join(' · ');
+   }
+
    function keyText(entry, phaseEnabled) {
       const rcd = entry.rcd;
       const text = rcd.name.trim() ? entry.label + ' – ' + rcd.name.trim() : entry.label;
@@ -96,7 +101,7 @@
 
    window.GroepenkaartRcd = {
       defaultColors: defaultColors, fallbackColor: fallbackColor, isColor: isColor, rgb: rgb, textColor: textColor, label: label,
-      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, keyText: keyText,
+      nextNumber: nextNumber, defaultColor: defaultColor, index: index, used: used, unused: unused, cellText: cellText, connectionText: connectionText, keyText: keyText,
       phaseCodes: phaseCodes, phaseColors: phaseColors, rcdPhases: rcdPhases, groupPhases: groupPhases, phaseText: phaseText
    };
 })();

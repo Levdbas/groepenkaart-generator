@@ -240,6 +240,7 @@
          description: module.description || (isProtective(module) && module.name) || '',
          rcdId: rcd ? rcd.id : null,
          ...(mcb ? { connectedTo: mcb.number || mcb.description || mcb.type } : {}),
+         ...(mcb && rcd ? { connectedRcd: rcdHelpers.label(rcd, protectiveModules().indexOf(rcd)) } : {}),
          phases: mcb ? effectivePhases(mcb) : moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
          ...(module.items ? { items: module.items.slice() } : {})
       };
@@ -1236,7 +1237,7 @@
       const type = moduleTypes.get(module.type);
       return [module.type, type ? widthText(moduleWidth(module)) : '',
       module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '',
-      module.connectedTo ? 'op module ' + module.connectedTo : '']
+      module.connectedTo ? rcdHelpers.connectionText(module) : '']
          .filter(Boolean).join(' · ');
    }
 

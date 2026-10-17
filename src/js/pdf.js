@@ -156,7 +156,7 @@
       if (module.characteristic) details.push(module.characteristic);
       if (module.rcdType) details.push('type ' + module.rcdType);
       if (module.ratedCurrent) details.push(module.ratedCurrent + ' A');
-      if (module.connectedTo) details.push('op module ' + module.connectedTo);
+      if (module.connectedTo) details.push(window.GroepenkaartRcd.connectionText(module));
       boxes.forEach(function (box) {
          if (box.supply && box.supply.type === 'subdistribution' && box.supply.sourceModuleId === module.id) {
             details.push('voedt kast ' + box.number + (box.name ? ' (' + box.name + ')' : ''));

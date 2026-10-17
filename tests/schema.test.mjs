@@ -1736,6 +1736,7 @@ test('a dinrail outlet connects to a circuit breaker only, follows the RCD of it
    assert.equal(app.printCells()[1].textContent, 'A1 · 2', 'the outlet takes the RCD color of the MCB it hangs on');
    app.nodes.get('download-pdf').listeners.click();
    assert.equal(app.pdfCalls[0][0][0].groups[1].connectedTo, '1');
+   assert.equal(app.pdfCalls[0][0][0].groups[1].connectedRcd, 'A1');
 
    app.editModule('legacy-module-1-2');
    app.set('type', 'MCB');
