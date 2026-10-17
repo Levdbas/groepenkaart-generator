@@ -1,6 +1,6 @@
 {
   "name": "groepenkaart-generator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Maak je eigen groepenkaart voor de meterkast en download deze als PDF.",
   "private": true,
   "type": "module",
