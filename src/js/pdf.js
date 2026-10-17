@@ -279,7 +279,7 @@
 
    // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
-   function download(boxes, minRows, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
+   function download(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
       if (!window.jspdf || !window.jspdf.jsPDF) return false;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -322,17 +322,22 @@
          }
          const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset + supplyHeight, phaseEnabled);
 
-         const entries = box.groups.map(function (module) {
+         // A null row is a free slot, drawn as an empty row.
+         const rows = box.rows || box.groups;
+         const entries = rows.map(function (module) {
+            if (!module) return undefined;
             return lookup[module.rcdId] || (module.type && /^(RCD|RCBO)-/.test(module.type) ? lookup[module.id] : undefined);
          });
          const descriptionWidth = pageWidth - margin * 2 - GROUP_WIDTH - (phaseEnabled ? PHASE_WIDTH : 0);
          // Groups are drawn by hand (bold description, small bullets) unless one is taller than a page: that one
          // stays plain text so the table can still split it and no text is lost.
-         const layouts = box.groups.map(function (g) {
+         const layouts = rows.map(function (g) {
+            if (!g) return null;
             const layout = layoutGroup(doc, g, descriptionWidth - CELL_PADDING * 2, boxes);
             return layout.height <= maxRowHeight ? layout : null;
          });
-         const body = box.groups.map(function (g, i) {
+         const body = rows.map(function (g, i) {
+            if (!g) return phaseEnabled ? ['', '', ''] : ['', ''];
             const description = layouts[i]
                ? { content: '', styles: { minCellHeight: Math.max(10, layouts[i].height) } }
                : [g.description, moduleMetadata(g, boxes)].filter(Boolean).concat((g.items || []).map(function (item) {
@@ -343,7 +348,6 @@
             if (phaseEnabled) row.push(rcd.phaseText(rcd.groupPhases(g, protection)));
             return row;
          });
-         for (let i = box.groups.length; i < minRows; i++) body.push(phaseEnabled ? ['', '', ''] : ['', '']);
 
          doc.autoTable({
             startY: 30 + offset + supplyHeight + keyHeight,

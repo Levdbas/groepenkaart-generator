@@ -133,6 +133,36 @@ textarea:focus-visible {
   padding: 0;
 }
 
+.anonymize-page {
+  max-width: 960px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+.anonymize-status {
+  margin: 1rem 0;
+  color: var(--muted);
+}
+
+.anonymize-status.anonymize-error {
+  color: var(--red);
+}
+
+.anonymize-preview {
+  max-height: 24rem;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  overflow: auto;
+  font-size: 0.8rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.anonymize-page .btn {
+  min-height: 2.75rem;
+}
+
 .boxes {
   max-width: 960px;
   margin: 1.5rem auto;

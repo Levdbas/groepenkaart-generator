@@ -355,7 +355,7 @@ test('c2 compact links round-trip modules, protection references and supply fiel
    });
 });
 
-function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = null, rcdFirst = null, expertMode = null) {
+function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = null, expertMode = null) {
    const { schema, context } = setupSchema();
    assert.equal(schema.schemaUrl, publishedSchema.$id);
    assert.equal(publishedSchema.$id, schema.schemaUrl);
@@ -379,7 +379,6 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
    const messages = [];
    const confirms = [];
    let storage = stored;
-   let fillRowsStorage = fillRows;
    let rcdFirstStorage = rcdFirst;
    let expertModeStorage = expertMode;
    let exported;
@@ -402,14 +401,12 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, fillRows = nul
       document, Blob,
       localStorage: {
          getItem(key) {
-            if (key === 'groepenkaart:fill-rows') return fillRowsStorage;
             if (key === 'groepenkaart:rcd-first') return rcdFirstStorage;
             if (key === 'groepenkaart:expert-mode') return expertModeStorage;
             assert.equal(key, 'groepenkaart:v1');
             return storage;
          },
          setItem(key, value) {
-            if (key === 'groepenkaart:fill-rows') { fillRowsStorage = value; return; }
             if (key === 'groepenkaart:rcd-first') { rcdFirstStorage = value; return; }
             if (key === 'groepenkaart:expert-mode') { expertModeStorage = value; return; }
             assert.equal(key, 'groepenkaart:v1');
@@ -1198,7 +1195,7 @@ test('installation warnings are chosen per module, can be combined and drive the
    assert.deepEqual(cards().map((card) => card.children[0].attrs.src), ['images/pv.svg', 'images/eos.svg']);
    assert.deepEqual(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className === 'din-module-badge').map((n) => n.textContent), ['PV', 'EOS']);
    app.nodes.get('download-pdf').listeners.click();
-   assert.deepEqual(app.pdfCalls[0][2], ['pv', 'battery']);
+   assert.deepEqual(app.pdfCalls[0][1], ['pv', 'battery']);
 
    app.editModule('legacy-module-1-1');
    assert.equal(app.field('warning-pv').checked, true);
@@ -1450,13 +1447,13 @@ test('phase editing applies inheritance immediately across boxes and preserves i
    imported.import(exported);
    assert.deepEqual(appState(imported), saved);
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[0][4], true);
+   assert.equal(app.pdfCalls[0][3], true);
    app.setPhaseEnabled(false);
    assert.deepEqual(printPhases(), []);
    assert.equal(printBorders().length, 0);
    assert.deepEqual(appState(app), { ...saved, phaseEnabled: false });
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[1][4], false);
+   assert.equal(app.pdfCalls[1][3], false);
    app.setPhaseEnabled(true);
    app.removeUnplaced('r1');
    assert.deepEqual(printPhases(), ['L1, L2, L3', 'L1, L3', 'Niet gekozen', 'Niet gekozen']);
@@ -1505,7 +1502,7 @@ test('RCDs are placed in a box like any module and linked groups in any box are 
 });
 
 test('RCD technical attributes persist and appear in the print legend only when set', () => {
-   const app = setupApp(JSON.stringify(withRcds), '', true, null, null, 'true');
+   const app = setupApp(JSON.stringify(withRcds), '', true, null, 'true');
    assert.equal(app.nodes.get('unplaced').hidden, false);
    app.editModule('r1');
    assert.equal(app.field('description').value, 'Keuken', 'a migrated RCD name is edited as its description');
@@ -1535,15 +1532,15 @@ test('the group column puts the RCD first by default and remembers the previous 
    assert.equal(app.nodes.get('rcd-first').checked, true);
    assert.equal(app.printCells()[0].textContent, 'A1 · 1');
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[0][6], true);
+   assert.equal(app.pdfCalls[0][5], true);
 
    app.setRcdFirst(false);
    assert.equal(app.printCells()[0].textContent, '1 · A1');
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[1][6], false);
+   assert.equal(app.pdfCalls[1][5], false);
    assert.equal(app.storage().includes('rcd-first'), false);
 
-   const reloaded = setupApp(app.storage(), '', true, null, 'false');
+   const reloaded = setupApp(app.storage(), '', true, 'false');
    assert.equal(reloaded.nodes.get('rcd-first').checked, false);
    assert.equal(reloaded.printCells()[0].textContent, '1 · A1');
 });
@@ -1782,10 +1779,10 @@ test('the QR option persists, reloads, exports and is reset by clearing', async 
 test('the PDF only receives a QR code when the option is on, with a link that restores the data', () => {
    const app = setupApp(JSON.stringify(withRcds));
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[0][5], null);
+   assert.equal(app.pdfCalls[0][4], null);
    app.setQrEnabled(true);
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[1][5], 'qr');
+   assert.equal(app.pdfCalls[1][4], 'qr');
    assert.equal(app.nodes.get('qr-status').hidden, true);
 
    const share = app.shareContext.GroepenkaartShare;
@@ -1795,22 +1792,13 @@ test('the PDF only receives a QR code when the option is on, with a link that re
    assert.deepEqual(plain(semanticV5(app.schema.normalize(decoded))), plain(semanticV5(JSON.parse(app.storage()))));
 });
 
-test('empty rows are only added when the device preference is on, and the preference is not part of the data', () => {
+test('free slots become empty rows in the PDF data without being stored', () => {
    const app = setupApp(JSON.stringify(withRcds));
-   const fillRows = app.nodes.get('fill-rows');
-   assert.equal(fillRows.checked, false);
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[0][1], 0);
-   fillRows.checked = true;
-   fillRows.listeners.change();
-   app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[1][1], 15);
-   assert.ok(!('fillRows' in JSON.parse(app.storage())));
-
-   const reloaded = setupApp(app.storage(), '', true, 'true');
-   assert.equal(reloaded.nodes.get('fill-rows').checked, true);
-   reloaded.nodes.get('download-pdf').listeners.click();
-   assert.equal(reloaded.pdfCalls[0][1], 15);
+   const box = app.pdfCalls[0][0][0];
+   assert.ok(box.rows.length > box.groups.length);
+   assert.deepEqual(box.rows.filter(Boolean), box.groups, 'modules keep their order');
+   assert.ok(!('rows' in JSON.parse(app.storage()).boxes[0]));
 });
 
 test('expert mode is off by default, shows the technical fields per device and keeps their values when hidden', () => {
@@ -1842,7 +1830,7 @@ test('expert mode is off by default, shows the technical fields per device and k
    assert.equal(stored.modules.find((module) => module.id === 'r1').sensitivity, 30);
    assert.ok(stored.modules.some((module) => module.ratedCurrent === 16));
 
-   const reloaded = setupApp(app.storage(), '', true, null, null, 'true');
+   const reloaded = setupApp(app.storage(), '', true, null, 'true');
    assert.equal(reloaded.nodes.get('expert-mode').checked, true);
    reloaded.editModule('legacy-module-1-1');
    assert.equal(reloaded.findAll(reloaded.dialog(), (node) => node.className === 'module-technical-controls').length, 1);
@@ -1861,7 +1849,7 @@ test('a QR code is skipped with a visible message when the data does not fit', (
    assert.equal(app.nodes.get('qr-status').hidden, false);
    assert.match(app.nodes.get('qr-status').textContent, /te groot/);
    app.nodes.get('download-pdf').listeners.click();
-   assert.equal(app.pdfCalls[0][5], null);
+   assert.equal(app.pdfCalls[0][4], null);
    app.setQrEnabled(false);
    assert.equal(app.nodes.get('qr-status').hidden, true);
 });
@@ -2066,8 +2054,9 @@ test('a selected module moves left and right, swaps with neighbours and wraps be
    assert.deepEqual(app.position(id), [1, 4]);
    app.action('Naar rechts').listeners.click();
    assert.deepEqual(app.position(id), [2, 1], 'wraps to the start of the next rail');
-   const printed = () => app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.map((row) => row.children[0].textContent);
+   const printed = () => app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.map((row) => row.children[0].textContent).filter(Boolean);
    assert.deepEqual(printed(), ['2', '1'], 'print follows the physical order');
+   assert.equal(app.findAll(app.nodes.get('print-area'), (n) => n.tag === 'tbody')[0].children.length, 8, 'free slots are empty rows');
    app.moduleButton(id).listeners.keydown({ key: 'ArrowLeft', preventDefault() { } });
    assert.deepEqual(app.position(id), [1, 4], 'arrow keys move the module too');
    app.moduleButton(id).listeners.keydown({ key: 'Escape', preventDefault() { } });

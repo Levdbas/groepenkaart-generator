@@ -23,4 +23,4 @@ body:
     id: additional
     attributes:
       label: Aanvullende informatie (optioneel)
-      description: Voorbeelden, schermafbeeldingen of een voorbeeldkaart (JSON-export). Let op - meldingen en bijlagen zijn openbaar, gebruik geen persoonlijke gegevens.
+      description: Voorbeelden, schermafbeeldingen of een voorbeeldkaart (JSON-export). Anonimiseer de JSON eerst met de [anonimiseerpagina](https://levdbas.github.io/groepenkaart-generator/anonimiseren.html). Let op - meldingen en bijlagen zijn openbaar, gebruik geen persoonlijke gegevens.
