@@ -4,7 +4,7 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
-   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[]}} ModuleData
+   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, width?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[]}} ModuleData
    * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
    * @typedef {{schemaVersion: 5, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
@@ -13,7 +13,7 @@
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
-   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD; mcbLinkable means it can also be connected to an MCB.
+   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD; mcbLinkable means it can also be connected to an MCB; widthRange [min, max] lets a module choose its own width (default: width).
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-2P', label: 'Fornuisgroep', description: 'Range circuit', phases: 2, width: 2 },
@@ -22,7 +22,7 @@
       { slug: 'RCD-4P', label: 'Aardlekschakelaar 4P', description: 'Residual Current Device', phases: null, width: 4, phaseMode: 'three' },
       { slug: 'MAINS-2P', label: 'Hoofdschakelaar 2P', description: 'Switch-disconnector or main isolator', phases: 1, width: 2, phaseMode: 'single', protectable: false },
       { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three', protectable: false },
-      { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1, warnings: ['ev', 'pv', 'battery'] },
+      { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1, widthRange: [1, 2], warnings: ['ev', 'pv', 'battery'] },
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3, mcbLinkable: true },
       { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2 },
@@ -42,6 +42,17 @@
       mcbLinkable: function (slug) {
          const definition = typesBySlug[slug];
          return !!definition && definition.mcbLinkable === true;
+      },
+      // The widths a module of this type can have, or null when the width is fixed.
+      widthRange: function (slug) {
+         const definition = typesBySlug[slug];
+         return definition && definition.widthRange ? definition.widthRange.slice() : null;
+      },
+      // The width a module occupies: its own choice, or the default of its type.
+      widthOf: function (module) {
+         const definition = typesBySlug[module.type];
+         if (!definition) return 1;
+         return module.width !== undefined && moduleTypes.widthRange(module.type) ? module.width : definition.width;
       },
       available: function (slug, phaseEnabled) {
          const definition = typesBySlug[slug];
@@ -332,6 +343,13 @@
          if (module.boxId === null && (module.rail !== undefined || module.slot !== undefined)) {
             throw new Error('Ongeldig bestand: een niet-geplaatste module heeft geen rail of plek.');
          }
+         if (module.width !== undefined) {
+            const range = moduleTypes.widthRange(module.type);
+            if (!range) throw new Error('Ongeldig bestand: moduletype ' + module.type + ' heeft een vaste breedte.');
+            if (!Number.isInteger(module.width) || module.width < range[0] || module.width > range[1]) {
+               throw new Error('Ongeldig bestand: de breedte van moduletype ' + module.type + ' moet een geheel getal van ' + range[0] + ' tot ' + range[1] + ' zijn.');
+            }
+         }
          const phases = normalizePhases(module);
          const protectedByModuleId = module.protectedByModuleId;
          if (protectedByModuleId !== null && typeof protectedByModuleId !== 'string') {
@@ -373,6 +391,7 @@
             boxId: module.boxId,
             ...(module.rail !== undefined ? { rail: module.rail } : {}),
             ...(module.slot !== undefined ? { slot: module.slot } : {}),
+            ...(module.width !== undefined ? { width: module.width } : {}),
             type: module.type,
             number: module.number,
             description: module.description,
@@ -472,7 +491,7 @@
          if (module.rail === undefined || module.slot === undefined) {
             throw new Error('Ongeldig bestand: module ' + JSON.stringify(module.id) + ' in een kast heeft geen rail en plek.');
          }
-         const width = moduleTypes.get(module.type).width;
+         const width = moduleTypes.widthOf(module);
          if (module.rail > box.rails || module.slot + width - 1 > box.railWidth) {
             throw new Error('Ongeldig bestand: module ' + JSON.stringify(module.id) + ' valt buiten de rails van de kast.');
          }

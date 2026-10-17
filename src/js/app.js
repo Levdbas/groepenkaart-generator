@@ -183,17 +183,23 @@
       return state.modules.filter(function (module) { return module.boxId === null; });
    }
 
-   function typeWidth(type) {
-      return (moduleTypes.get(type) || { width: 1 }).width;
+   function moduleWidth(module) {
+      return moduleTypes.widthOf(module);
    }
 
    function widthText(width) {
       return width + (width === 1 ? ' DIN-module' : ' DIN-modules');
    }
 
+   // The width of a type in the type list: a range when modules of the type can choose their width.
+   function typeWidthText(type) {
+      const range = moduleTypes.widthRange(type.slug);
+      return range ? range[0] + '–' + range[1] + ' DIN-modules' : widthText(type.width);
+   }
+
    function layoutItems(box) {
       return boxModules(box).map(function (module) {
-         return { id: module.id, rail: module.rail, slot: module.slot, width: typeWidth(module.type) };
+         return { id: module.id, rail: module.rail, slot: module.slot, width: moduleWidth(module) };
       });
    }
 
@@ -424,6 +430,9 @@
       if (!moduleTypes.protectable(type)) draft.protectedByModuleId = null;
       const linkedTarget = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
       if (linkedTarget && !canLink(type, linkedTarget)) draft.protectedByModuleId = null;
+      const range = moduleTypes.widthRange(type);
+      if (range) draft.width = Math.max(range[0], Math.min(definition.width, maxWidth(draft)));
+      else delete draft.width;
       draft.type = type;
    }
 
@@ -443,8 +452,9 @@
          moduleTypes.definitions.filter(function (type) {
             return moduleTypes.available(type.slug, state.phaseEnabled) || type.slug === draft.type;
          }).map(function (type) {
-            const tooWide = type.width > max;
-            const attrs = { value: type.slug, text: type.label + ' · ' + type.slug + ' · ' + widthText(type.width) + (tooWide ? ' (past hier niet)' : '') };
+            const range = moduleTypes.widthRange(type.slug);
+            const tooWide = (range ? range[0] : type.width) > max;
+            const attrs = { value: type.slug, text: type.label + ' · ' + type.slug + ' · ' + typeWidthText(type) + (tooWide ? ' (past hier niet)' : '') };
             if (tooWide) attrs.disabled = 'disabled';
             return el('option', attrs);
          }));
@@ -454,6 +464,23 @@
          rerenderModuleDialog('type');
       });
       return labelField('Moduletype', select, 'field-wide');
+   }
+
+   // Types with a variable width let the module choose it; widths that do not fit where the module sits are disabled.
+   function widthField(draft) {
+      const range = moduleTypes.widthRange(draft.type);
+      if (!range) return null;
+      const max = maxWidth(draft);
+      const options = [];
+      for (let width = range[0]; width <= range[1]; width++) {
+         const attrs = { value: String(width), text: widthText(width) + (width > max ? ' (past hier niet)' : '') };
+         if (width > max) attrs.disabled = 'disabled';
+         options.push(el('option', attrs));
+      }
+      const select = el('select', { 'data-field': 'width', 'aria-label': 'Breedte' }, options);
+      select.value = String(moduleWidth(draft));
+      select.addEventListener('change', function () { draft.width = Number(select.value); });
+      return labelField('Breedte', select);
    }
 
    function warningField(draft) {
@@ -612,7 +639,7 @@
       const box = findBox(draft.boxId);
       if (!box) return null;
       const max = maxWidth(draft);
-      const candidates = unplacedModules().filter(function (module) { return typeWidth(module.type) <= max; });
+      const candidates = unplacedModules().filter(function (module) { return moduleWidth(module) <= max; });
       if (!candidates.length) return null;
       return el('section', { className: 'dialog-unplaced' }, [
          el('h3', { text: 'Niet-geplaatste module hier plaatsen' }),
@@ -634,6 +661,7 @@
       const box = draft.boxId && findBox(draft.boxId);
       const fields = [
          typeField(draft),
+         widthField(draft),
          dialogText(draft, 'number', isProtective(draft) ? 'Code' : 'Nummer', isProtective(draft) ? 'Bijv. A1' : 'Nr', function () {
             dialogState.autoNumber = false;
          }),
@@ -867,7 +895,7 @@
    }
 
    function renderModule(box, module) {
-      const width = typeWidth(module.type);
+      const width = moduleWidth(module);
       const color = moduleColor(module);
       const selected = module.id === selectedId;
       const flagged = warnings.selected(module.warnings || []);
@@ -903,7 +931,7 @@
       while (slot <= box.railWidth) {
          const module = modules.find(function (candidate) { return candidate.rail === rail && candidate.slot === slot; });
          if (module) {
-            const width = typeWidth(module.type);
+            const width = moduleWidth(module);
             cells.push(renderModule(box, module));
             labels.push(el('span', { className: 'din-label', style: gridColumn(slot, width), title: module.description, text: module.description }));
             slot += width;
@@ -990,7 +1018,7 @@
          return el('li', { className: 'unplaced-item', 'data-module-id': module.id }, [
             swatch(moduleColor(module)),
             el('span', { className: 'unplaced-text', text: [module.number, module.description || module.name].filter(Boolean).join(' · ') || 'Zonder nummer' }),
-            el('span', { className: 'module-width', text: module.type + ' · ' + widthText(typeWidth(module.type)) }),
+            el('span', { className: 'module-width', text: module.type + ' · ' + widthText(moduleWidth(module)) }),
             el('div', { className: 'row-actions' }, [
                iconButton('✎', 'Module bewerken', function () { openModuleDialog(module); }),
                iconButton('✕', 'Module verwijderen', function () { removeModule(module); }, 'btn-danger')
@@ -1206,7 +1234,7 @@
 
    function moduleMeta(module) {
       const type = moduleTypes.get(module.type);
-      return [module.type, type ? widthText(type.width) : '',
+      return [module.type, type ? widthText(moduleWidth(module)) : '',
       module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '',
       module.connectedTo ? 'op module ' + module.connectedTo : '']
          .filter(Boolean).join(' · ');

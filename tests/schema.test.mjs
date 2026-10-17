@@ -223,6 +223,13 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('SPD-4P', false), false);
    assert.equal(moduleTypes.available('SPD-4P', true), true);
    assert.equal(moduleTypes.allPhases('SPD-4P'), true);
+   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
+      [['RCBO-2P', 1, 1, 2]]);
+   assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
+   assert.equal(moduleTypes.widthRange('MCB'), null);
+   assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P' }), 1, 'a module without its own width takes the type default');
+   assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P', width: 2 }), 2);
+   assert.equal(moduleTypes.widthOf({ type: 'MCB-2P', width: 1 }), 2, 'fixed-width types ignore a width');
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
    assert.equal(moduleTypes.available('unknown', true), false);
@@ -1163,6 +1170,70 @@ test('module type controls derive width, only offer types that fit, keep charact
    assert.equal(app.printCells()[0].textContent, '2', 'a placed RCBO shows its own code once');
    assert.match(app.printCells()[0].attrs.style, /background-color: #9e9e9e/);
    assert.ok(app.findAll(app.nodes.get('print-area'), (node) => node.className === 'print-rcd-key').length);
+});
+
+test('a module of a variable-width type stores its own width, validated against the type range', () => {
+   const { schema, context } = setupSchema();
+   context.window.fflate = require('fflate');
+   vm.runInContext(sources[4], context);
+   const share = context.window.GroepenkaartShare;
+   const data = plain(schema.normalize(noWarnings));
+   const variant = (change) => {
+      const copy = structuredClone(data);
+      copy.rcdEnabled = true;
+      Object.assign(copy.modules[0], { type: 'RCBO-2P', color: '#ff0000' });
+      change(copy);
+      return copy;
+   };
+   assert.equal(schema.normalize(variant(() => { })).modules[0].width, undefined);
+   assert.equal(schema.normalize(variant((d) => { d.modules[0].width = 1; })).modules[0].width, 1);
+   assert.equal(schema.normalize(variant((d) => { d.modules[0].width = 2; d.modules[1].slot = 3; })).modules[0].width, 2);
+   for (const [change, message] of [
+      [(d) => { d.modules[0].width = 2; }, /overlappen/],
+      [(d) => { d.modules[0].width = 3; }, /moet een geheel getal van 1 tot 2/],
+      [(d) => { d.modules[0].width = 0; }, /moet een geheel getal van 1 tot 2/],
+      [(d) => { d.modules[0].width = 1.5; }, /moet een geheel getal van 1 tot 2/],
+      [(d) => { d.modules[0].width = '2'; }, /moet een geheel getal van 1 tot 2/],
+      [(d) => { d.modules[1].width = 1; }, /heeft een vaste breedte/]
+   ]) {
+      assert.throws(() => schema.normalize(variant(change)), message);
+   }
+   const wide = variant((d) => { d.modules[0].width = 2; d.modules[1].slot = 3; });
+   assert.equal(plain(schema.normalize(wide)).modules[0].width, 2);
+   const decoded = schema.normalize(share.decode(share.url('https://example.test/', schema.normalize(wide)).replace(/^.*(?=#)/, '')));
+   assert.deepEqual(Array.from(decoded.modules, (module) => module.width), [2, undefined]);
+   assert.equal(publishedSchema.$defs.module.properties.width.type, 'integer');
+});
+
+test('a variable-width type offers its widths in the dialog, only those that fit, and the width moves the neighbours', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   const option = (name, value) => app.field(name).children.find((item) => item.value === value);
+   app.editModule('legacy-module-1-1');
+   assert.equal(app.field('width'), undefined, 'fixed-width types have no width choice');
+   assert.match(option('type', 'RCBO-2P').textContent, /1\u20132 DIN-modules/);
+   app.set('type', 'RCBO-2P');
+   assert.equal(app.field('width').value, '1');
+   assert.equal(option('width', '1').attrs.disabled, undefined);
+   assert.equal(option('width', '2').attrs.disabled, 'disabled', 'module 2 blocks a second slot');
+   assert.match(option('width', '2').textContent, /past hier niet/);
+   app.set('type', 'MCB');
+   assert.equal(app.field('width'), undefined);
+   app.cancel();
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'RCBO-2P');
+   assert.deepEqual(app.field('width').children.map((item) => item.attrs.disabled), [undefined, undefined]);
+   app.set('width', '2');
+   app.save();
+   assert.equal(JSON.parse(app.storage()).modules[1].width, 2);
+   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 2');
+
+   app.editModule('legacy-module-1-2');
+   assert.equal(app.field('width').value, '2');
+   app.set('type', 'MCB');
+   app.save();
+   assert.ok(!('width' in JSON.parse(app.storage()).modules[1]), 'a fixed-width type drops the width');
+   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 1');
 });
 
 test('a module warning must be one its type may flag', () => {
