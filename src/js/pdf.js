@@ -151,7 +151,8 @@
 
    function moduleMetadata(module, boxes) {
       const definition = window.GroepenkaartSchema.moduleTypes.get(module.type || 'MCB');
-      const details = definition ? [definition.slug, definition.width + (definition.width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
+      const width = window.GroepenkaartSchema.moduleTypes.widthOf(module);
+      const details = definition ? [definition.slug, width + (width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
       if (module.characteristic) details.push(module.characteristic);
       if (module.rcdType) details.push('type ' + module.rcdType);
       if (module.ratedCurrent) details.push(module.ratedCurrent + ' A');

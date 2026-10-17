@@ -148,7 +148,8 @@
                module.protectedByModuleId === null ? -1 : moduleIndex[module.protectedByModuleId],
                module.name === undefined ? null : module.name, module.color || null, module.items || null,
                module.sensitivity || null, module.rcdType || null, module.ratedCurrent || null, module.warnings || null,
-               module.rail === undefined ? null : module.rail, module.slot === undefined ? null : module.slot
+               module.rail === undefined ? null : module.rail, module.slot === undefined ? null : module.slot,
+               module.width === undefined ? null : module.width
             ];
          }),
          data.boxes.map(function (box) {
@@ -195,6 +196,7 @@
                boxId: row[0] < 0 ? null : boxIds[row[0]],
                ...(row[14] != null ? { rail: row[14] } : {}),
                ...(row[15] != null ? { slot: row[15] } : {}),
+               ...(row[16] != null ? { width: row[16] } : {}),
                type: MODULE_TYPES[row[1]],
                number: row[2],
                description: row[3],
