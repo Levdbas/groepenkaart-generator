@@ -759,15 +759,26 @@ textarea {
 }
 
 .preview-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
 }
 
+.preview-close {
+  grid-column: 3;
+  justify-self: end;
+}
+
 .preview-zoom {
+  grid-column: 2;
   display: flex;
   gap: 0.25rem;
+}
+
+.preview-zoom .btn {
+  height: 2rem;
+  padding-block: 0;
 }
 
 .preview-dialog .dialog-actions {
@@ -1103,6 +1114,11 @@ select:focus-visible,
 
   .dialog-actions .btn {
     flex: 1;
+  }
+
+  /* The title would push the zoom buttons off-center on a narrow screen. */
+  .preview-header h2 {
+    display: none;
   }
 
   .unplaced {
