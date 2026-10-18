@@ -179,6 +179,18 @@
       return protection && ['RCD-2P', 'RCBO-2P'].includes(protection.type) ? protection.phases.slice() : module.phases.slice();
    }
 
+   // A module's own warnings plus those of every box it feeds, directly or through further sub-distributions.
+   function effectiveWarnings(module, seen) {
+      const visited = seen || new Set();
+      const codes = (module.warnings || []).slice();
+      state.boxes.forEach(function (box) {
+         if (!box.supply || box.supply.type !== 'subdistribution' || box.supply.sourceModuleId !== module.id || visited.has(box.id)) return;
+         visited.add(box.id);
+         boxModules(box).forEach(function (inner) { codes.push.apply(codes, effectiveWarnings(inner, visited)); });
+      });
+      return warnings.codes.filter(function (code) { return codes.includes(code); });
+   }
+
    function unplacedModules() {
       return state.modules.filter(function (module) { return module.boxId === null; });
    }
@@ -244,6 +256,9 @@
          phases: mcb ? effectivePhases(mcb) : moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
          ...(module.items ? { items: module.items.slice() } : {})
       };
+      const inherited = effectiveWarnings(module);
+      if (inherited.length) view.warnings = inherited;
+      else delete view.warnings;
       // A module connected to a circuit breaker takes over its rated current.
       if (mcb) {
          if (mcb.ratedCurrent !== undefined) view.ratedCurrent = mcb.ratedCurrent;
@@ -899,7 +914,7 @@
       const width = moduleWidth(module);
       const color = moduleColor(module);
       const selected = module.id === selectedId;
-      const flagged = warnings.selected(module.warnings || []);
+      const flagged = warnings.selected(effectiveWarnings(module));
       const description = [moduleLabel(module), module.type].concat(flagged.map(function (warning) { return warning.label; })).filter(Boolean).join(', ');
       return el('button', {
          type: 'button',
