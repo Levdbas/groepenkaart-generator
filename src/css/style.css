@@ -744,6 +744,74 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+.preview-dialog {
+  width: min(60rem, calc(100vw - 2rem));
+}
+
+.preview-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 2rem);
+}
+
+.preview-dialog .dialog-header {
+  padding: 1rem 1.25rem 0.75rem;
+}
+
+.preview-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preview-close {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.preview-zoom {
+  grid-column: 2;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.preview-zoom .btn {
+  height: 2rem;
+  padding-block: 0;
+}
+
+.preview-dialog .dialog-actions {
+  margin: 0;
+}
+
+.preview-pages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem;
+  background: var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+
+.preview-pages canvas {
+  display: block;
+  margin: 0 auto 0.75rem;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.preview-status {
+  margin: 0;
+  padding: 0.5rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.preview-status[hidden] {
+  display: none;
+}
+
 .module-form .module-fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1046,6 +1114,11 @@ select:focus-visible,
 
   .dialog-actions .btn {
     flex: 1;
+  }
+
+  /* The title would push the zoom buttons off-center on a narrow screen. */
+  .preview-header h2 {
+    display: none;
   }
 
   .unplaced {

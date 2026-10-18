@@ -179,6 +179,18 @@
       return protection && ['RCD-2P', 'RCBO-2P'].includes(protection.type) ? protection.phases.slice() : module.phases.slice();
    }
 
+   // A module's own warnings plus those of every box it feeds, directly or through further sub-distributions.
+   function effectiveWarnings(module, seen) {
+      const visited = seen || new Set();
+      const codes = (module.warnings || []).slice();
+      state.boxes.forEach(function (box) {
+         if (!box.supply || box.supply.type !== 'subdistribution' || box.supply.sourceModuleId !== module.id || visited.has(box.id)) return;
+         visited.add(box.id);
+         boxModules(box).forEach(function (inner) { codes.push.apply(codes, effectiveWarnings(inner, visited)); });
+      });
+      return warnings.codes.filter(function (code) { return codes.includes(code); });
+   }
+
    function unplacedModules() {
       return state.modules.filter(function (module) { return module.boxId === null; });
    }
@@ -244,6 +256,9 @@
          phases: mcb ? effectivePhases(mcb) : moduleTypes.allPhases(module.type) ? rcdHelpers.phaseCodes.slice() : module.phases.slice(),
          ...(module.items ? { items: module.items.slice() } : {})
       };
+      const inherited = effectiveWarnings(module);
+      if (inherited.length) view.warnings = inherited;
+      else delete view.warnings;
       // A module connected to a circuit breaker takes over its rated current.
       if (mcb) {
          if (mcb.ratedCurrent !== undefined) view.ratedCurrent = mcb.ratedCurrent;
@@ -899,7 +914,7 @@
       const width = moduleWidth(module);
       const color = moduleColor(module);
       const selected = module.id === selectedId;
-      const flagged = warnings.selected(module.warnings || []);
+      const flagged = warnings.selected(effectiveWarnings(module));
       const description = [moduleLabel(module), module.type].concat(flagged.map(function (warning) { return warning.label; })).filter(Boolean).join(', ');
       return el('button', {
          type: 'button',
@@ -1429,15 +1444,18 @@
       }
    }
 
-   function exportJson() {
-      const data = { $schema: schema.schemaUrl, ...serializeState(state) };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+   function saveBlob(blob, filename) {
       const url = URL.createObjectURL(blob);
-      const a = el('a', { href: url, download: 'groepenkaart.json' });
+      const a = el('a', { href: url, download: filename });
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+   }
+
+   function exportJson() {
+      const data = { $schema: schema.schemaUrl, ...serializeState(state) };
+      saveBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'groepenkaart.json');
    }
 
    function importJson(file) {
@@ -1459,10 +1477,11 @@
 
    moduleDialogEl.addEventListener('close', function () { dialogState = null; });
 
-   document.getElementById('download-pdf').addEventListener('click', function () {
+   // Returns null without boxes; args is null when a warning image is not loaded, so only printing is possible.
+   function preparePdf() {
       if (!state.boxes.length) {
          alert('Voeg eerst een kast toe.');
-         return;
+         return null;
       }
       const qr = state.qrEnabled ? share.qr(shareUrl()) : null;
       const active = activeWarnings();
@@ -1483,13 +1502,154 @@
          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
          return canvas;
       });
-      if (missingImage) {
+      if (missingImage) return { args: null };
+      return { args: [printBoxes(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages] };
+   }
+
+   document.getElementById('download-pdf').addEventListener('click', function () {
+      const prepared = preparePdf();
+      if (!prepared) return;
+      if (!prepared.args || !window.GroepenkaartPdf || !window.GroepenkaartPdf.download.apply(null, prepared.args)) {
          window.print();
+      }
+   });
+
+   /* ---------- PDF preview ---------- */
+
+   const previewButtonEl = document.getElementById('preview-pdf');
+   const previewDialogEl = document.getElementById('preview-dialog');
+   const previewPagesEl = document.getElementById('preview-pages');
+   const previewStatusEl = document.getElementById('preview-status');
+   const previewZoomResetEl = document.getElementById('preview-zoom-reset');
+   const previewZoomSteps = [0.5, 0.75, 1, 1.5, 2];
+   // Safari refuses canvases above roughly 16.7 million pixels.
+   const MAX_CANVAS_PIXELS = 16000000;
+   let pdfjsPromise = null;
+   let previewResizeTimer;
+   // { blob, doc, zoom, renderId } while the preview is open.
+   let previewState = null;
+
+   // pdf.js is an ES module that is only fetched when the first preview opens.
+   function loadPdfjs() {
+      if (!pdfjsPromise) {
+         const url = function (attribute) { return new URL(previewDialogEl.getAttribute(attribute), document.baseURI).href; };
+         pdfjsPromise = import(url('data-pdfjs')).then(function (lib) {
+            lib.GlobalWorkerOptions.workerSrc = url('data-pdfjs-worker');
+            return lib;
+         }).catch(function (error) {
+            pdfjsPromise = null;
+            throw error;
+         });
+      }
+      return pdfjsPromise;
+   }
+
+   function setPreviewStatus(text) {
+      previewStatusEl.hidden = !text;
+      previewStatusEl.textContent = text;
+   }
+
+   async function renderPreview() {
+      const current = previewState;
+      if (!current || !current.doc) return;
+      const id = ++current.renderId;
+      const stale = function () { return previewState !== current || current.renderId !== id; };
+      const fitWidth = Math.max(previewPagesEl.clientWidth - 24, 200);
+      const canvases = [];
+      try {
+         for (let number = 1; number <= current.doc.numPages; number++) {
+            const page = await current.doc.getPage(number);
+            if (stale()) return;
+            const scale = fitWidth / page.getViewport({ scale: 1 }).width * current.zoom;
+            const viewport = page.getViewport({ scale: scale });
+            const ratio = Math.min(window.devicePixelRatio || 1, Math.sqrt(MAX_CANVAS_PIXELS / (viewport.width * viewport.height)));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.floor(viewport.width * ratio);
+            canvas.height = Math.floor(viewport.height * ratio);
+            canvas.style.width = Math.floor(viewport.width) + 'px';
+            canvas.style.height = Math.floor(viewport.height) + 'px';
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', 'Pagina ' + number + ' van ' + current.doc.numPages);
+            await page.render({
+               canvasContext: canvas.getContext('2d'), viewport: viewport, transform: [ratio, 0, 0, ratio, 0, 0]
+            }).promise;
+            if (stale()) return;
+            canvases.push(canvas);
+         }
+         previewPagesEl.replaceChildren.apply(previewPagesEl, canvases);
+         setPreviewStatus('');
+      } catch (error) {
+         if (stale()) return;
+         console.warn('Voorbeeld weergeven mislukt', error);
+         setPreviewStatus('Het voorbeeld kon niet worden weergegeven. Gebruik PDF downloaden.');
+      }
+   }
+
+   function closePreview() {
+      const current = previewState;
+      previewState = null;
+      if (current && current.doc) current.doc.destroy();
+      previewPagesEl.replaceChildren();
+      setPreviewStatus('');
+   }
+
+   async function openPreview(blob) {
+      closePreview();
+      const current = previewState = { blob: blob, doc: null, zoom: 1, renderId: 0 };
+      previewZoomResetEl.textContent = '100%';
+      setPreviewStatus('Voorbeeld laden…');
+      showDialog(previewDialogEl);
+      try {
+         const lib = await loadPdfjs();
+         const doc = await lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+         if (previewState !== current) {
+            doc.destroy();
+            return;
+         }
+         current.doc = doc;
+         await renderPreview();
+      } catch (error) {
+         if (previewState !== current) return;
+         console.warn('Voorbeeld laden mislukt', error);
+         setPreviewStatus('Het voorbeeld kon niet worden geladen. Gebruik PDF downloaden.');
+      }
+   }
+
+   function zoomPreview(step) {
+      if (!previewState) return;
+      const index = previewZoomSteps.indexOf(previewState.zoom) + step;
+      if (index < 0 || index >= previewZoomSteps.length) return;
+      previewState.zoom = previewZoomSteps[index];
+      previewZoomResetEl.textContent = Math.round(previewState.zoom * 100) + '%';
+      renderPreview();
+   }
+
+   previewButtonEl.addEventListener('click', function () {
+      const prepared = preparePdf();
+      if (!prepared) return;
+      const blob = prepared.args && window.GroepenkaartPdf && window.GroepenkaartPdf.preview.apply(null, prepared.args);
+      if (!blob) {
+         alert('Het voorbeeld kon niet worden gemaakt. Gebruik PDF downloaden.');
          return;
       }
-      if (!window.GroepenkaartPdf || !window.GroepenkaartPdf.download(printBoxes(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages)) {
-         window.print();
-      }
+      openPreview(blob);
+   });
+
+   document.getElementById('preview-zoom-in').addEventListener('click', function () { zoomPreview(1); });
+   document.getElementById('preview-zoom-out').addEventListener('click', function () { zoomPreview(-1); });
+   previewZoomResetEl.addEventListener('click', function () {
+      if (previewState && previewState.zoom !== 1) zoomPreview(previewZoomSteps.indexOf(1) - previewZoomSteps.indexOf(previewState.zoom));
+   });
+   document.getElementById('preview-download').addEventListener('click', function () {
+      if (previewState) saveBlob(previewState.blob, 'groepenkaart.pdf');
+   });
+   document.getElementById('preview-close').addEventListener('click', function () { hideDialog(previewDialogEl); });
+   previewDialogEl.addEventListener('close', closePreview);
+
+   // The pages are drawn to fit the dialog width, so a rotated phone needs a redraw.
+   window.addEventListener('resize', function () {
+      window.clearTimeout(previewResizeTimer);
+      previewResizeTimer = window.setTimeout(renderPreview, 200);
    });
 
    // Keeps the printed date current if the page stays open across days.

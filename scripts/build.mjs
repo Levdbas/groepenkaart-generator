@@ -62,6 +62,14 @@ async function build() {
       'app.css': await emit('app', 'css', css.code),
    };
 
+   // pdf.js is an ES module and only loads when the PDF preview opens, so it stays out of vendor.js.
+   for (const [key, name, file] of [
+      ['pdfjs.js', 'pdfjs', 'node_modules/pdfjs-dist/legacy/build/pdf.min.mjs'],
+      ['pdfjs.worker.js', 'pdfjs-worker', 'node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs'],
+   ]) {
+      assets[key] = await emit(name, 'js', (await read(file)).replace(/^\/\/# sourceMappingURL=.*$/gm, ''));
+   }
+
    for (const page of ['index.html', 'anonimiseren.html']) {
       const html = (await read(`src/${page}`)).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
          if (!assets[key]) throw new Error(`Onbekende placeholder in ${page}: ${match}`);
