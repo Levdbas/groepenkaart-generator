@@ -279,13 +279,13 @@
       });
    }
 
-   // Returns false when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
+   // Returns null when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
-   function download(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
-      if (!window.jspdf || !window.jspdf.jsPDF) return false;
+   function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
+      if (!window.jspdf || !window.jspdf.jsPDF) return null;
 
       const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      if (typeof doc.autoTable !== 'function') return false;
+      if (typeof doc.autoTable !== 'function') return null;
 
       const rcd = window.GroepenkaartRcd;
       const warningModule = window.GroepenkaartWarnings;
@@ -418,9 +418,22 @@
       });
 
       if (qr) drawQr(doc, qr, margin);
+      return doc;
+   }
+
+   // Returns false when the PDF cannot be built.
+   function download() {
+      const doc = build.apply(null, arguments);
+      if (!doc) return false;
       doc.save('groepenkaart.pdf');
       return true;
    }
 
-   window.GroepenkaartPdf = { download: download, today: today };
+   // Returns the PDF as a Blob, or null when it cannot be built.
+   function preview() {
+      const doc = build.apply(null, arguments);
+      return doc ? doc.output('blob') : null;
+   }
+
+   window.GroepenkaartPdf = { download: download, preview: preview, today: today };
 })();

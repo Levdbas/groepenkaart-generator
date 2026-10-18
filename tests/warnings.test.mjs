@@ -377,6 +377,15 @@ test('missing PDF dependencies still trigger the existing print fallback', () =>
    assert.equal(harness.pdf.download([box()], ids), false);
    harness.window.jspdf = { jsPDF: function () { return {}; } };
    assert.equal(harness.pdf.download([box()], ids), false);
+   assert.equal(harness.pdf.preview([box()], ids), null);
+});
+
+test('PDF preview returns the PDF as a blob without saving it', () => {
+   const harness = setup();
+   const blob = harness.pdf.preview([box('1', 3)]);
+   assert.equal(blob.type, 'application/pdf');
+   assert.ok(blob.size > 0);
+   assert.equal(harness.document().savedFilename, undefined);
 });
 
 const rcds = [
