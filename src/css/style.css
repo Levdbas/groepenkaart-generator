@@ -744,6 +744,63 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+.preview-dialog {
+  width: min(60rem, calc(100vw - 2rem));
+}
+
+.preview-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 2rem);
+}
+
+.preview-dialog .dialog-header {
+  padding: 1rem 1.25rem 0.75rem;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.preview-zoom {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.preview-dialog .dialog-actions {
+  margin: 0;
+}
+
+.preview-pages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem;
+  background: var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+
+.preview-pages canvas {
+  display: block;
+  margin: 0 auto 0.75rem;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.preview-status {
+  margin: 0;
+  padding: 0.5rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.preview-status[hidden] {
+  display: none;
+}
+
 .module-form .module-fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

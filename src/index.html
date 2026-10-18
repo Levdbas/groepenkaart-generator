@@ -71,6 +71,7 @@
     </header>
 
     <nav class="toolbar no-print" aria-label="Acties">
+      <button type="button" id="preview-pdf" class="btn">Voorbeeld</button>
       <button type="button" id="download-pdf" class="btn">
         PDF downloaden
       </button>
@@ -239,6 +240,60 @@
       class="app-dialog no-print"
       aria-label="Kast toevoegen"
     ></dialog>
+    <dialog
+      id="preview-dialog"
+      class="app-dialog preview-dialog no-print"
+      aria-label="Voorbeeld van de PDF"
+      data-pdfjs="{{pdfjs.js}}"
+      data-pdfjs-worker="{{pdfjs.worker.js}}"
+    >
+      <header class="dialog-header preview-header">
+        <h2>Voorbeeld</h2>
+        <div class="preview-zoom" role="group" aria-label="Zoomen">
+          <button
+            type="button"
+            id="preview-zoom-out"
+            class="btn btn-icon"
+            title="Uitzoomen"
+            aria-label="Uitzoomen"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            id="preview-zoom-reset"
+            class="btn"
+            title="Paginabreedte"
+            aria-label="Zoom terugzetten naar paginabreedte"
+          >
+            100%
+          </button>
+          <button
+            type="button"
+            id="preview-zoom-in"
+            class="btn btn-icon"
+            title="Inzoomen"
+            aria-label="Inzoomen"
+          >
+            +
+          </button>
+        </div>
+      </header>
+      <div
+        id="preview-pages"
+        class="preview-pages"
+        tabindex="0"
+        role="document"
+        aria-label="Pagina's van de PDF"
+      ></div>
+      <p id="preview-status" class="preview-status" role="status" hidden></p>
+      <footer class="dialog-actions">
+        <button type="button" id="preview-close" class="btn">Sluiten</button>
+        <button type="button" id="preview-download" class="btn btn-primary">
+          PDF downloaden
+        </button>
+      </footer>
+    </dialog>
 
     <section id="print-area" class="print-area" aria-hidden="true"></section>
 

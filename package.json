@@ -32,6 +32,7 @@
     "fflate": "^0.8.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "pdfjs-dist": "^6.4.299",
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {

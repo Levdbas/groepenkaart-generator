@@ -36,7 +36,7 @@ Niet gekozen fasen en lege regels krijgen geen gekleurde rand.
 5. Hangt er een PV-installatie, EV-lader of thuisbatterij achter een module? Vink dan bij **Bijzondere installaties** van die installatieautomaat (`MCB`) of krachtgroep (`MCB-3P`) de installatie(s) aan; meerdere installaties op één module kan ook. Dat kan per module en bij meerdere modules; dezelfde installatie geeft maar één kaart. De kaarten tonen alleen het pictogram met een rode rand.
 6. Wil je modules aan aardlekschakelaars koppelen? Plaats een aardlekschakelaar (`RCD-2P` of `RCD-4P`) of aardlekautomaat in de kast; **Modules koppelen aan aardlekschakelaars** gaat dan vanzelf aan. Een nieuwe aardlekschakelaar krijgt automatisch een code (`A1`, `A2`, …) en kleur; pas code, omschrijving en kleur naar wens aan. Kies daarna bij andere modules de **Aardlekschakelaar**. Een dinrail stopcontact (`DIN-OUTLET`) koppel je niet aan een aardlekschakelaar maar via **Aangesloten op** aan een installatieautomaat (`MCB`, `MCB-2P` of `MCB-3P`) of aardlekautomaat; het neemt dan de kleur en een 2-polige fase van de aardlekschakelaar van die automaat over, plus de fasen en de nominale stroom van de automaat zelf (de eigen waarden blijven bewaard en komen terug zodra je de koppeling verwijdert), en de PDF toont de automaat. Gevoeligheid en aardlektype (alleen bij aardlekschakelaars en aardlekautomaten) en nominale stroom zijn optioneel en zichtbaar met **Expertmodus** aan. Een aardlekschakelaar kan modules in elke kast beveiligen. Zet je het koppelen uit, dan worden de koppelingen en de niet-geplaatste aardlekschakelaars gewist; geplaatste aardlekschakelaars en aardlekautomaten worden installatieautomaten, zodat hun plek behouden blijft.
 7. Wil je dat de PDF een QR-code met alle gegevens bevat? Vink dan bovenaan **QR-code toevoegen aan de PDF** aan.
-8. Klik op **PDF downloaden** voor een PDF-bestand. Print die PDF als je een papieren kaart wilt.
+8. Klik op **Voorbeeld** om de PDF per pagina in een venster te bekijken, met in- en uitzoomen, of op **PDF downloaden** voor een PDF-bestand. Het voorbeeld wordt in de browser getekend en werkt ook op mobiele apparaten. Print de PDF als je een papieren kaart wilt.
 
 ### QR-code en deellink
 
@@ -167,6 +167,7 @@ Dit maakt de map `dist/` met daarin:
 - `vendor.<hash>.js`: fflate, qrcode-generator, jsPDF en jsPDF-AutoTable uit `node_modules`, samengevoegd
 - `app.<hash>.js`: de eigen scripts uit `src/js/`, geminificeerd
 - `app.<hash>.css`: de opmaak uit `src/css/`, geminificeerd
+- `pdfjs.<hash>.js` en `pdfjs-worker.<hash>.js`: pdf.js (legacy-build) en zijn worker, die pas worden geladen als je het voorbeeld opent
 - `index.html` met de juiste bestandsnamen ingevuld
 - SVG-waarschuwingsiconen uit `src/images/`
 - alles uit `public/` (favicons, deelafbeelding, `.nojekyll`)
@@ -207,6 +208,7 @@ Voer `npm test` uit voor regressietests van schemaversies en migraties, modules 
 
 - [jsPDF](https://github.com/parallax/jsPDF) (MIT)
 - [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) (MIT)
+- [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0)
 - [fflate](https://github.com/101arrowz/fflate) (MIT)
 - [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT)
 
