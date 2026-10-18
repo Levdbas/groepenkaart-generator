@@ -2209,3 +2209,32 @@ test('removing a box removes its modules, unlinks modules elsewhere and clears s
       [['legacy-module-2-1', null], ['legacy-module-2-2', 'r2'], ['r2', null]]);
    assert.equal(stored.boxes[0].supply.sourceModuleId, null);
 });
+
+test('a module that feeds a sub-distribution box also shows the warnings of the boxes below it', () => {
+   const module = (id, boxId, warnings) => ({
+      id, boxId, rail: 1, slot: 1, type: 'MCB', number: id, description: '', characteristic: '', phases: [], protectedByModuleId: null,
+      ...(warnings ? { warnings } : {})
+   });
+   const box = (id, number, moduleIds, supply) => ({ id, number, name: '', rails: 1, railWidth: 12, moduleIds, supply });
+   const data = {
+      schemaVersion: 5, qrEnabled: false, rcdEnabled: false, phaseEnabled: false,
+      modules: [module('feed1', 'b1', ['battery']), module('plain', 'b1'), module('feed2', 'b2'), module('own', 'b3', ['ev'])],
+      boxes: [
+         box('b1', '1', ['feed1', 'plain'], { type: 'mains' }),
+         box('b2', '2', ['feed2'], { type: 'subdistribution', sourceModuleId: 'feed1' }),
+         box('b3', '3', ['own'], { type: 'subdistribution', sourceModuleId: 'feed2' })
+      ]
+   };
+   data.modules[1].slot = 2;
+   const app = setupApp(JSON.stringify(data));
+   const badges = (id) => app.findAll(app.moduleButton(id), (n) => n.className === 'din-module-badge').map((n) => n.textContent);
+   assert.deepEqual(badges('feed1'), ['EV', 'EOS'], 'own and inherited warnings, in the fixed order');
+   assert.deepEqual(badges('feed2'), ['EV'], 'inherited through a chain of sub-distributions');
+   assert.deepEqual(badges('plain'), []);
+   assert.deepEqual(JSON.parse(app.storage()).modules.find((m) => m.id === 'feed1').warnings, ['battery'], 'inherited warnings are not stored');
+   const printed = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-badge').map((n) => n.textContent);
+   assert.deepEqual(printed, ['EV', 'EOS', 'EV', 'EV']);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.deepEqual(app.pdfCalls[0][0].map((b) => b.groups.map((g) => Array.from(g.warnings || []))),
+      [[['ev', 'battery'], []], [['ev']], [['ev']]]);
+});
