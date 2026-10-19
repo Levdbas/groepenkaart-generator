@@ -32,6 +32,6 @@ body:
     attributes:
       label: JSON-bestand (optioneel)
       description: |
-        Klik in de app op **Exporteren** en anonimiseer het bestand met de [anonimiseerpagina](https://levdbas.github.io/groepenkaart-generator/anonimiseren.html). Sleep daarna het geanonimiseerde bestand naar dit veld. Accepteert GitHub het bestand niet, voeg het dan toe als `.zip`.
+        Klik in de app op **Exporteren** en anonimiseer het bestand met de [anonimiseerpagina](https://levdbas.github.io/groepenkaart-generator/anonimiseren.html). Sleep daarna het geanonimiseerde bestand naar dit veld.
 
         **Let op: deze melding en de bijlagen zijn openbaar.** De pagina maakt omschrijvingen, namen en gegevens van de netbeheerder onherkenbaar in je browser; controleer het resultaat zelf voordat je het uploadt.
