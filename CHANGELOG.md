@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.1](https://github.com/Levdbas/groepenkaart-generator/compare/2.0.0...2.0.1) (2026-10-19)
+
+
+### ⚙️ Miscellaneous Tasks
+
+* remove release-as version from release-please configuration ([cb57d40](https://github.com/Levdbas/groepenkaart-generator/commit/cb57d40e21beb1906ab3a8a8b4fc6b5483e544aa))
+* update bug report template to remove outdated instructions for file submission ([4c4c2f8](https://github.com/Levdbas/groepenkaart-generator/commit/4c4c2f858ba6e680dc96ba633832d886e00ba48a))
+* update GitHub Actions to use latest versions of checkout, setup-node, configure-pages, upload-pages-artifact, and deploy-pages ([06391e9](https://github.com/Levdbas/groepenkaart-generator/commit/06391e9fdf123beaf11c7688ccd200eb2f98ee8d))
+
 ## [2.0.0](https://github.com/Levdbas/groepenkaart-generator/compare/1.0.0...2.0.0) (2026-10-18)
 
 
