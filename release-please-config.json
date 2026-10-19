@@ -27,7 +27,6 @@
   "include-v-in-release-name": false,
   "packages": {
     ".": {
-      "release-as": "2.0.0",
       "changelog-path": "CHANGELOG.md"
     }
   }
