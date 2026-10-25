@@ -17,6 +17,11 @@
    const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P']);
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
+   // Regional grid operators (netbeheerders) of Netbeheer Nederland; anything else is entered via "Anders".
+   const gridOperators = ['Coteq', 'Enexis', 'Liander', 'RENDO', 'Stedin', 'Westland Infra'];
+   const otherOperator = 'other';
+   // Boxes where "Anders" is chosen but no name is typed yet; the stored value is plain text either way.
+   const customOperatorBoxes = new Set();
 
    let storageWritable = true;
    let loadedFromStorage = false;
@@ -1162,6 +1167,38 @@
       ];
    }
 
+   function supplierField(box, supply) {
+      const custom = customOperatorBoxes.has(box.id) || (!!supply.supplier && !gridOperators.includes(supply.supplier));
+      const select = el('select', { 'aria-label': 'Netbeheerder' }, [
+         el('option', { value: '', text: '-- selecteer --' }),
+         ...gridOperators.map(function (name) { return el('option', { value: name, text: name }); }),
+         el('option', { value: otherOperator, text: 'Anders' })
+      ]);
+      select.value = custom ? otherOperator : supply.supplier || '';
+      select.addEventListener('change', function () {
+         if (select.value === otherOperator) {
+            customOperatorBoxes.add(box.id);
+            delete supply.supplier;
+         } else {
+            customOperatorBoxes.delete(box.id);
+            if (select.value) supply.supplier = select.value;
+            else delete supply.supplier;
+         }
+         update();
+         if (select.value === otherOperator) focusIn(boxesEl, '[data-other-operator="' + box.id + '"]');
+      });
+      const fields = [labelField('Netbeheerder', select)];
+      if (custom) {
+         const name = input(supply.supplier || '', 'Naam netbeheerder', 'Andere netbeheerder', function (value) {
+            if (value) supply.supplier = value;
+            else delete supply.supplier;
+         });
+         name.setAttribute('data-other-operator', box.id);
+         fields.push(labelField('Andere netbeheerder', name));
+      }
+      return fields;
+   }
+
    function supplyNumberField(supply, key, label, step) {
       const node = el('input', {
          type: 'number', min: '0', step: step || '1', 'aria-label': label
@@ -1232,7 +1269,7 @@
          fields.push(el('label', { className: 'field' }, [el('span', { text: 'Gekoppeld aan' }), source]));
       } else if (supply && supply.type === 'mains') {
          fields.push(...supplyRatingField(supply));
-         fields.push(supplyTextField(supply, 'supplier', 'Netbeheerder', 'Bijv. Stedin'));
+         fields.push(...supplierField(box, supply));
          fields.push(supplyNumberField(supply, 'mainSwitchCurrent', 'Nominale stroom hoofdschakelaar'));
          fields.push(supplyPolesField(supply));
       } else if (supply && supply.type === 'subdistribution') {

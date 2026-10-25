@@ -1397,6 +1397,35 @@ test('a linked box is attached to a mains box and prints that connection', () =>
    assert.deepEqual(JSON.parse(app.storage()).boxes[1].supply, { type: 'linked' });
 });
 
+test('netbeheerder is chosen from a list with Anders for free text, and existing text is kept', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   const byLabel = (label) => app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === label)[0];
+   byLabel('Soort voeding kast 1').value = 'mains';
+   byLabel('Soort voeding kast 1').listeners.change();
+   const operator = byLabel('Netbeheerder');
+   assert.deepEqual(Array.from(operator.children, (option) => option.value),
+      ['', 'Coteq', 'Enexis', 'Liander', 'RENDO', 'Stedin', 'Westland Infra', 'other']);
+   assert.equal(byLabel('Andere netbeheerder'), undefined);
+
+   operator.value = 'Enexis';
+   operator.listeners.change();
+   assert.equal(JSON.parse(app.storage()).boxes[0].supply.supplier, 'Enexis');
+
+   byLabel('Netbeheerder').value = 'other';
+   byLabel('Netbeheerder').listeners.change();
+   assert.equal(JSON.parse(app.storage()).boxes[0].supply.supplier, undefined);
+   const custom = byLabel('Andere netbeheerder');
+   custom.value = 'Eneco';
+   custom.listeners.input();
+   assert.equal(JSON.parse(app.storage()).boxes[0].supply.supplier, 'Eneco');
+
+   const reopened = setupApp(app.storage());
+   const reopenedOperator = reopened.findAll(reopened.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Netbeheerder')[0];
+   const reopenedCustom = reopened.findAll(reopened.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Andere netbeheerder')[0];
+   assert.equal(reopenedOperator.value, 'other');
+   assert.equal(reopenedCustom.value, 'Eneco');
+});
+
 test('sub-distribution supply references stable modules and renders inverse feed details', () => {
    const app = setupApp(JSON.stringify(noWarnings));
    const supplyType = (number) => app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Soort voeding kast ' + number)[0];
@@ -1410,7 +1439,7 @@ test('sub-distribution supply references stable modules and renders inverse feed
    customRating.listeners.input();
    const supplier = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Netbeheerder')[0];
    supplier.value = 'Stedin';
-   supplier.listeners.input();
+   supplier.listeners.change();
    assert.deepEqual(JSON.parse(app.storage()).boxes[0].supply, {
       type: 'mains', connectionRating: 'Anders', customConnectionRating: '3x45A', supplier: 'Stedin'
    });
