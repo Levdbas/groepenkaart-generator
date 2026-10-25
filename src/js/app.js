@@ -158,15 +158,16 @@
       return protection && isProtective(protection) ? protection : null;
    }
 
-   // Types that can connect to an MCB link to a circuit breaker only; every other type links to an RCD or RCBO.
+   // Types that can connect to an MCB link to a circuit breaker only (plus an RCD for rcdLinkable types); every other type links to an RCD or RCBO.
    function canLink(type, target) {
-      return moduleTypes.mcbLinkable(type) ? mcbLinkTargets.includes(target.type) : isProtective(target);
+      if (!moduleTypes.mcbLinkable(type)) return isProtective(target);
+      return mcbLinkTargets.includes(target.type) || (moduleTypes.rcdLinkable(type) && isProtective(target));
    }
 
    // The circuit breaker a module is connected to, for types that can be linked to one.
    function mcbOf(module) {
       const target = module.protectedByModuleId && findModule(module.protectedByModuleId);
-      return target && moduleTypes.mcbLinkable(module.type) ? target : null;
+      return target && moduleTypes.mcbLinkable(module.type) && mcbLinkTargets.includes(target.type) ? target : null;
    }
 
    // The phases a module effectively has: those of the circuit breaker it is connected to, all three for three-phase
@@ -530,15 +531,18 @@
 
    function protectionField(draft) {
       const mcbLinkable = moduleTypes.mcbLinkable(draft.type);
+      const rcdLinkable = mcbLinkable && state.rcdEnabled && moduleTypes.rcdLinkable(draft.type);
       const options = mcbLinkable ? state.boxes.flatMap(boxModules).concat(unplacedModules()).filter(function (module) {
-         return mcbLinkTargets.includes(module.type) && module.id !== draft.id;
+         return module.id !== draft.id && (mcbLinkTargets.includes(module.type) || (rcdLinkable && ['RCD-2P', 'RCD-4P'].includes(module.type)));
       }) : rcdViews().filter(function (rcd) { return rcd.id !== draft.id; });
       const select = el('select', { 'data-field': 'protection', 'aria-label': mcbLinkable ? 'Aangesloten op' : 'Aardlekschakelaar' }, [
          el('option', { value: '', text: 'Geen koppeling' })
       ].concat(options.map(function (item, index) {
          return el('option', {
             value: item.id,
-            text: mcbLinkable ? [item.number, item.description].filter(Boolean).join(' – ') || item.type : rcdOptionText(item, index)
+            text: !mcbLinkable ? rcdOptionText(item, index)
+               : ['RCD-2P', 'RCD-4P'].includes(item.type) ? rcdOptionText(rcdView(item), protectiveModules().indexOf(item))
+               : [item.number, item.description].filter(Boolean).join(' – ') || item.type
          });
       })));
       select.value = draft.protectedByModuleId || '';

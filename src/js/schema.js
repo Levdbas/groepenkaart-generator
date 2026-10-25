@@ -13,7 +13,7 @@
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
-   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD; mcbLinkable means it can also be connected to an MCB; widthRange [min, max] lets a module choose its own width (default: width).
+   // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD; mcbLinkable means it can also be connected to an MCB; rcdLinkable means an mcbLinkable type may also be connected to an RCD; widthRange [min, max] lets a module choose its own width (default: width).
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-2P', label: 'Fornuisgroep', description: 'Range circuit', phases: 2, width: 2 },
@@ -30,7 +30,7 @@
       { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4 },
       { slug: 'SPD', label: 'Overspanningsbeveiliging', description: '', phases: 1, width: 2 },
       { slug: 'SPD-4P', label: 'Overspanningsbeveiliging 3P+N', description: '', phases: 3, width: 4, phaseMode: 'three' },
-      { slug: 'OTHER', label: 'Overige module', description: 'Free module such as a smart module, time clock or distribution block', phases: 1, width: 1, widthRange: [1, 4], mcbLinkable: true }
+      { slug: 'OTHER', label: 'Overige module', description: 'Free module such as a smart module, time clock or distribution block', phases: 1, width: 1, widthRange: [1, 4], mcbLinkable: true, rcdLinkable: true }
    ];
    const typesBySlug = Object.fromEntries(typeDefinitions.map(function (definition) { return [definition.slug, definition]; }));
    const moduleTypes = {
@@ -43,6 +43,10 @@
       mcbLinkable: function (slug) {
          const definition = typesBySlug[slug];
          return !!definition && definition.mcbLinkable === true;
+      },
+      rcdLinkable: function (slug) {
+         const definition = typesBySlug[slug];
+         return !!definition && definition.rcdLinkable === true;
       },
       // The widths a module of this type can have, or null when the width is fixed.
       widthRange: function (slug) {
@@ -69,7 +73,7 @@
       }
    };
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
-   // mcbLinkable types connect to a circuit breaker (an RCBO counts as one) and never to an RCD.
+   // mcbLinkable types connect to a circuit breaker (an RCBO counts as one); only rcdLinkable types may also connect to an RCD.
    const mcbLinkTargets = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const boxLimits = { minRails: 1, maxRails: 99, minRailWidth: 4, maxRailWidth: 48, defaultRailWidth: 12 };
 
@@ -564,9 +568,12 @@
                throw new Error('Ongeldig bestand: moduletype ' + module.type + ' staat voor de aardlekschakelaar en kan er niet aan gekoppeld zijn.');
             }
             const linkable = moduleTypes.mcbLinkable(module.type);
-            if (!protection || !(linkable ? mcbLinkTargets : protectiveTypes).includes(protection.type)) {
+            const targets = !linkable ? protectiveTypes : moduleTypes.rcdLinkable(module.type) ? mcbLinkTargets.concat(protectiveTypes) : mcbLinkTargets;
+            if (!protection || !targets.includes(protection.type)) {
                throw new Error(linkable
-                  ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een installatieautomaat of aardlekautomaat.'
+                  ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
+                     ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
+                     : 'installatieautomaat of aardlekautomaat.')
                   : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
             }
          }

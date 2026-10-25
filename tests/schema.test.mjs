@@ -816,9 +816,16 @@ test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD,
    }));
    assert.deepEqual([free.modules[1].width, free.modules[1].protectedByModuleId], [4, data.modules[0].id]);
    assert.throws(() => schema.normalize(variant((d) => { d.modules[1].type = 'OTHER'; d.modules[1].width = 5; })), /1 tot 4/);
-   assert.throws(() => schema.normalize(variant((d) => {
+   assert.equal(moduleTypes.rcdLinkable('OTHER'), true);
+   assert.equal(moduleTypes.rcdLinkable('DIN-OUTLET'), false);
+   assert.equal(moduleTypes.rcdLinkable('unknown'), false);
+   assert.equal(schema.normalize(variant((d) => {
       Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: d.modules[4].id });
-   })), /installatieautomaat of aardlekautomaat/);
+   })).modules[1].protectedByModuleId, data.modules[4].id);
+   assert.throws(() => schema.normalize(variant((d) => {
+      Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: d.modules[3].id });
+      d.modules[3].type = 'KWH-2P';
+   })), /installatieautomaat, aardlekautomaat of aardlekschakelaar/);
    const outlet = (d) => { d.modules[1].type = 'DIN-OUTLET'; d.modules[1].protectedByModuleId = d.modules[0].id; };
    assert.equal(schema.normalize(variant(outlet)).modules[1].protectedByModuleId, data.modules[0].id);
    const rcbo = variant((d) => { outlet(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; });
@@ -1755,6 +1762,30 @@ test('a dinrail outlet connects to a circuit breaker only, follows the RCD of it
    assert.equal(kept.modules[0].protectedByModuleId, null);
    app.editModule('legacy-module-1-2');
    assert.equal(app.field('protection').children.length, 4);
+});
+
+test('a free module can connect to an RCD as well as to a circuit breaker and takes its color', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'OTHER');
+   assert.equal(app.field('protection').attrs['aria-label'], 'Aangesloten op');
+   assert.deepEqual(app.field('protection').children.map((child) => child.attrs.value),
+      ['', 'legacy-module-1-1', 'legacy-module-2-1', 'legacy-module-2-2', 'r1', 'r2'], 'circuit breakers and RCDs are offered');
+   app.set('protection', 'r1');
+   app.save();
+   assert.equal(JSON.parse(app.storage()).modules[1].protectedByModuleId, 'r1');
+   assert.equal(app.printCells()[1].textContent, 'A1 · 2', 'the free module takes the RCD color');
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][0][0].groups[1].rcdId, 'r1');
+   assert.equal(app.pdfCalls[0][0][0].groups[1].connectedTo, undefined);
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'DIN-OUTLET');
+   assert.equal(app.field('protection').value, '', 'the RCD link is dropped when the type cannot connect to an RCD');
+   app.cancel();
+
+   app.setRcdEnabled(false);
+   assert.equal(JSON.parse(app.storage()).modules[1].protectedByModuleId, null, 'an RCD link is dropped when RCDs are turned off');
 });
 
 test('a dinrail outlet inherits phases and rated current from the circuit breaker it hangs on', () => {

@@ -105,7 +105,7 @@
         "characteristic": { "type": "string" },
         "phases": { "$ref": "#/$defs/phases" },
         "protectedByModuleId": {
-          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET, OTHER) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead, never to an RCD. Always null for MAINS types.",
+          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET, OTHER) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead; only OTHER may also refer to an RCD module. Always null for MAINS types.",
           "type": ["string", "null"]
         },
         "items": { "type": "array", "items": { "type": "string" } },
