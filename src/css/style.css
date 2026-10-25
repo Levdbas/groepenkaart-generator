@@ -458,7 +458,9 @@ textarea {
 }
 
 .panel {
-  --slot-width: minmax(2.75rem, 3.5rem);
+  /* The front of a DIN module is 18 mm wide and 45 mm high; the height follows from the width. */
+  --slot-width: 3.5rem;
+  --module-height: calc(var(--slot-width) * 42 / 18);
   display: grid;
   justify-content: center;
   gap: 1.25rem;
@@ -491,7 +493,7 @@ textarea {
 .din-slot,
 .din-module {
   min-width: 0;
-  min-height: 5.75rem;
+  min-height: var(--module-height);
   font: inherit;
   border-radius: 3px;
   cursor: pointer;
@@ -1085,7 +1087,7 @@ select:focus-visible,
   }
 
   .panel {
-    --slot-width: 2.75rem;
+    --slot-width: 2.5rem;
     justify-content: start;
     padding: 1rem 0.75rem;
   }
