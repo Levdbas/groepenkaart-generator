@@ -85,6 +85,24 @@
       return valid(box, withPositions(items, changes)) ? changes : null;
    }
 
+   /**
+    * The first {rail, slot} in reading order after the item where a module of the given width fits, or the first fit
+    * from the start of the box when nothing follows. Returns null when the box has no room.
+    */
+   function nextFree(box, items, id, width) {
+      const item = items.find(function (candidate) { return candidate.id === id; });
+      let fallback = null;
+      for (let rail = 1; rail <= box.rails; rail++) {
+         for (let slot = 1; slot + width - 1 <= box.railWidth; slot++) {
+            if (!fits(box, items, rail, slot, width)) continue;
+            const after = !item || rail > item.rail || (rail === item.rail && slot >= item.slot + item.width);
+            if (after) return { rail: rail, slot: slot };
+            if (!fallback) fallback = { rail: rail, slot: slot };
+         }
+      }
+      return fallback;
+   }
+
    /** Items that would no longer fit if the box got the given size. */
    function outside(items, rails, railWidth) {
       return items.filter(function (item) { return item.rail > rails || item.slot + item.width - 1 > railWidth; });
@@ -109,6 +127,6 @@
    }
 
    window.GroepenkaartLayout = {
-      itemAt: itemAt, fits: fits, freeRun: freeRun, move: move, outside: outside, sortByPosition: sortByPosition, rows: rows
+      itemAt: itemAt, fits: fits, freeRun: freeRun, nextFree: nextFree, move: move, outside: outside, sortByPosition: sortByPosition, rows: rows
    };
 })();

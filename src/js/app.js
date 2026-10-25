@@ -900,6 +900,28 @@
       focusModule(module.id);
    }
 
+   // The copy keeps type, width, protection and settings, gets a new number and goes into the next free place.
+   function duplicateModule(box, module) {
+      const position = layout.nextFree(box, layoutItems(box), module.id, moduleWidth(module));
+      if (!position) return;
+      const copy = clone(module);
+      copy.id = uid();
+      copy.rail = position.rail;
+      copy.slot = position.slot;
+      if (isProtective(copy)) {
+         copy.number = rcdHelpers.nextNumber(rcdViews());
+         copy.color = rcdHelpers.defaultColor(copy.number);
+      } else {
+         copy.number = nextModuleNumber(box);
+      }
+      state.modules.push(copy);
+      box.moduleIds.push(copy.id);
+      sortBox(box);
+      selectedId = copy.id;
+      update();
+      focusModule(copy.id);
+   }
+
    function moduleKeydown(box, module, event) {
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
          event.preventDefault();
@@ -997,6 +1019,8 @@
          actionButton('◀', 'Naar links', function () { moveModule(box, module, -1); }, !layout.move(box, items, module.id, -1)),
          actionButton('▶', 'Naar rechts', function () { moveModule(box, module, 1); }, !layout.move(box, items, module.id, 1)),
          actionButton('Bewerken', 'Module bewerken', function () { openModuleDialog(module); }),
+         actionButton('Dupliceren', 'Module dupliceren naar de volgende vrije plek', function () { duplicateModule(box, module); },
+            !layout.nextFree(box, items, module.id, moduleWidth(module))),
          actionButton('Verwijderen', 'Module verwijderen', function () { removeModule(module); }, false, 'btn-danger'),
          actionButton('Klaar', 'Selectie opheffen', function () { selectedId = null; renderBoxes(); })
       ]);

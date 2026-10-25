@@ -35,6 +35,19 @@ test('fits and freeRun respect the rail bounds and other modules', () => {
    assert.equal(layout.itemAt(items, 1, 5).id, 'b');
 });
 
+test('nextFree finds the next free place after the item, wrapping to the start when needed', () => {
+   const items = [item('a', 1, 1), item('b', 1, 2, 2), item('c', 1, 6)];
+   assert.deepEqual(plain(layout.nextFree(box, items, 'a', 1)), { rail: 1, slot: 4 });
+   assert.deepEqual(plain(layout.nextFree(box, items, 'b', 3)), { rail: 2, slot: 1 }, 'the free slots on rail 1 are too narrow');
+   assert.deepEqual(plain(layout.nextFree(box, items, 'c', 1)), { rail: 2, slot: 1 });
+   const full = [item('a', 1, 1, 6), item('b', 2, 1, 5)];
+   assert.deepEqual(plain(layout.nextFree(box, full, 'b', 1)), { rail: 2, slot: 6 });
+   assert.deepEqual(plain(layout.nextFree(box, full, 'a', 1)), { rail: 2, slot: 6 });
+   assert.equal(layout.nextFree(box, full, 'b', 2), null);
+   const before = [item('a', 1, 1), item('b', 1, 3, 4), item('c', 2, 1, 6)];
+   assert.deepEqual(plain(layout.nextFree(box, before, 'c', 1)), { rail: 1, slot: 2 }, 'wraps to the start when nothing follows');
+});
+
 test('moving steps into a free slot or swaps with the neighbour on the same rail', () => {
    const items = [item('a', 1, 1), item('b', 1, 2, 2), item('c', 1, 5)];
    assert.deepEqual(plain(layout.move(box, items, 'a', 1)), { b: { rail: 1, slot: 1 }, a: { rail: 1, slot: 3 } });
