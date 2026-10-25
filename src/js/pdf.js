@@ -284,7 +284,8 @@
    function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
       if (!window.jspdf || !window.jspdf.jsPDF) return null;
 
-      const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      // Without compression jsPDF stores the rasterized warning icons as raw pixels, which made a 2-page PDF several MB.
+      const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
       if (typeof doc.autoTable !== 'function') return null;
 
       const rcd = window.GroepenkaartRcd;

@@ -103,6 +103,18 @@ test('warnings use the supplied icon assets without warning copy', () => {
    assert.ok(warnings.definitions.every((warning) => !('heading' in warning) && !('message' in warning) && !('icon' in warning)));
 });
 
+test('PDF streams are compressed so rasterized warning icons stay small', () => {
+   const harness = setup();
+   const create = harness.window.jspdf.jsPDF;
+   let options;
+   harness.window.jspdf.jsPDF = function (value) {
+      options = value;
+      return create(value);
+   };
+   assert.equal(harness.pdf.download([box()]), true);
+   assert.equal(options.compress, true);
+});
+
 test('PDF only draws empty rows for the free slots the app supplies', () => {
    const harness = setup();
    assert.equal(harness.pdf.download([box('1', 3)]), true);
