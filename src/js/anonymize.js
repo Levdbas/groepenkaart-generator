@@ -19,6 +19,7 @@
          masked += 1;
          return mask(text);
       }
+      data.generalInfo = scrub(data.generalInfo);
       data.boxes.forEach(function (box) {
          box.name = scrub(box.name);
          const supply = box.supply;
