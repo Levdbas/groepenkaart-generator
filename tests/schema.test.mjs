@@ -224,11 +224,13 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('SPD-4P', true), true);
    assert.equal(moduleTypes.allPhases('SPD-4P'), true);
    assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
-      [['RCBO-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
+     [['RCBO-2P', 1, 1, 2], ['KWH-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
+   assert.deepEqual(Array.from(moduleTypes.widthRange('KWH-2P')), [1, 2]);
    assert.equal(moduleTypes.widthRange('MCB'), null);
    assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P' }), 1, 'a module without its own width takes the type default');
    assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P', width: 2 }), 2);
+   assert.equal(moduleTypes.widthOf({ type: 'KWH-2P', width: 2 }), 2);
    assert.equal(moduleTypes.widthOf({ type: 'MCB-2P', width: 1 }), 2, 'fixed-width types ignore a width');
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
@@ -1249,6 +1251,27 @@ test('a variable-width type offers its widths in the dialog, only those that fit
    app.save();
    assert.ok(!('width' in JSON.parse(app.storage()).modules[1]), 'a fixed-width type drops the width');
    assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 1');
+});
+
+test('a 2P kWh meter can be one or two modules wide', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   app.editModule('legacy-module-1-1');
+   app.set('type', 'KWH-2P');
+   assert.equal(app.field('width').value, '1');
+   assert.deepEqual(app.field('width').children.map((option) => option.value), ['1', '2']);
+   app.cancel();
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'KWH-2P');
+   app.set('width', '2');
+   app.save();
+   const module = JSON.parse(app.storage()).modules[1];
+   assert.deepEqual([module.type, module.width], ['KWH-2P', 2]);
+   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 2');
+
+   const reloaded = setupApp(app.storage());
+   reloaded.editModule('legacy-module-1-2');
+   assert.equal(reloaded.field('width').value, '2');
 });
 
 test('a module warning must be one its type may flag', () => {
