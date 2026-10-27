@@ -80,6 +80,17 @@ test('normalization validates codes and gives unique, stable display order', () 
    }
 });
 
+test('special installations normalize independently and expose RM and AL labels', () => {
+   const { warnings } = setup();
+   assert.deepEqual(Array.from(warnings.normalizeSpecialInstallations(['burglar-alarm', 'smoke-alarm', 'burglar-alarm'])),
+      ['smoke-alarm', 'burglar-alarm']);
+   assert.deepEqual(Array.from(warnings.selectedSpecialInstallations(['burglar-alarm', 'smoke-alarm']), (item) => item.badge), ['RM', 'AL']);
+   assert.deepEqual(Array.from(warnings.specialInstallationDefinitions, (item) => item.label), ['Rookmelders', 'Alarminstallatie']);
+   for (const value of [null, true, 'smoke-alarm', {}, ['unknown'], ['smoke-alarm', 1]]) {
+      assert.throws(() => warnings.normalizeSpecialInstallations(value), /specialInstallations/);
+   }
+});
+
 test('each installation can be selected independently and deselected', () => {
    const { warnings } = setup();
    for (const id of displayedIds) {
@@ -363,6 +374,18 @@ test('flagged modules get a small red badge text in their row', () => {
    const text = pageText(harness.document(), 1);
    assert.equal((text.match(/\(EOS\) Tj/g) || []).length, 1);
    assert.equal((text.match(/\(PV\) Tj/g) || []).length, 1);
+});
+
+test('special installations produce only RM and AL group labels, not warning cards', () => {
+   const harness = setup();
+   const data = box();
+   data.groups[0].specialInstallations = ['smoke-alarm', 'burglar-alarm'];
+   harness.pdf.download([padded(data)]);
+   const text = pageText(harness.document(), 1);
+   assert.ok(text.includes('(RM) Tj'));
+   assert.ok(text.includes('(AL) Tj'));
+   assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, 0);
+   assert.equal(harness.warningImages.length, 0);
 });
 
 test('overflow pages preserve all groups without repeating warning cards', () => {

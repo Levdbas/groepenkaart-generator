@@ -600,6 +600,10 @@ textarea {
   border-radius: 2px;
 }
 
+.din-module-badge.special-installation-badge {
+  background: var(--blue);
+}
+
 .din-rail-labels {
   min-height: 1.5rem;
   padding: 0.15rem 4px;
@@ -1266,6 +1270,10 @@ select:focus-visible,
     line-height: 1.4;
     background: var(--red);
     border-radius: 0.8mm;
+  }
+
+  .print-badge.special-installation-badge {
+    background: var(--blue);
   }
 
   .print-page table {
