@@ -3,6 +3,8 @@
 
    const STORAGE_KEY = 'groepenkaart:v1';
    const RCD_FIRST_KEY = 'groepenkaart:rcd-first';
+   const TRIM_EMPTY_ROWS_KEY = 'groepenkaart:trim-empty-rows';
+   const SKIP_EMPTY_ROWS_KEY = 'groepenkaart:skip-empty-rows';
    const EXPERT_MODE_KEY = 'groepenkaart:expert-mode';
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
@@ -29,6 +31,8 @@
    let qrStatusTimer;
    let state = load();
    let rcdFirst = loadRcdFirst();
+   let trimEmptyRows = loadPrintOption(TRIM_EMPTY_ROWS_KEY);
+   let skipEmptyRows = loadPrintOption(SKIP_EMPTY_ROWS_KEY);
    let expertMode = loadExpertMode();
    let selectedId = null;
    let dialogState = null;
@@ -39,6 +43,10 @@
    const qrEnabledEl = document.getElementById('qr-enabled');
    const rcdFirstEl = document.getElementById('rcd-first');
    rcdFirstEl.checked = rcdFirst;
+   const trimEmptyRowsEl = document.getElementById('trim-empty-rows');
+   trimEmptyRowsEl.checked = trimEmptyRows;
+   const skipEmptyRowsEl = document.getElementById('skip-empty-rows');
+   skipEmptyRowsEl.checked = skipEmptyRows;
    const expertModeEl = document.getElementById('expert-mode');
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
@@ -89,6 +97,23 @@
    function saveRcdFirst() {
       try {
          localStorage.setItem(RCD_FIRST_KEY, String(rcdFirst));
+      } catch (e) {
+         console.warn('Opslaan mislukt', e);
+      }
+   }
+
+   // Print preferences of this device: they only hide free slots in the PDF and print, not in the card data.
+   function loadPrintOption(key) {
+      try {
+         return localStorage.getItem(key) === 'true';
+      } catch (e) {
+         return false;
+      }
+   }
+
+   function savePrintOption(key, value) {
+      try {
+         localStorage.setItem(key, String(value));
       } catch (e) {
          console.warn('Opslaan mislukt', e);
       }
@@ -277,13 +302,15 @@
    }
 
    // Boxes with their modules in physical order, as used by the print output and the PDF. rows holds the table rows:
-   // the groups, with a null for every free slot.
+   // the groups, with a null for every free slot. The print options can hide free slots at the edges or between modules.
    function printBoxes() {
       return state.boxes.map(function (box) {
          const groups = boxModules(box).map(groupView);
          const byId = {};
          groups.forEach(function (group) { byId[group.id] = group; });
-         const rows = layout.rows(box, layoutItems(box)).map(function (id) { return id && byId[id]; });
+         const rows = layout.compactRows(
+            layout.rows(box, layoutItems(box)).map(function (id) { return id && byId[id]; }),
+            trimEmptyRows, skipEmptyRows);
          return { id: box.id, number: box.number, name: box.name, supply: box.supply, groups: groups, rows: rows };
       });
    }
@@ -1782,6 +1809,18 @@
    rcdFirstEl.addEventListener('change', function () {
       rcdFirst = rcdFirstEl.checked;
       saveRcdFirst();
+      renderPrint();
+   });
+
+   trimEmptyRowsEl.addEventListener('change', function () {
+      trimEmptyRows = trimEmptyRowsEl.checked;
+      savePrintOption(TRIM_EMPTY_ROWS_KEY, trimEmptyRows);
+      renderPrint();
+   });
+
+   skipEmptyRowsEl.addEventListener('change', function () {
+      skipEmptyRows = skipEmptyRowsEl.checked;
+      savePrintOption(SKIP_EMPTY_ROWS_KEY, skipEmptyRows);
       renderPrint();
    });
 

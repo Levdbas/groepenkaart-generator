@@ -112,6 +112,21 @@
       return items.slice().sort(function (a, b) { return a.rail - b.rail || a.slot - b.slot; });
    }
 
+   /**
+    * Removes free slots from a rows list for a more compact print: with trimEdges the free slots before the first
+    * and after the last module, with dropBetween the free slots between modules. Rows of modules are kept as they are.
+    */
+   function compactRows(rows, trimEdges, dropBetween) {
+      const first = rows.findIndex(function (row) { return row; });
+      if (first === -1) return trimEdges ? [] : rows.slice();
+      let last = rows.length - 1;
+      while (!rows[last]) last--;
+      return rows.filter(function (row, index) {
+         if (index < first || index > last) return !trimEdges;
+         return !!row || !dropBetween;
+      });
+   }
+
    /** One entry per module and per free slot in reading order: the item id, or null for a free slot. */
    function rows(box, items) {
       const result = [];
@@ -127,6 +142,6 @@
    }
 
    window.GroepenkaartLayout = {
-      itemAt: itemAt, fits: fits, freeRun: freeRun, nextFree: nextFree, move: move, outside: outside, sortByPosition: sortByPosition, rows: rows
+      itemAt: itemAt, fits: fits, freeRun: freeRun, nextFree: nextFree, move: move, outside: outside, sortByPosition: sortByPosition, rows: rows, compactRows: compactRows
    };
 })();
