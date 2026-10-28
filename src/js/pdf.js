@@ -197,6 +197,20 @@
       return details.length ? 'Voeding: ' + details.join(' - ') : '';
    }
 
+   function drawGeneralInfo(doc, text, margin, top, width) {
+      if (!text) return 0;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const lines = doc.splitTextToSize(text, width);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(30, 30, 30);
+      doc.text('Algemene informatie', margin, top + 3);
+      doc.setFont('helvetica', 'normal');
+      doc.text(lines, margin, top + 7);
+      return 7 + lines.length * 4;
+   }
+
    // Lays out a module's description, type details, and small bullet list for a cell of the given inner width. The height
    // includes the cell padding; the table row is made exactly this tall so the text can be drawn inside it.
    function layoutGroup(doc, group, innerWidth, boxes) {
@@ -284,7 +298,7 @@
 
    // Returns null when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
-   function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages) {
+   function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages, generalInfo) {
       if (!window.jspdf || !window.jspdf.jsPDF) return null;
 
       // Without compression jsPDF stores the rasterized warning icons as raw pixels, which made a 2-page PDF several MB.
@@ -314,6 +328,7 @@
          doc.text(date, pageWidth - margin, 15, { align: 'right' });
          let offset = drawWarnings(doc, warningModule.forPage(box, index, warningIds || [], boxes), margin, 19, warningImages);
          if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
+         if (index === 0) offset += drawGeneralInfo(doc, generalInfo, margin, 24 + offset, pageWidth - margin * 2);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(11);
          doc.text(title(box), margin, 24 + offset);

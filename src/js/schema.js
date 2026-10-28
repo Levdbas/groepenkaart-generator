@@ -6,10 +6,10 @@
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
    * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, width?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[], specialInstallations?: ('smoke-alarm' | 'burglar-alarm')[]}} ModuleData
    * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
-   * @typedef {{schemaVersion: 6, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
+   * @typedef {{schemaVersion: 7, generalInfo: string, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
 
-   const currentVersion = 6;
+   const currentVersion = 7;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
@@ -294,6 +294,13 @@
       },
       5: function (data) {
          return Object.assign({}, data, { schemaVersion: 6 });
+      },
+      // Adds general information to cards with special installation labels.
+      6: function (data) {
+         return Object.assign({}, data, {
+            schemaVersion: 7,
+            generalInfo: data.generalInfo === undefined ? '' : data.generalInfo
+         });
       }
    };
 
@@ -320,7 +327,7 @@
 
    /** @returns {CardData} */
    function empty() {
-      return { schemaVersion: currentVersion, qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] };
+      return { schemaVersion: currentVersion, generalInfo: '', qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] };
    }
 
    function normalizePhases(value) {
@@ -565,6 +572,7 @@
       if (typeof data.phaseEnabled !== 'boolean') throw new Error('Ongeldig bestand: "phaseEnabled" moet waar of onwaar zijn.');
       if (typeof data.qrEnabled !== 'boolean') throw new Error('Ongeldig bestand: "qrEnabled" moet waar of onwaar zijn.');
       if (typeof data.rcdEnabled !== 'boolean') throw new Error('Ongeldig bestand: "rcdEnabled" moet waar of onwaar zijn.');
+      if (typeof data.generalInfo !== 'string') throw new Error('Ongeldig bestand: "generalInfo" moet tekst zijn.');
       const boxIds = data.boxes.map(function (box) {
          requireStrings(box, ['id', 'number', 'name'], 'een kast');
          return box.id;
@@ -645,6 +653,7 @@
       }
       return {
          schemaVersion: currentVersion,
+         generalInfo: data.generalInfo,
          qrEnabled: data.qrEnabled,
          rcdEnabled: data.rcdEnabled,
          phaseEnabled: data.phaseEnabled,

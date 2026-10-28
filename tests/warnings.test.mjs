@@ -499,6 +499,15 @@ test('without RCDs the PDF output is unchanged', () => {
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
 });
 
+test('general information is printed above the first box and leaves room before the table', () => {
+   const harness = setup();
+   harness.pdf.download([box()], [], [], false, null, true, [], 'Installateur: Test - storingen: 06-12345678');
+   const document = harness.document();
+   assert.ok(pageText(document, 1).includes('Algemene informatie'));
+   assert.ok(pageText(document, 1).includes('Installateur: Test - storingen: 06-12345678'));
+   assert.ok(document.lastAutoTable.settings.startY > 30);
+});
+
 test('PDF shows module metadata, supply details and derived feed references', () => {
    const harness = setup();
    const source = box('1');

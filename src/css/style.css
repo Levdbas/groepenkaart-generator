@@ -180,6 +180,30 @@ textarea:focus-visible {
   border-radius: var(--radius);
 }
 
+.general-info {
+  max-width: 928px;
+  margin: 1.5rem auto;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.general-info label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.general-info textarea {
+  width: 100%;
+  min-height: 5rem;
+  resize: vertical;
+  color: var(--text);
+  font-weight: 400;
+}
+
 .installation-options legend {
   color: var(--blue);
   font-weight: 600;
@@ -983,6 +1007,11 @@ select:focus-visible,
     min-width: 0;
   }
 
+  .general-info {
+    margin: 1rem;
+    padding: 0.75rem;
+  }
+
   .pdf-option {
     position: relative;
   }
@@ -1235,6 +1264,26 @@ select:focus-visible,
     margin: 0 0 0.5rem;
     color: var(--muted);
     font-size: 10pt;
+  }
+
+  .print-general-info {
+    margin: 0 0 0.5rem;
+    color: #1e1e1e;
+    font-size: 9pt;
+    break-inside: avoid;
+  }
+
+  .print-general-info h2 {
+    margin: 0 0 0.1rem;
+    color: #1e1e1e;
+    font-weight: 700;
+    font-size: 9pt;
+  }
+
+  .print-general-info p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .print-page h2 {

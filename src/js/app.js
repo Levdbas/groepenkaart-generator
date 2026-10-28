@@ -43,6 +43,8 @@
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
    const phaseEnabledEl = document.getElementById('phase-enabled');
+   const generalInfoEl = document.getElementById('general-info');
+   generalInfoEl.value = state.generalInfo;
    const unplacedEl = document.getElementById('unplaced');
    const unplacedListEl = document.getElementById('unplaced-list');
    const moduleDialogEl = document.getElementById('module-dialog');
@@ -1431,6 +1433,11 @@
          return el('article', { className: 'print-page' }, [
             el('h1', { text: 'Groepenkaart' }),
             el('p', { className: 'print-date', text: date }),
+            index === 0 && state.generalInfo
+               ? el('section', { className: 'print-general-info' }, [
+                  el('h2', { text: 'Algemene informatie' }),
+                  el('p', { text: state.generalInfo })
+               ]) : null,
             renderWarnings(warnings.forPage(box, index, allWarnings, boxes)),
             index === 0 ? renderUnusedRcds(rcds, boxes) : null,
             el('h2', { text: boxTitle(box) }),
@@ -1496,6 +1503,7 @@
       rcdEnabledEl.checked = state.rcdEnabled;
       qrEnabledEl.checked = state.qrEnabled;
       expertModeEl.checked = expertMode;
+      if (generalInfoEl.value !== state.generalInfo) generalInfoEl.value = state.generalInfo;
       renderQrStatus();
       renderUnplaced();
       renderBoxes();
@@ -1504,7 +1512,7 @@
    }
 
    function hasData() {
-      return !storageWritable || state.boxes.length || state.modules.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
+      return !storageWritable || state.generalInfo || state.boxes.length || state.modules.length || state.qrEnabled || state.rcdEnabled || state.phaseEnabled;
    }
 
    function shareUrl() {
@@ -1600,7 +1608,7 @@
          return canvas;
       });
       if (missingImage) return { args: null };
-      return { args: [printBoxes(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages] };
+      return { args: [printBoxes(), active, rcdViews(), state.phaseEnabled, qr, rcdFirst, warningImages, state.generalInfo] };
    }
 
    document.getElementById('download-pdf').addEventListener('click', function () {
@@ -1765,6 +1773,12 @@
       update();
    });
 
+   generalInfoEl.addEventListener('input', function () {
+      state.generalInfo = generalInfoEl.value;
+      save();
+      renderPrint();
+   });
+
    rcdFirstEl.addEventListener('change', function () {
       rcdFirst = rcdFirstEl.checked;
       saveRcdFirst();
@@ -1812,7 +1826,7 @@
    });
 
    document.getElementById('clear-all').addEventListener('click', function () {
-      if (hasData() && confirm('Weet je zeker dat je alle kasten, modules, aardlekschakelaars en fase- en QR-instellingen wilt wissen?')) {
+      if (hasData() && confirm('Weet je zeker dat je alle kasten, modules, algemene informatie en instellingen wilt wissen?')) {
          replaceState(normalize(schema.empty()));
          update();
       }
