@@ -27,8 +27,8 @@
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3, mcbLinkable: true },
       { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2, mcbLinkable: true },
-      { slug: 'KWH-2P', label: 'KWh meter 2P', description: 'Write kWh with a lowercase k', phases: 1, width: 1, widthRange: [1, 2] },
-      { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4 },
+      { slug: 'KWH-2P', label: 'KWh meter 2P', description: 'Write kWh with a lowercase k', phases: 1, width: 1, widthRange: [1, 2], mcbLinkable: true },
+      { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4, mcbLinkable: true },
       { slug: 'SPD', label: 'Overspanningsbeveiliging', description: '', phases: 1, width: 2 },
       { slug: 'SPD-4P', label: 'Overspanningsbeveiliging 3P+N', description: '', phases: 3, width: 4, phaseMode: 'three' },
       { slug: 'OTHER', label: 'Overige module', description: 'Free module such as a smart module, time clock or distribution block', phases: 1, width: 1, widthRange: [1, 4], mcbLinkable: true, rcdLinkable: true }
@@ -76,6 +76,8 @@
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
    // mcbLinkable types connect to a circuit breaker (an RCBO counts as one); only rcdLinkable types may also connect to an RCD.
    const mcbLinkTargets = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
+   const mainsTypes = ['MAINS-2P', 'MAINS-4P'];
+   const kwhTypes = ['KWH-2P', 'KWH-4P'];
    const boxLimits = { minRails: 1, maxRails: 99, minRailWidth: 4, maxRailWidth: 48, defaultRailWidth: 12 };
 
    /**
@@ -593,14 +595,38 @@
             }
             const linkable = moduleTypes.mcbLinkable(module.type);
             const targets = !linkable ? protectiveTypes : moduleTypes.rcdLinkable(module.type) ? mcbLinkTargets.concat(protectiveTypes) : mcbLinkTargets;
-            if (!protection || !targets.includes(protection.type)) {
-               throw new Error(linkable
-                  ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
-                     ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
-                     : 'installatieautomaat of aardlekautomaat.')
-                  : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
+            const kwhMeterTargetsMains = protection && kwhTypes.includes(protection.type) &&
+               moduleById[protection.protectedByModuleId] && mainsTypes.includes(moduleById[protection.protectedByModuleId].type);
+            const validTarget = protection && (kwhTypes.includes(module.type)
+               ? mainsTypes.includes(protection.type) || mcbLinkTargets.includes(protection.type)
+               : kwhTypes.includes(protection.type)
+                  ? !protectiveTypes.includes(module.type) || kwhMeterTargetsMains
+                  : targets.includes(protection.type));
+            if (!validTarget) {
+               if (kwhTypes.includes(module.type)) {
+                  throw new Error('Ongeldig bestand: "protectedByModuleId" van een kWh-meter moet verwijzen naar een hoofdschakelaar of circuitmodule.');
+               }
+               if (protection && kwhTypes.includes(protection.type) && protectiveTypes.includes(module.type)) {
+                  throw new Error('Ongeldig bestand: een aardlekschakelaar of aardlekautomaat kan alleen aan een kWh-meter gekoppeld zijn als die meter aan de hoofdschakelaar is gekoppeld.');
+               }
+              throw new Error(linkable
+                 ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
+                    ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
+                    : 'installatieautomaat of aardlekautomaat.')
+                 : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
             }
          }
+      });
+      const visitedProtection = new Set();
+      modules.forEach(function (module) {
+         const path = new Set();
+         let current = module;
+         while (current && !visitedProtection.has(current.id)) {
+            if (path.has(current.id)) throw new Error('Ongeldig bestand: kringverwijzing in modulebeveiliging.');
+            path.add(current.id);
+            current = current.protectedByModuleId === null ? null : moduleById[current.protectedByModuleId];
+         }
+         path.forEach(function (id) { visitedProtection.add(id); });
       });
       if (modules.some(function (module) { return protectiveTypes.includes(module.type) && module.color === undefined; })) {
          throw new Error('Ongeldig bestand: een beveiligingsmodule moet een kleur hebben.');

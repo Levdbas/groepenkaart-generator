@@ -107,7 +107,7 @@
         "characteristic": { "type": "string" },
         "phases": { "$ref": "#/$defs/phases" },
         "protectedByModuleId": {
-          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET, OTHER) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead; only OTHER may also refer to an RCD module. Always null for MAINS types.",
+          "description": "ID of the upstream module in the protection or supply order. A kWh meter may refer to a main switch or circuit module; RCD and RCBO modules may refer to a kWh meter only when it refers to a main switch; other modules may also refer to a kWh meter. Always null for MAINS types.",
           "type": ["string", "null"]
         },
         "items": { "type": "array", "items": { "type": "string" } },
