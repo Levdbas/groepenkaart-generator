@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v6.schema.json",
+  "title": "JSON schema for groepenkaart v6",
+  "description": "Modules are stored once in the modules list and boxes refer to their module IDs in physical order (rail, then slot). Each box has a number of DIN rails of a fixed width in modules; every placed module records the rail and start slot it occupies, within the rail and without overlapping other modules. Protection and sub-distribution supply references target module IDs. A null boxId preserves modules with unknown physical location; those modules have no rail or slot.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "qrEnabled",
+    "rcdEnabled",
+    "phaseEnabled",
+    "modules",
+    "boxes"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri" },
+    "schemaVersion": { "type": "integer", "const": 6 },
+    "qrEnabled": { "type": "boolean" },
+    "rcdEnabled": { "type": "boolean" },
+    "phaseEnabled": { "type": "boolean" },
+    "modules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/module" }
+    },
+    "boxes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/box" }
+    }
+  },
+  "if": { "properties": { "rcdEnabled": { "const": false } } },
+  "then": {
+    "properties": {
+      "modules": {
+        "items": {
+          "not": {
+            "properties": {
+              "type": { "enum": ["RCD-2P", "RCD-4P", "RCBO-2P", "RCBO-4P"] }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "phases": {
+      "type": "array",
+      "items": { "enum": ["L1", "L2", "L3"] },
+      "uniqueItems": true,
+      "maxItems": 3
+    },
+    "module": {
+      "type": "object",
+      "required": [
+        "id",
+        "boxId",
+        "type",
+        "number",
+        "description",
+        "characteristic",
+        "phases",
+        "protectedByModuleId"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "boxId": { "type": ["string", "null"] },
+        "rail": {
+          "description": "1-based DIN rail of the box. Required when boxId is set, absent when it is null.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "slot": {
+          "description": "1-based start slot on the rail. The module covers the width of its type from here.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "description": "Width in DIN modules. Only for types with a variable width (RCBO-2P: 1 or 2; OTHER: 1 to 4); other types use the fixed width of their type. When absent the type default applies.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "enum": [
+            "MCB",
+            "MCB-2P",
+            "MCB-3P",
+            "RCD-2P",
+            "RCD-4P",
+            "MAINS-2P",
+            "MAINS-4P",
+            "RCBO-2P",
+            "RCBO-4P",
+            "DIN-OUTLET",
+            "Bell-TRANSFORMER",
+            "KWH-2P",
+            "KWH-4P",
+            "SPD",
+            "SPD-4P",
+            "OTHER"
+          ]
+        },
+        "number": { "type": "string" },
+        "description": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "characteristic": { "type": "string" },
+        "phases": { "$ref": "#/$defs/phases" },
+        "protectedByModuleId": {
+          "description": "ID of the RCD or RCBO module that protects this module. Types that can be connected to an MCB (DIN-OUTLET, OTHER) refer to an MCB, MCB-2P, MCB-3P or RCBO module instead; only OTHER may also refer to an RCD module. Always null for MAINS types.",
+          "type": ["string", "null"]
+        },
+        "items": { "type": "array", "items": { "type": "string" } },
+        "sensitivity": { "type": "integer", "enum": [10, 30, 100, 300] },
+        "rcdType": { "enum": ["AC", "A", "F", "B", "B+"] },
+        "ratedCurrent": { "type": "number", "exclusiveMinimum": 0 },
+        "warnings": {
+          "description": "Installations this module flags with a warning card on the first page. Only MCB and MCB-3P modules may set it.",
+          "type": "array",
+          "items": { "enum": ["pv", "ev", "battery"] },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "specialInstallations": {
+          "description": "Special installations assigned to this group; shown as short labels in the group description.",
+          "type": "array",
+          "items": { "enum": ["smoke-alarm", "burglar-alarm"] },
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      "if": {
+        "properties": {
+          "type": { "enum": ["RCD-2P", "RCD-4P", "RCBO-2P", "RCBO-4P"] }
+        }
+      },
+      "then": { "required": ["color"] },
+      "allOf": [
+        {
+          "if": { "properties": { "boxId": { "type": "string" } } },
+          "then": { "required": ["rail", "slot"] },
+          "else": {
+            "not": {
+              "anyOf": [{ "required": ["rail"] }, { "required": ["slot"] }]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "enum": ["MAINS-2P", "MAINS-4P"] } }
+          },
+          "then": {
+            "properties": { "protectedByModuleId": { "type": "null" } }
+          }
+        },
+        {
+          "if": { "required": ["warnings"] },
+          "then": { "properties": { "type": { "enum": ["MCB", "MCB-3P"] } } }
+        },
+        {
+          "if": { "required": ["specialInstallations"] },
+          "then": {
+            "properties": {
+              "type": { "enum": ["MCB", "MCB-2P", "MCB-3P", "RCBO-2P", "RCBO-4P"] }
+            }
+          }
+        },
+        {
+          "if": { "required": ["width"] },
+          "then": {
+            "properties": {
+              "type": { "enum": ["RCBO-2P", "OTHER"] },
+              "width": { "maximum": 4 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["width"],
+            "properties": { "type": { "const": "RCBO-2P" } }
+          },
+          "then": { "properties": { "width": { "maximum": 2 } } }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["RCD-4P", "RCBO-4P"] } } },
+          "then": { "properties": { "phases": { "minItems": 3 } } }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["RCD-2P", "RCBO-2P"] } } },
+          "then": { "properties": { "phases": { "maxItems": 1 } } }
+        }
+      ]
+    },
+    "box": {
+      "type": "object",
+      "required": [
+        "id",
+        "number",
+        "name",
+        "rails",
+        "railWidth",
+        "moduleIds",
+        "supply"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "number": { "type": "string" },
+        "name": { "type": "string" },
+        "rails": {
+          "description": "Number of DIN rails in the box.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99
+        },
+        "railWidth": {
+          "description": "Width of each rail in modules.",
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 48
+        },
+        "moduleIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "supply": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/mainsSupply" },
+            { "$ref": "#/$defs/subdistributionSupply" },
+            { "$ref": "#/$defs/linkedSupply" }
+          ]
+        }
+      }
+    },
+    "mainsSupply": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "mains" },
+        "connectionRating": {
+          "enum": [
+            "1x10A",
+            "1x25A",
+            "1x35A",
+            "1x40A",
+            "3x25A",
+            "3x35A",
+            "3x40A",
+            "3x50A",
+            "3x63A",
+            "3x80A",
+            "Anders"
+          ]
+        },
+        "customConnectionRating": { "type": "string" },
+        "supplier": { "type": "string" },
+        "mainSwitchCurrent": { "type": "number", "exclusiveMinimum": 0 },
+        "mainSwitchPoles": { "type": "integer", "enum": [2, 4] }
+      }
+    },
+    "linkedSupply": {
+      "description": "A box directly attached to a box with a mains supply, which powers it. sourceBoxId is the ID of that other box.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "linked" },
+        "sourceBoxId": { "type": ["string", "null"] }
+      }
+    },
+    "subdistributionSupply": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "subdistribution" },
+        "sourceModuleId": { "type": ["string", "null"] },
+        "preFuse": { "type": "string" },
+        "cableCores": { "type": "integer", "minimum": 1 },
+        "cableCrossSection": { "type": "number", "exclusiveMinimum": 0 },
+        "mainSwitchCurrent": { "type": "number", "exclusiveMinimum": 0 },
+        "mainSwitchPoles": { "type": "integer", "enum": [2, 4] }
+      }
+    }
+  }
+}

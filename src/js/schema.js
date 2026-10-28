@@ -4,15 +4,16 @@
    /**
     * @typedef {'pv' | 'ev' | 'battery' | 'heat-pump'} WarningCode
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
-   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, width?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[]}} ModuleData
+   * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, width?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[], specialInstallations?: ('smoke-alarm' | 'burglar-alarm')[]}} ModuleData
    * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
-   * @typedef {{schemaVersion: 5, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
+   * @typedef {{schemaVersion: 6, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
 
-   const currentVersion = 5;
+   const currentVersion = 6;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
+   const specialInstallationTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    // Mirrors module-types.md. phases is the nominal phase count; warnings lists the installations a type may flag; protectable: false means it sits upstream of any RCD; mcbLinkable means it can also be connected to an MCB; rcdLinkable means an mcbLinkable type may also be connected to an RCD; widthRange [min, max] lets a module choose its own width (default: width).
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
@@ -290,6 +291,9 @@
             modules: modules,
             boxes: boxes
          };
+      },
+      5: function (data) {
+         return Object.assign({}, data, { schemaVersion: 6 });
       }
    };
 
@@ -384,6 +388,15 @@
                }
             });
          }
+         if (module.specialInstallations !== undefined) {
+            const installations = warnings.normalizeSpecialInstallations(module.specialInstallations);
+            if (!installations.length || new Set(module.specialInstallations).size !== module.specialInstallations.length) {
+               throw new Error('Ongeldig bestand: "specialInstallations" van een module moet een lijst met unieke bijzondere installaties zijn.');
+            }
+            if (!specialInstallationTypes.includes(module.type)) {
+               throw new Error('Ongeldig bestand: moduletype ' + module.type + ' ondersteunt geen bijzondere installaties.');
+            }
+         }
          if (['RCD-2P', 'RCBO-2P'].includes(module.type) && phases.length > 1) {
             throw new Error('Ongeldig bestand: een 2-polige beveiligingsmodule kan maar één fase hebben.');
          }
@@ -409,6 +422,9 @@
             ...(module.rcdType !== undefined ? { rcdType: module.rcdType } : {}),
             ...(module.ratedCurrent !== undefined ? { ratedCurrent: module.ratedCurrent } : {}),
             ...(module.warnings !== undefined ? { warnings: warnings.codes.filter(function (code) { return module.warnings.includes(code); }) } : {}),
+            ...(module.specialInstallations !== undefined ? {
+               specialInstallations: warnings.normalizeSpecialInstallations(module.specialInstallations)
+            } : {}),
             ...normalizeItems(module)
          };
       });
@@ -598,7 +614,7 @@
             supply: normalizeSupply(box.supply === undefined ? null : box.supply, modules)
          };
          const placed = result.moduleIds.map(function (id) { return moduleById[id]; });
-         // Draft v5 data from before the box layout has no positions at all: lay it out like a migration would.
+         // Draft data from before the box layout has no positions at all: lay it out like a migration would.
          if (box.rails === undefined && box.railWidth === undefined &&
             placed.every(function (module) { return module.rail === undefined && module.slot === undefined; })) {
             layoutBox(result, modules);
@@ -638,7 +654,8 @@
    }
 
    window.GroepenkaartSchema = {
-      currentVersion: currentVersion, schemaUrl: schemaUrl, moduleTypes: moduleTypes, boxLimits: boxLimits,
+      currentVersion: currentVersion, schemaUrl: schemaUrl, moduleTypes: moduleTypes,
+      specialInstallationTypes: specialInstallationTypes, boxLimits: boxLimits,
       autoLayout: autoLayout, empty: empty, normalize: normalize
    };
 })();

@@ -22,6 +22,11 @@
          image: 'images/eos.svg'
       }
    ];
+   const specialInstallationCodes = ['smoke-alarm', 'burglar-alarm'];
+   const specialInstallationDefinitions = [
+      { id: 'smoke-alarm', label: 'Rookmelders', badge: 'RM' },
+      { id: 'burglar-alarm', label: 'Alarminstallatie', badge: 'AL' }
+   ];
 
    function normalize(value) {
       if (value === undefined) return [];
@@ -35,6 +40,20 @@
 
    function selected(ids) {
       return definitions.filter(function (warning) { return ids.includes(warning.id); });
+   }
+
+   function normalizeSpecialInstallations(value) {
+      if (value === undefined) return [];
+      if (!Array.isArray(value) || value.some(function (id) {
+         return !specialInstallationCodes.includes(id);
+      })) {
+         throw new Error('Ongeldig bestand: "specialInstallations" moet een lijst met bekende bijzondere installaties zijn.');
+      }
+      return specialInstallationCodes.filter(function (id) { return value.includes(id); });
+   }
+
+   function selectedSpecialInstallations(ids) {
+      return specialInstallationDefinitions.filter(function (installation) { return ids.includes(installation.id); });
    }
 
    // The first page lists every installation; a sub-distribution page lists its own and those of the boxes it feeds,
@@ -59,5 +78,9 @@
       return codes.filter(function (code) { return own.includes(code); });
    }
 
-   window.GroepenkaartWarnings = { codes: codes, definitions: definitions, normalize: normalize, selected: selected, forPage: forPage };
+   window.GroepenkaartWarnings = {
+      codes: codes, definitions: definitions, normalize: normalize, selected: selected, forPage: forPage,
+      specialInstallationCodes: specialInstallationCodes, specialInstallationDefinitions: specialInstallationDefinitions,
+      normalizeSpecialInstallations: normalizeSpecialInstallations, selectedSpecialInstallations: selectedSpecialInstallations
+   };
 })();
