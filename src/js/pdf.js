@@ -208,7 +208,7 @@
       doc.text('Algemene informatie', margin, top + 3);
       doc.setFont('helvetica', 'normal');
       doc.text(lines, margin, top + 7);
-      return 7 + lines.length * 4;
+      return 10 + lines.length * 4;
    }
 
    // Lays out a module's description, type details, and small bullet list for a cell of the given inner width. The height
