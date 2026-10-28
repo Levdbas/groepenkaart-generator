@@ -20,6 +20,18 @@ test('rows lists modules and free slots in reading order', () => {
    assert.deepEqual(plain(layout.rows({ rails: 1, railWidth: 3 }, [])), [null, null, null]);
 });
 
+test('compactRows hides free slots at the edges and between modules on request', () => {
+   const rows = [null, 'a', null, null, 'b', null];
+   assert.deepEqual(plain(layout.compactRows(rows, false, false)), rows);
+   assert.deepEqual(plain(layout.compactRows(rows, true, false)), ['a', null, null, 'b']);
+   assert.deepEqual(plain(layout.compactRows(rows, false, true)), [null, 'a', 'b', null]);
+   assert.deepEqual(plain(layout.compactRows(rows, true, true)), ['a', 'b']);
+   assert.deepEqual(rows, [null, 'a', null, null, 'b', null], 'the input is not changed');
+   assert.deepEqual(plain(layout.compactRows([null, null], true, false)), [], 'a box without modules can lose all rows');
+   assert.deepEqual(plain(layout.compactRows([null, null], false, true)), [null, null], 'without modules there are no slots in between');
+   assert.deepEqual(plain(layout.compactRows([], true, true)), []);
+});
+
 test('fits and freeRun respect the rail bounds and other modules', () => {
    const items = [item('a', 1, 1), item('b', 1, 4, 2)];
    assert.equal(layout.fits(box, items, 1, 2, 2), true);
