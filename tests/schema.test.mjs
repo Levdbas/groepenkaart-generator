@@ -227,7 +227,7 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('SPD-4P', true), true);
    assert.equal(moduleTypes.allPhases('SPD-4P'), true);
    assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
-     [['RCBO-2P', 1, 1, 2], ['KWH-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
+      [['RCBO-2P', 1, 1, 2], ['KWH-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('KWH-2P')), [1, 2]);
    assert.equal(moduleTypes.widthRange('MCB'), null);
@@ -825,7 +825,7 @@ test('v7 data validates module types, protection references, box order and phase
 
 test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD, other types only to an RCD or RCBO', () => {
    const { schema, moduleTypes } = setupSchema();
-   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET', 'OTHER']);
+   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET', 'Bell-TRANSFORMER', 'OTHER']);
    assert.equal(moduleTypes.mcbLinkable('unknown'), false);
    const data = schema.normalize(withRcds);
    const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
@@ -851,6 +851,11 @@ test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD,
    assert.throws(() => schema.normalize(variant((d) => { outlet(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
       /installatieautomaat of aardlekautomaat/);
    assert.throws(() => schema.normalize(variant((d) => { d.modules[1].protectedByModuleId = d.modules[0].id; })), /verwijst niet naar een RCD- of RCBO-module\./);
+   const bell = (d) => { d.modules[1].type = 'Bell-TRANSFORMER'; d.modules[1].protectedByModuleId = d.modules[0].id; };
+   assert.equal(schema.normalize(variant(bell)).modules[1].protectedByModuleId, data.modules[0].id);
+   assert.equal(schema.normalize(variant((d) => { bell(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; })).modules[1].protectedByModuleId, data.modules[0].id);
+   assert.throws(() => schema.normalize(variant((d) => { bell(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
+      /installatieautomaat of aardlekautomaat/);
 });
 
 test('optional group items preserve arrays across schema versions after migrating to v7', () => {

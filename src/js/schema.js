@@ -26,7 +26,7 @@
       { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1, widthRange: [1, 2], warnings: ['ev', 'pv', 'battery'] },
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3, mcbLinkable: true },
-      { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2 },
+      { slug: 'Bell-TRANSFORMER', label: 'Beltrafo', description: 'Doorbell transformer', phases: 1, width: 2, mcbLinkable: true },
       { slug: 'KWH-2P', label: 'KWh meter 2P', description: 'Write kWh with a lowercase k', phases: 1, width: 1, widthRange: [1, 2] },
       { slug: 'KWH-4P', label: 'KWh meter 4P', description: 'Write kWh with a lowercase k', phases: 3, width: 4 },
       { slug: 'SPD', label: 'Overspanningsbeveiliging', description: '', phases: 1, width: 2 },
