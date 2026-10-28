@@ -10,7 +10,8 @@ const sources = await Promise.all(['warnings', 'rcd', 'schema', 'layout', 'share
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 const readSchema = async (version) => JSON.parse(await readFile(
    new URL(`../schemas/groepenkaart-v${version}.schema.json`, import.meta.url), 'utf8'));
-const publishedSchema = await readSchema(6);
+const publishedSchema = await readSchema(7);
+const publishedV6Schema = await readSchema(6);
 const publishedV5Schema = await readSchema(5);
 const publishedV4Schema = await readSchema(4);
 const publishedV3Schema = await readSchema(3);
@@ -140,7 +141,7 @@ function expectedV5(data) {
       phases: rcd.phases, protectedByModuleId: null
    }));
    return {
-      schemaVersion: 6, generalInfo: data.generalInfo === undefined ? '' : data.generalInfo, qrEnabled: data.qrEnabled,
+      schemaVersion: 7, generalInfo: data.generalInfo === undefined ? '' : data.generalInfo, qrEnabled: data.qrEnabled,
       rcdEnabled: data.rcdEnabled, phaseEnabled: data.phaseEnabled, modules, boxes
    };
 }
@@ -149,7 +150,7 @@ function editorState(data) {
    const modules = new Map(data.modules.map((module) => [module.id, module]));
    const protective = data.modules.filter((module) => ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'].includes(module.type));
    return {
-      schemaVersion: 6,
+      schemaVersion: 4,
       generalInfo: data.generalInfo === undefined ? '' : data.generalInfo,
       qrEnabled: data.qrEnabled,
       rcdEnabled: data.rcdEnabled,
@@ -226,11 +227,13 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('SPD-4P', true), true);
    assert.equal(moduleTypes.allPhases('SPD-4P'), true);
    assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
-      [['RCBO-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
+     [['RCBO-2P', 1, 1, 2], ['KWH-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
+   assert.deepEqual(Array.from(moduleTypes.widthRange('KWH-2P')), [1, 2]);
    assert.equal(moduleTypes.widthRange('MCB'), null);
    assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P' }), 1, 'a module without its own width takes the type default');
    assert.equal(moduleTypes.widthOf({ type: 'RCBO-2P', width: 2 }), 2);
+   assert.equal(moduleTypes.widthOf({ type: 'KWH-2P', width: 2 }), 2);
    assert.equal(moduleTypes.widthOf({ type: 'MCB-2P', width: 1 }), 2, 'fixed-width types ignore a width');
    assert.equal(moduleTypes.available('MAINS-2P', false), true);
    assert.equal(moduleTypes.available('MAINS-2P', true), false);
@@ -245,7 +248,7 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
 test('v4 migration creates stable typed modules and preserves RCD references', () => {
    const { schema } = setupSchema();
    const migrated = schema.normalize(withRcds);
-   assert.equal(migrated.schemaVersion, 6);
+   assert.equal(migrated.schemaVersion, 7);
    assert.deepEqual(Array.from(migrated.boxes, (box) => box.moduleIds), [
       ['legacy-module-1-1', 'legacy-module-1-2'],
       ['legacy-module-2-1', 'legacy-module-2-2']
@@ -266,7 +269,7 @@ test('v4 migration creates stable typed modules and preserves RCD references', (
    );
 });
 
-test('v5 box layout is validated, kept in physical order and laid out for draft data without it', () => {
+test('v5 box layout migrates to v6 and is validated in physical order', () => {
    const { schema } = setupSchema();
    const data = plain(schema.normalize(withRcds));
    assert.deepEqual(data.boxes.map((box) => [box.rails, box.railWidth]), [[1, 12], [1, 12]]);
@@ -321,17 +324,18 @@ test('v5 box layout is validated, kept in physical order and laid out for draft 
    assert.deepEqual(plain(schema.autoLayout([], 12)), { rails: 1, positions: [] });
 });
 
-test('c2 v5 compact links round-trip modules, protection references and supply fields', () => {
+test('c3 v6 compact links round-trip special installations, protection references and supply fields', () => {
    const { schema, context } = setupSchema();
    context.window.fflate = require('fflate');
    vm.runInContext(sources[4], context);
    const share = context.window.GroepenkaartShare;
-   const data = { ...schema.normalize(withRcds), schemaVersion: 5 };
+   const data = { ...schema.normalize(withRcds), schemaVersion: 6 };
    delete data.generalInfo;
    data.modules[4].sensitivity = 30;
    data.modules[4].rcdType = 'A';
    data.modules[4].ratedCurrent = 40;
    data.modules[0].warnings = ['ev', 'battery'];
+   data.modules[0].specialInstallations = ['smoke-alarm', 'burglar-alarm'];
    data.boxes[0].supply = {
       type: 'mains', connectionRating: 'Anders', customConnectionRating: '3x45A', supplier: 'Stedin',
       mainSwitchCurrent: 40, mainSwitchPoles: 4
@@ -345,14 +349,15 @@ test('c2 v5 compact links round-trip modules, protection references and supply f
    data.modules[1].rail = 3;
    data.modules[1].slot = 7;
    const link = share.url('https://example.test/app/', data);
-   assert.ok(link.includes('#c2='));
-   assert.throws(() => share.encode({ ...data, schemaVersion: 7 }), /schemaversie 7/);
+   assert.ok(link.includes('#c3='));
+   assert.throws(() => share.encode({ ...data, schemaVersion: 3 }), /schemaversie 3/);
    const decoded = schema.normalize(share.decode(link.slice(link.indexOf('#'))));
    assert.equal(decoded.modules[4].type, 'RCD-2P');
    assert.equal(decoded.modules[4].sensitivity, 30);
    assert.equal(decoded.modules[4].rcdType, 'A');
    assert.equal(decoded.modules[4].ratedCurrent, 40);
    assert.deepEqual(Array.from(decoded.modules[0].warnings), ['ev', 'battery']);
+   assert.deepEqual(Array.from(decoded.modules[0].specialInstallations), ['smoke-alarm', 'burglar-alarm']);
    assert.equal(decoded.modules[0].protectedByModuleId, decoded.modules[4].id);
    assert.deepEqual(Array.from(decoded.boxes[0].moduleIds), ['m1', 'm2']);
    assert.deepEqual([decoded.boxes[0].rails, decoded.boxes[0].railWidth, decoded.boxes[1].rails, decoded.boxes[1].railWidth], [3, 18, 1, 12]);
@@ -547,7 +552,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = nul
    };
 }
 
-test('unversioned files migrate through v1 and v2 to v6 without modifying the original data', () => {
+test('unversioned files migrate through v1 to v7 without modifying the original data', () => {
    const { schema } = setupSchema();
    const original = structuredClone(legacy);
    assert.deepEqual(plain(schema.normalize(legacy)), expectedV5(v4));
@@ -555,14 +560,14 @@ test('unversioned files migrate through v1 and v2 to v6 without modifying the or
    assert.deepEqual(plain(schema.normalize({ boxes: [] })), plain(schema.empty()));
 });
 
-test('v1 files migrate to v6 with RCDs and phases disabled and no protection links', () => {
+test('v1 files migrate to v7 with RCDs and phases disabled and no protection links', () => {
    const { schema } = setupSchema();
    const original = structuredClone(v1);
    assert.deepEqual(plain(schema.normalize(v1)), expectedV5(v4));
    assert.deepEqual(v1, original);
 });
 
-test('v2 files migrate to v6 with default phase settings and keep all existing data', () => {
+test('v2 files migrate to v7 with default phase settings and keep all existing data', () => {
    const { schema } = setupSchema();
    for (const [source, expected] of [[v2, v4], [withRcdsV2, withRcds]]) {
       const original = structuredClone(source);
@@ -587,7 +592,7 @@ test('v2 to v3 renames the RCBO fields to RCD fields', () => {
    const original = structuredClone(data);
    const migrated = plain(schema.normalize(data));
    assert.deepEqual(data, original);
-   assert.equal(migrated.schemaVersion, 6);
+   assert.equal(migrated.schemaVersion, 7);
    assert.equal(migrated.rcdEnabled, true);
    assert.deepEqual(migrated.modules.filter((module) => module.type.startsWith('RCD')).map((rcd) => [rcd.id, rcd.number, rcd.name, rcd.color]), [
       ['r1', 'A1', 'Keuken', '#e53935'], ['r2', '', '', '#fdd835']
@@ -636,7 +641,7 @@ test('v2 files that already contain phase fields keep them and get missing ones 
    const original = structuredClone(data);
    const migrated = plain(schema.normalize(data));
    assert.deepEqual(data, original);
-   assert.equal(migrated.schemaVersion, 6);
+   assert.equal(migrated.schemaVersion, 7);
    assert.equal(migrated.phaseEnabled, true);
    assert.deepEqual(migrated.modules.filter((module) => module.type.startsWith('RCD')).map((rcd) => [rcd.type, rcd.phases]), [['RCD-2P', ['L2']], ['RCD-4P', ['L1', 'L2', 'L3']]]);
    assert.deepEqual(migrated.modules.filter((module) => module.type === 'MCB').map((module) => module.phases), [[], [], [], ['L1', 'L3']]);
@@ -736,16 +741,16 @@ test('v3 round-trip keeps all data, RCD IDs, and strips UI-only IDs', () => {
    const normalized = plain(schema.normalize(data));
    assert.deepEqual(normalized, expectedV5(withRcds));
    assert.deepEqual(plain(schema.normalize(normalized)), normalized);
-   assert.deepEqual(plain(schema.empty()), { schemaVersion: 6, generalInfo: '', qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] });
+   assert.deepEqual(plain(schema.empty()), { schemaVersion: 7, generalInfo: '', qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: [] });
 });
 
-test('v5 general information migrates to v6 and is validated as text', () => {
+test('v6 general information migrates to v7 and is validated as text', () => {
    const { schema } = setupSchema();
    const current = schema.normalize(withRcds);
-   const v5 = { ...current, schemaVersion: 5, generalInfo: 'Installateur: 06-12345678' };
-   assert.equal(schema.normalize(v5).generalInfo, v5.generalInfo);
-   delete v5.generalInfo;
-   assert.equal(schema.normalize(v5).generalInfo, '');
+   const v6 = { ...current, schemaVersion: 6, generalInfo: 'Installateur: 06-12345678' };
+   assert.equal(schema.normalize(v6).generalInfo, v6.generalInfo);
+   delete v6.generalInfo;
+   assert.equal(schema.normalize(v6).generalInfo, '');
    assert.throws(() => schema.normalize({ ...current, generalInfo: null }), /"generalInfo" moet tekst zijn/);
 });
 
@@ -783,11 +788,11 @@ test('invalid and newer versions are rejected before interpreting their contents
    for (const version of [null, '1', true, -1, 1.5, {}, []]) {
       assert.throws(() => schema.normalize({ schemaVersion: version, boxes: [] }), /schemaVersion/);
    }
-   assert.throws(() => schema.normalize({ schemaVersion: 7 }), /nieuwere schemaversie/);
+   assert.throws(() => schema.normalize({ schemaVersion: 8 }), /nieuwere schemaversie/);
    assert.throws(() => schema.normalize({ schemaVersion: Number.MAX_SAFE_INTEGER }), /nieuwere schemaversie/);
 });
 
-test('current data validates module types, protection references, box order and phase cardinality', () => {
+test('v7 data validates module types, protection references, box order and phase cardinality', () => {
    const { schema } = setupSchema();
    const data = schema.normalize(withRcds);
    const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
@@ -848,7 +853,7 @@ test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD,
    assert.throws(() => schema.normalize(variant((d) => { d.modules[1].protectedByModuleId = d.modules[0].id; })), /verwijst niet naar een RCD- of RCBO-module\./);
 });
 
-test('optional group items preserve arrays across schema versions without changing the version', () => {
+test('optional group items preserve arrays across schema versions after migrating to v7', () => {
    const { schema } = setupSchema();
    for (const source of [legacy, v1, v2, v3, v4, withRcdsV2, withRcds]) {
       const data = structuredClone(source);
@@ -856,7 +861,7 @@ test('optional group items preserve arrays across schema versions without changi
       data.boxes[0].groups[1].items = [];
       const original = structuredClone(data);
       const normalized = plain(schema.normalize(data));
-      assert.equal(normalized.schemaVersion, 6);
+      assert.equal(normalized.schemaVersion, 7);
       assert.deepEqual(normalized.modules[0].items, ['Vaatwasser', 'Stopcontacten']);
       assert.deepEqual(normalized.modules[1].items, []);
       assert.deepEqual(plain(schema.normalize(normalized)), normalized);
@@ -901,7 +906,7 @@ test('v1 input is still validated for required arrays, objects, strings, and war
    }
 });
 
-test('current data validates module IDs, colors and required protective fields', () => {
+test('v7 data validates module IDs, colors and required protective fields', () => {
    const { schema } = setupSchema();
    const canonical = schema.normalize(withRcds);
    const variant = (change) => { const data = structuredClone(canonical); change(data); return data; };
@@ -930,6 +935,29 @@ test('current data validates module IDs, colors and required protective fields',
       /"protectedByModuleId" moet tekst of null zijn/);
    assert.throws(() => schema.normalize(variant((d) => { d.modules[0].protectedByModuleId = 'missing'; })),
       /verwijst niet naar een RCD/);
+});
+
+test('v5 files migrate without special installations and v7 validates the optional group labels', () => {
+   const { schema } = setupSchema();
+   const v5 = expectedV5(withRcds);
+   v5.schemaVersion = 5;
+   const migrated = plain(schema.normalize(v5));
+   assert.equal(migrated.schemaVersion, 7);
+   assert.ok(migrated.modules.every((module) => !('specialInstallations' in module)));
+
+   const variant = (change) => { const data = structuredClone(migrated); change(data); return data; };
+   const withBoth = schema.normalize(variant((data) => {
+      data.modules[0].specialInstallations = ['burglar-alarm', 'smoke-alarm'];
+   }));
+   assert.deepEqual(Array.from(withBoth.modules[0].specialInstallations), ['smoke-alarm', 'burglar-alarm']);
+   for (const specialInstallations of [null, [], ['unknown'], ['smoke-alarm', 'smoke-alarm']]) {
+      assert.throws(() => schema.normalize(variant((data) => { data.modules[0].specialInstallations = specialInstallations; })),
+         /specialInstallations/);
+   }
+   assert.throws(() => schema.normalize(variant((data) => {
+      data.modules[0].type = 'SPD';
+      data.modules[0].specialInstallations = ['smoke-alarm'];
+   })), /ondersteunt geen bijzondere installaties/);
 });
 
 test('published schemas match the current version, required fields, and warning codes', () => {
@@ -983,18 +1011,26 @@ test('published schemas match the current version, required fields, and warning 
    assert.equal(publishedSchema.$defs.module.properties.items.type, 'array');
    assert.equal(publishedSchema.$defs.module.properties.items.items.type, 'string');
    assert.ok(!publishedSchema.$defs.module.required.includes('items'));
-   assert.equal(publishedSchema.title, 'JSON schema for groepenkaart v6');
+   assert.equal(publishedSchema.title, 'JSON schema for groepenkaart v7');
    assert.equal(publishedV5Schema.properties.schemaVersion.const, 5);
    assert.ok(!publishedV5Schema.required.includes('generalInfo'));
    assert.equal(publishedV4Schema.properties.schemaVersion.const, 4);
    assert.equal(publishedV4Schema.title, 'JSON schema for groepenkaart v4');
    assert.equal(publishedV1Schema.properties.schemaVersion.const, 1);
-   assert.equal(publishedV1Schema.$id, schema.schemaUrl.replace('-v6.', '-v1.'));
+   assert.equal(publishedV1Schema.$id, schema.schemaUrl.replace('-v7.', '-v1.'));
+   assert.equal(publishedV5Schema.properties.schemaVersion.const, 5);
+   assert.equal(publishedV5Schema.title, 'JSON schema for groepenkaart v5');
+   assert.equal(publishedV5Schema.$id, schema.schemaUrl.replace('-v7.', '-v5.'));
+   assert.deepEqual(publishedSchema.$defs.module.properties.specialInstallations.items.enum, ['smoke-alarm', 'burglar-alarm']);
+   assert.equal(publishedSchema.$defs.module.properties.specialInstallations.uniqueItems, true);
+   assert.equal(publishedV6Schema.properties.schemaVersion.const, 6);
+   assert.equal(publishedV6Schema.title, 'JSON schema for groepenkaart v6');
+   assert.deepEqual(publishedV6Schema.$defs.module.properties.specialInstallations.items.enum, ['smoke-alarm', 'burglar-alarm']);
 });
 
 test('the published v2 schema stays unchanged and does not describe phase fields', () => {
    const { schema } = setupSchema();
-   assert.equal(publishedV2Schema.$id, schema.schemaUrl.replace('-v6.', '-v2.'));
+   assert.equal(publishedV2Schema.$id, schema.schemaUrl.replace('-v7.', '-v2.'));
    assert.equal(publishedV2Schema.title, 'JSON schema for groepenkaart v2');
    assert.equal(publishedV2Schema.properties.schemaVersion.const, 2);
    assert.deepEqual(publishedV2Schema.required, ['schemaVersion', 'warnings', 'rcboEnabled', 'rcbos', 'boxes']);
@@ -1007,7 +1043,7 @@ test('the published v2 schema stays unchanged and does not describe phase fields
 
 test('the published v3 schema stays unchanged and does not describe the QR code option', () => {
    const { schema } = setupSchema();
-   assert.equal(publishedV3Schema.$id, schema.schemaUrl.replace('-v6.', '-v3.'));
+   assert.equal(publishedV3Schema.$id, schema.schemaUrl.replace('-v7.', '-v3.'));
    assert.equal(publishedV3Schema.properties.schemaVersion.const, 3);
    assert.deepEqual(publishedV3Schema.required, ['schemaVersion', 'warnings', 'rcdEnabled', 'phaseEnabled', 'rcds', 'boxes']);
    assert.ok(!('qrEnabled' in publishedV3Schema.properties));
@@ -1027,7 +1063,7 @@ test('imports migrate legacy files and rejected imports leave current data untou
    const app = setupApp();
    app.import(legacy);
    const stored = app.storage();
-   app.import({ schemaVersion: 7, boxes: [] });
+   app.import({ schemaVersion: 8, boxes: [] });
    assert.equal(app.storage(), stored);
    assert.deepEqual(await app.export(), { $schema: app.schema.schemaUrl, ...expectedV5(v4) });
    assert.match(app.messages[0], /Importeren mislukt.*nieuwere schemaversie/);
@@ -1267,6 +1303,27 @@ test('a variable-width type offers its widths in the dialog, only those that fit
    assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 1');
 });
 
+test('a 2P kWh meter can be one or two modules wide', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   app.editModule('legacy-module-1-1');
+   app.set('type', 'KWH-2P');
+   assert.equal(app.field('width').value, '1');
+   assert.deepEqual(app.field('width').children.map((option) => option.value), ['1', '2']);
+   app.cancel();
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'KWH-2P');
+   app.set('width', '2');
+   app.save();
+   const module = JSON.parse(app.storage()).modules[1];
+   assert.deepEqual([module.type, module.width], ['KWH-2P', 2]);
+   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 2');
+
+   const reloaded = setupApp(app.storage());
+   reloaded.editModule('legacy-module-1-2');
+   assert.equal(reloaded.field('width').value, '2');
+});
+
 test('a module warning must be one its type may flag', () => {
    const { schema } = setupSchema();
    const data = plain(schema.normalize(noWarnings));
@@ -1319,6 +1376,37 @@ test('installation warnings are chosen per module, can be combined and drive the
    app.save();
    assert.ok(!('warnings' in JSON.parse(app.storage()).modules[1]));
    assert.equal(cards().length, 0);
+});
+
+test('smoke alarms and burglar alarms are selected per group and print only RM and AL labels', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   const warningCards = () => app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warning');
+   app.editModule('legacy-module-1-1');
+   assert.deepEqual(['smoke-alarm', 'burglar-alarm'].map((code) =>
+      app.field('special-installation-' + code).attrs.type), ['checkbox', 'checkbox']);
+   app.set('special-installation-smoke-alarm', true);
+   app.set('special-installation-burglar-alarm', true);
+   app.save();
+   assert.deepEqual(JSON.parse(app.storage()).modules[0].specialInstallations, ['smoke-alarm', 'burglar-alarm']);
+   assert.deepEqual(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className.includes('special-installation-badge'))
+      .map((n) => n.textContent), ['RM', 'AL']);
+   assert.deepEqual(app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-badge special-installation-badge')
+      .map((n) => n.textContent), ['RM', 'AL']);
+   assert.equal(warningCards().length, 0);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.deepEqual(app.pdfCalls[0][0][0].groups[0].specialInstallations, ['smoke-alarm', 'burglar-alarm']);
+   assert.deepEqual(app.pdfCalls[0][1], []);
+
+   app.editModule('legacy-module-1-1');
+   app.set('special-installation-smoke-alarm', false);
+   app.save();
+   assert.deepEqual(JSON.parse(app.storage()).modules[0].specialInstallations, ['burglar-alarm']);
+   app.editModule('legacy-module-1-2');
+   app.set('special-installation-smoke-alarm', true);
+   app.set('type', 'SPD');
+   assert.equal(app.field('special-installation-smoke-alarm'), undefined);
+   app.save();
+   assert.ok(!('specialInstallations' in JSON.parse(app.storage()).modules[1]));
 });
 
 test('choosing a module type clears one-phase selections and locks three-phase modules', () => {
@@ -1497,7 +1585,7 @@ test('a sub-distribution box can be fed from an RCD, not from any module', () =>
       id, boxId, rail: 1, slot: 1, type, number: '1', description: '', characteristic: '', phases: [], protectedByModuleId: null, ...extra
    });
    const data = (sourceType) => ({
-      schemaVersion: 5, qrEnabled: false, rcdEnabled: true, phaseEnabled: false,
+      schemaVersion: 6, qrEnabled: false, rcdEnabled: true, phaseEnabled: false,
       modules: [module('src', 'b1', sourceType, sourceType.startsWith('RCD') ? { color: '#ed8c01', phases: sourceType === 'RCD-4P' ? ['L1', 'L2', 'L3'] : [] } : {}), module('m2', 'b2', 'MCB')],
       boxes: [
          { id: 'b1', number: '1', name: '', rails: 1, railWidth: 12, moduleIds: ['src'], supply: { type: 'mains' } },
@@ -1707,7 +1795,7 @@ test('connection lines are saved as arrays and printed as bullets', async () => 
    app.save();
    const stored = appState(app);
    assert.deepEqual(stored.boxes[0].groups[0].items, ['Vaatwasser', 'Stopcontacten', '<lamp>']);
-   assert.equal(stored.schemaVersion, 6);
+   assert.equal(stored.schemaVersion, 4);
    const exported = await app.export();
    assert.deepEqual(editorState(exported).boxes[0].groups[0].items, stored.boxes[0].groups[0].items);
    const lists = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-group-items');
@@ -1889,7 +1977,7 @@ test('clearing data writes the current schema, including after a failed load or 
       const app = setupApp(stored);
       app.nodes.get('clear-all').listeners.click();
       assert.deepEqual(JSON.parse(app.storage()), {
-         schemaVersion: 6, generalInfo: '', qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: []
+         schemaVersion: 7, generalInfo: '', qrEnabled: false, rcdEnabled: false, phaseEnabled: false, modules: [], boxes: []
       });
    }
    const app = setupApp();
@@ -1898,7 +1986,7 @@ test('clearing data writes the current schema, including after a failed load or 
    assert.equal(JSON.parse(app.storage()).rcdEnabled, false);
 });
 
-test('v3 files migrate to v6 with the QR code option off and keep all existing data', () => {
+test('v3 files migrate to v7 with the QR code option off and keep all existing data', () => {
    const { schema } = setupSchema();
    const v3WithRcds = { ...structuredClone(withRcds), schemaVersion: 3 };
    delete v3WithRcds.qrEnabled;
@@ -1944,7 +2032,7 @@ test('general information is editable, saved, exported, printed and cleared', as
    assert.equal((await app.export()).generalInfo, field.value);
    const share = app.shareContext.GroepenkaartShare;
    const link = share.url('https://example.test/app/', app.schema.normalize(JSON.parse(app.storage())));
-   assert.match(link, /#c3=/);
+   assert.match(link, /#c4=/);
    assert.equal(share.decode(new URL(link).hash).generalInfo, field.value);
    assert.equal(app.findAll(app.nodes.get('print-area'), (node) => node.className === 'print-general-info').length, 1);
    assert.equal(app.findAll(app.nodes.get('print-area'), (node) => node.textContent === field.value).length, 1);
@@ -1974,7 +2062,7 @@ test('the PDF only receives a QR code when the option is on, with a link that re
 
    const share = app.shareContext.GroepenkaartShare;
    const link = share.url('https://example.test/app/?x=1#old', app.schema.normalize(JSON.parse(app.storage())));
-   assert.match(link, /^https:\/\/example\.test\/app\/\?x=1#c3=[0-9A-Z$*+-]+$/);
+   assert.match(link, /^https:\/\/example\.test\/app\/\?x=1#c4=[0-9A-Z$*+-]+$/);
    const decoded = share.decode(new URL(link).hash);
    assert.deepEqual(plain(semanticV5(app.schema.normalize(decoded))), plain(semanticV5(JSON.parse(app.storage()))));
 });
@@ -2044,7 +2132,7 @@ test('a QR code is skipped with a visible message when the data does not fit', (
 test('opening a link replaces the data after confirmation, cleans the address and rejects bad links', () => {
    const source = setupApp(JSON.stringify(withRcds));
    const share = source.shareContext.GroepenkaartShare;
-   const hash = '#c3=' + share.encode(JSON.parse(source.storage()));
+   const hash = '#c4=' + share.encode(JSON.parse(source.storage()));
 
    const fresh = setupApp(null, hash);
    assert.deepEqual(semanticV5(JSON.parse(fresh.storage())), semanticV5(expectedV5(withRcds)));
@@ -2060,8 +2148,8 @@ test('opening a link replaces the data after confirmation, cleans the address an
    assert.deepEqual(declined.replaced, ['/app/?x=1']);
 
    const bads = ['#c1=', '#c1=abc', '#c1=!!!', '#c1=' + 'A'.repeat(20), '#c1=' + 'A'.repeat(4001), '#c1=1',
-      '#c2=', '#c2=abc', '#c2=!!!', '#c2=' + 'A'.repeat(20), '#c2=' + 'A'.repeat(4001), '#c2=1',
-      '#c3=', '#c3=abc', '#c3=!!!', '#c3=' + 'A'.repeat(20), '#c3=' + 'A'.repeat(4001), '#c3=1', '#data=', '#data=!!!',
+      '#c3=', '#c3=abc', '#c3=!!!', '#c3=' + 'A'.repeat(20), '#c3=' + 'A'.repeat(4001), '#c3=1',
+      '#c4=', '#c4=abc', '#c4=!!!', '#c4=' + 'A'.repeat(20), '#c4=' + 'A'.repeat(4001), '#c4=1', '#data=', '#data=!!!',
       '#data=' + 'A'.repeat(20)];
    for (const bad of bads) {
       const app = setupApp(JSON.stringify(v3), bad);
@@ -2107,7 +2195,7 @@ test('compact links round-trip all data, with RCD ids renumbered and everything 
    assert.deepEqual(decoded, expectedV5(renumbered));
    const emptyV4 = { schemaVersion: 4, warnings: [], qrEnabled: false, rcdEnabled: false, phaseEnabled: false, rcds: [], boxes: [] };
    assert.deepEqual(plain(schema.normalize(share.decode('#c1=' + share.encode(emptyV4)))), plain(schema.empty()));
-   assert.equal(schema.currentVersion, 6);
+   assert.equal(schema.currentVersion, 7);
 });
 
 test('compact links are much smaller than the original base64url format and the token is QR alphanumeric', () => {
@@ -2322,7 +2410,7 @@ test('a module that feeds a sub-distribution box also shows the warnings of the 
    });
    const box = (id, number, moduleIds, supply) => ({ id, number, name: '', rails: 1, railWidth: 12, moduleIds, supply });
    const data = {
-      schemaVersion: 5, qrEnabled: false, rcdEnabled: false, phaseEnabled: false,
+      schemaVersion: 6, qrEnabled: false, rcdEnabled: false, phaseEnabled: false,
       modules: [module('feed1', 'b1', ['battery']), module('plain', 'b1'), module('feed2', 'b2'), module('own', 'b3', ['ev'])],
       boxes: [
          box('b1', '1', ['feed1', 'plain'], { type: 'mains' }),

@@ -14,14 +14,14 @@ function setup() {
 }
 
 const card = () => ({
-   schemaVersion: 5,
+   schemaVersion: 7,
    generalInfo: 'Installateur Jan Jansen: 06-12345678',
    qrEnabled: true,
    rcdEnabled: true,
    phaseEnabled: false,
    modules: [
       { id: 'rcd', boxId: 'b1', rail: 1, slot: 1, type: 'RCD-2P', number: 'A1', name: 'Familie Jansen', color: '#e53935', description: '', characteristic: '', phases: [], protectedByModuleId: null },
-      { id: 'm1', boxId: 'b1', rail: 1, slot: 3, type: 'MCB', number: '1', description: 'Slaapkamer Piet', characteristic: 'B16', phases: [], protectedByModuleId: 'rcd', items: ['Lamp 12', ''] },
+      { id: 'm1', boxId: 'b1', rail: 1, slot: 3, type: 'MCB', number: '1', description: 'Slaapkamer Piet', characteristic: 'B16', phases: [], protectedByModuleId: 'rcd', items: ['Lamp 12', ''], specialInstallations: ['smoke-alarm'] },
       { id: 'm2', boxId: 'b2', rail: 1, slot: 1, type: 'MCB', number: '2', description: '', characteristic: 'B16', phases: [], protectedByModuleId: null }
    ],
    boxes: [
@@ -48,6 +48,7 @@ test('masks free text and keeps structure', () => {
    assert.equal(masked, 9);
    assert.equal(m1.number, '1');
    assert.equal(m1.protectedByModuleId, 'rcd');
+   assert.deepEqual(Array.from(m1.specialInstallations), ['smoke-alarm']);
    assert.equal(data.qrEnabled, true);
 });
 
@@ -71,9 +72,9 @@ test('migrates older versions and rejects invalid or newer files', () => {
       warnings: [],
       boxes: [{ number: '1', name: 'Thuis', groups: [{ number: '1', name: 'Keuken', description: 'Oven' }] }]
    });
-   assert.equal(data.schemaVersion, 6);
+   assert.equal(data.schemaVersion, 7);
    assert.equal(data.boxes[0].name, 'xxxxx');
    assert.equal(data.modules[0].description, 'xxxxxx – xxxx');
-   assert.throws(() => anonymize({ schemaVersion: 7 }), /nieuwere schemaversie/);
+   assert.throws(() => anonymize({ schemaVersion: 8 }), /nieuwere schemaversie/);
    assert.throws(() => anonymize([]), /verwacht een object/);
 });

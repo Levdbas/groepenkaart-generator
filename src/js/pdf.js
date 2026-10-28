@@ -223,8 +223,10 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(BADGE_SIZE);
       const badges = window.GroepenkaartWarnings.selected(group.warnings || []).map(function (warning) {
-         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2 };
-      });
+         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2, special: false };
+      }).concat(window.GroepenkaartWarnings.selectedSpecialInstallations(group.specialInstallations || []).map(function (installation) {
+         return { text: installation.badge, width: doc.getTextWidth(installation.badge) + BADGE_PADDING * 2, special: true };
+      }));
       // The first lines leave room for the badges at the right edge of the cell.
       const badgeWidth = badges.reduce(function (sum, badge) { return sum + badge.width + BADGE_GAP; }, 0);
       const headWidth = innerWidth - badgeWidth;
@@ -258,7 +260,8 @@
       for (let i = layout.badges.length - 1; i >= 0; i--) {
          const badge = layout.badges[i];
          badgeX -= badge.width;
-         doc.setFillColor(180, 35, 24);
+         if (badge.special) doc.setFillColor.apply(doc, BLUE);
+         else doc.setFillColor(180, 35, 24);
          doc.roundedRect(badgeX, y, badge.width, BADGE_HEIGHT, 0.7, 0.7, 'F');
          doc.setFont('helvetica', 'bold');
          doc.setFontSize(BADGE_SIZE);

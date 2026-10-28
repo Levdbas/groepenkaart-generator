@@ -10,6 +10,7 @@
    const limits = schema.boxLimits;
    const layout = window.GroepenkaartLayout;
    const rcdHelpers = window.GroepenkaartRcd;
+   const specialInstallationTypes = schema.specialInstallationTypes;
    const share = window.GroepenkaartShare;
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
    const circuitTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
@@ -126,7 +127,7 @@
       }
    }
 
-   // The editor works directly on the v5 data: modules plus boxes that list their placed modules.
+   // The editor works directly on the v6 data: modules plus boxes that list their placed modules.
    function normalize(data) {
       return schema.normalize(data);
    }
@@ -451,6 +452,7 @@
          if (kept.length) draft.warnings = kept;
          else delete draft.warnings;
       }
+      if (!specialInstallationTypes.includes(type)) delete draft.specialInstallations;
       if (!moduleTypes.protectable(type)) draft.protectedByModuleId = null;
       const linkedTarget = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
       if (linkedTarget && !canLink(type, linkedTarget)) draft.protectedByModuleId = null;
@@ -511,7 +513,7 @@
       const allowed = (moduleTypes.get(draft.type) || {}).warnings;
       if (!allowed || !allowed.length) return null;
       return el('fieldset', { className: 'phase-choices' }, [
-         el('legend', { text: 'Bijzondere installaties (waarschuwingen)' }),
+         el('legend', { text: 'Waarschuwingen' }),
          ...warnings.definitions.filter(function (warning) { return allowed.includes(warning.id); }).map(function (warning) {
             const checkbox = el('input', { type: 'checkbox', value: warning.id, 'data-field': 'warning-' + warning.id });
             checkbox.checked = (draft.warnings || []).includes(warning.id);
@@ -523,6 +525,25 @@
                else delete draft.warnings;
             });
             return el('label', null, [checkbox, el('span', { text: warning.label })]);
+         })
+      ]);
+   }
+
+   function specialInstallationField(draft) {
+      if (!specialInstallationTypes.includes(draft.type)) return null;
+      return el('fieldset', { className: 'phase-choices' }, [
+         el('legend', { text: 'Bijzondere installaties' }),
+         ...warnings.specialInstallationDefinitions.map(function (installation) {
+            const checkbox = el('input', { type: 'checkbox', value: installation.id, 'data-field': 'special-installation-' + installation.id });
+            checkbox.checked = (draft.specialInstallations || []).includes(installation.id);
+            checkbox.addEventListener('change', function () {
+               const chosen = warnings.specialInstallationCodes.filter(function (code) {
+                  return code === installation.id ? checkbox.checked : (draft.specialInstallations || []).includes(code);
+               });
+               if (chosen.length) draft.specialInstallations = chosen;
+               else delete draft.specialInstallations;
+            });
+            return el('label', null, [checkbox, el('span', { text: installation.label })]);
          })
       ]);
    }
@@ -695,6 +716,7 @@
          dialogText(draft, 'description', 'Omschrijving', isProtective(draft) ? 'Bijv. Keuken en badkamer' : 'Bijv. Keuken'),
          isProtective(draft) ? colorField(draft) : null,
          warningField(draft),
+         specialInstallationField(draft),
          dialogText(draft, 'characteristic', 'Vrij kenmerk', 'Bijv. B16'),
          state.rcdEnabled && moduleTypes.protectable(draft.type) && (!isProtective(draft) || draft.protectedByModuleId) ||
             moduleTypes.mcbLinkable(draft.type) ? protectionField(draft) : null,
@@ -948,7 +970,10 @@
       const color = moduleColor(module);
       const selected = module.id === selectedId;
       const flagged = warnings.selected(effectiveWarnings(module));
-      const description = [moduleLabel(module), module.type].concat(flagged.map(function (warning) { return warning.label; })).filter(Boolean).join(', ');
+      const specialInstallations = warnings.selectedSpecialInstallations(module.specialInstallations || []);
+      const description = [moduleLabel(module), module.type]
+         .concat(flagged.map(function (warning) { return warning.label; }))
+         .concat(specialInstallations.map(function (installation) { return installation.label; })).filter(Boolean).join(', ');
       return el('button', {
          type: 'button',
          className: 'din-module' + (selected ? ' is-selected' : '') + (width > 1 ? ' is-wide' : '') + (isProtective(module) ? ' is-protective' : ''),
@@ -969,6 +994,9 @@
          width > 1 ? el('span', { className: 'din-module-type', text: module.type, 'aria-hidden': 'true' }) : null,
          ...flagged.map(function (warning) {
             return el('span', { className: 'din-module-badge', text: warning.badge, 'aria-hidden': 'true' });
+         }),
+         ...specialInstallations.map(function (installation) {
+            return el('span', { className: 'din-module-badge special-installation-badge', text: installation.badge, 'aria-hidden': 'true' });
          })
       ]);
    }
@@ -1384,6 +1412,10 @@
                   g.warnings && g.warnings.length ? el('div', { className: 'print-badges' },
                      warnings.selected(g.warnings).map(function (warning) {
                         return el('span', { className: 'print-badge', text: warning.badge });
+                     })) : null,
+                  g.specialInstallations && g.specialInstallations.length ? el('div', { className: 'print-badges' },
+                     warnings.selectedSpecialInstallations(g.specialInstallations).map(function (installation) {
+                        return el('span', { className: 'print-badge special-installation-badge', text: installation.badge });
                      })) : null,
                   el('div', { className: 'print-module-meta', text: moduleMeta(g) }),
                   ...feedReferences(g),

@@ -2,11 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v6.schema.json",
   "title": "JSON schema for groepenkaart v6",
-  "description": "General information is printed above the first box. Modules are stored once in the modules list and boxes refer to their module IDs in physical order (rail, then slot). Each box has a number of DIN rails of a fixed width in modules; every placed module records the rail and start slot it occupies, within the rail and without overlapping other modules. Protection and sub-distribution supply references target module IDs. A null boxId preserves modules with unknown physical location; those modules have no rail or slot.",
+  "description": "Modules are stored once in the modules list and boxes refer to their module IDs in physical order (rail, then slot). Each box has a number of DIN rails of a fixed width in modules; every placed module records the rail and start slot it occupies, within the rail and without overlapping other modules. Protection and sub-distribution supply references target module IDs. A null boxId preserves modules with unknown physical location; those modules have no rail or slot.",
   "type": "object",
   "required": [
     "schemaVersion",
-    "generalInfo",
     "qrEnabled",
     "rcdEnabled",
     "phaseEnabled",
@@ -16,7 +15,6 @@
   "properties": {
     "$schema": { "type": "string", "format": "uri" },
     "schemaVersion": { "type": "integer", "const": 6 },
-    "generalInfo": { "description": "Free general information printed above the first box.", "type": "string" },
     "qrEnabled": { "type": "boolean" },
     "rcdEnabled": { "type": "boolean" },
     "phaseEnabled": { "type": "boolean" },
@@ -120,6 +118,13 @@
           "items": { "enum": ["pv", "ev", "battery"] },
           "uniqueItems": true,
           "minItems": 1
+        },
+        "specialInstallations": {
+          "description": "Special installations assigned to this group; shown as short labels in the group description.",
+          "type": "array",
+          "items": { "enum": ["smoke-alarm", "burglar-alarm"] },
+          "uniqueItems": true,
+          "minItems": 1
         }
       },
       "if": {
@@ -149,6 +154,14 @@
         {
           "if": { "required": ["warnings"] },
           "then": { "properties": { "type": { "enum": ["MCB", "MCB-3P"] } } }
+        },
+        {
+          "if": { "required": ["specialInstallations"] },
+          "then": {
+            "properties": {
+              "type": { "enum": ["MCB", "MCB-2P", "MCB-3P", "RCBO-2P", "RCBO-4P"] }
+            }
+          }
         },
         {
           "if": { "required": ["width"] },
