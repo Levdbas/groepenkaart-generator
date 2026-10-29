@@ -208,7 +208,7 @@
       doc.text('Algemene informatie', margin, top + 3);
       doc.setFont('helvetica', 'normal');
       doc.text(lines, margin, top + 7);
-      return 10 + lines.length * 4;
+      return 8 + lines.length * 4;
    }
 
    // Lays out a module's description, type details, and small bullet list for a cell of the given inner width. The height
@@ -328,20 +328,20 @@
          doc.text(date, pageWidth - margin, 15, { align: 'right' });
          let offset = drawWarnings(doc, warningModule.forPage(box, index, warningIds || [], boxes), margin, 19, warningImages);
          if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
-         if (index === 0) offset += drawGeneralInfo(doc, generalInfo, margin, 24 + offset, pageWidth - margin * 2);
+         if (index === 0) offset += drawGeneralInfo(doc, generalInfo, margin, 21 + offset, pageWidth - margin * 2);
          doc.setTextColor.apply(doc, BLUE);
          doc.setFontSize(11);
-         doc.text(title(box), margin, 24 + offset);
+         doc.text(title(box), margin, 22 + offset);
          const supply = supplySummary(box, boxes);
          let supplyHeight = 0;
          if (supply) {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
             doc.setTextColor(30, 30, 30);
-            doc.text(doc.splitTextToSize(supply, pageWidth - margin * 2), margin, 28 + offset);
+            doc.text(doc.splitTextToSize(supply, pageWidth - margin * 2), margin, 50 + offset);
             supplyHeight = 4.5;
          }
-         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 27 + offset + supplyHeight, phaseEnabled);
+         const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 21.5 + offset + supplyHeight, phaseEnabled);
 
          // A null row is a free slot, drawn as an empty row.
          const rows = box.rows || box.groups;
@@ -371,7 +371,7 @@
          });
 
          doc.autoTable({
-            startY: 30 + offset + supplyHeight + keyHeight,
+            startY: 26.5 + offset + supplyHeight + keyHeight,
             margin: { top: MARGIN_Y, bottom: MARGIN_Y, left: margin, right: margin },
             rowPageBreak: 'avoid',
             head: [phaseEnabled ? ['Module', 'Omschrijving', 'Fasen'] : ['Module', 'Omschrijving']],

@@ -823,9 +823,10 @@ test('v7 data validates module types, protection references, box order and phase
    assert.throws(() => schema.normalize(variant((d) => { d.rcdEnabled = false; })), /beveiligingsmodules bestaan/);
 });
 
-test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD, other types only to an RCD or RCBO', () => {
+test('module types allow kWh meters, circuit breakers and protective modules only in the supported link directions', () => {
    const { schema, moduleTypes } = setupSchema();
-   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug), ['DIN-OUTLET', 'Bell-TRANSFORMER', 'OTHER']);
+   assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => moduleTypes.mcbLinkable(type.slug)), (type) => type.slug),
+      ['DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'OTHER']);
    assert.equal(moduleTypes.mcbLinkable('unknown'), false);
    const data = schema.normalize(withRcds);
    const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
@@ -840,10 +841,11 @@ test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD,
    assert.equal(schema.normalize(variant((d) => {
       Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: d.modules[4].id });
    })).modules[1].protectedByModuleId, data.modules[4].id);
-   assert.throws(() => schema.normalize(variant((d) => {
+   assert.equal(schema.normalize(variant((d) => {
       Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: d.modules[3].id });
       d.modules[3].type = 'KWH-2P';
-   })), /installatieautomaat, aardlekautomaat of aardlekschakelaar/);
+      d.modules[3].protectedByModuleId = null;
+   })).modules[1].protectedByModuleId, data.modules[3].id);
    const outlet = (d) => { d.modules[1].type = 'DIN-OUTLET'; d.modules[1].protectedByModuleId = d.modules[0].id; };
    assert.equal(schema.normalize(variant(outlet)).modules[1].protectedByModuleId, data.modules[0].id);
    const rcbo = variant((d) => { outlet(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; });
@@ -856,6 +858,47 @@ test('types flagged mcbLinkable may refer to a circuit breaker but never an RCD,
    assert.equal(schema.normalize(variant((d) => { bell(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; })).modules[1].protectedByModuleId, data.modules[0].id);
    assert.throws(() => schema.normalize(variant((d) => { bell(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
       /installatieautomaat of aardlekautomaat/);
+});
+
+test('kWh meter links preserve main-switch order and reject invalid or cyclic protection chains', () => {
+   const { schema } = setupSchema();
+   const data = plain(schema.normalize(withRcds));
+   data.modules.push(
+      {
+         id: 'main', boxId: null, type: 'MAINS-4P', number: '', description: '', characteristic: '',
+         phases: ['L1', 'L2', 'L3'], protectedByModuleId: null
+      },
+      {
+         id: 'meter', boxId: null, type: 'KWH-4P', number: '', description: '', characteristic: '',
+         phases: ['L1', 'L2', 'L3'], protectedByModuleId: 'main'
+      }
+   );
+   const variant = (change) => { const copy = structuredClone(data); change(copy); return copy; };
+
+   const ordered = schema.normalize(variant((d) => {
+      d.modules.find((module) => module.id === 'r1').protectedByModuleId = 'meter';
+      Object.assign(d.modules[1], { type: 'OTHER', protectedByModuleId: 'meter' });
+   }));
+   assert.equal(ordered.modules.find((module) => module.id === 'meter').protectedByModuleId, 'main');
+   assert.equal(ordered.modules.find((module) => module.id === 'r1').protectedByModuleId, 'meter');
+   assert.equal(ordered.modules[1].protectedByModuleId, 'meter');
+
+   const behindGroup = schema.normalize(variant((d) => {
+      d.modules.find((module) => module.id === 'meter').protectedByModuleId = d.modules[0].id;
+   }));
+   assert.equal(behindGroup.modules.find((module) => module.id === 'meter').protectedByModuleId, data.modules[0].id);
+
+   assert.throws(() => schema.normalize(variant((d) => {
+      d.modules.find((module) => module.id === 'meter').protectedByModuleId = 'r1';
+   })), /kWh-meter moet verwijzen naar een hoofdschakelaar of circuitmodule/);
+   assert.throws(() => schema.normalize(variant((d) => {
+      d.modules.find((module) => module.id === 'meter').protectedByModuleId = d.modules[0].id;
+      d.modules.find((module) => module.id === 'r1').protectedByModuleId = 'meter';
+   })), /alleen aan een kWh-meter gekoppeld.*hoofdschakelaar/);
+   assert.throws(() => schema.normalize(variant((d) => {
+      d.modules.find((module) => module.id === 'meter').protectedByModuleId = d.modules[0].id;
+      d.modules[0].protectedByModuleId = 'meter';
+   })), /kringverwijzing in modulebeveiliging/);
 });
 
 test('optional group items preserve arrays across schema versions after migrating to v7', () => {
@@ -1924,6 +1967,39 @@ test('a free module can connect to an RCD as well as to a circuit breaker and ta
 
    app.setRcdEnabled(false);
    assert.equal(JSON.parse(app.storage()).modules[1].protectedByModuleId, null, 'an RCD link is dropped when RCDs are turned off');
+});
+
+test('the editor links a kWh meter to a main switch, then allows RCDs and modules to link to that meter', () => {
+   const { schema } = setupSchema();
+   const data = plain(schema.normalize(withRcds));
+   data.modules.push({
+      id: 'main', boxId: null, type: 'MAINS-4P', number: '', description: '', characteristic: '',
+      phases: ['L1', 'L2', 'L3'], protectedByModuleId: null
+   });
+   const app = setupApp(JSON.stringify(data));
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'KWH-2P');
+   assert.equal(app.field('protection').attrs['aria-label'], 'Aangesloten op');
+   assert.ok(app.field('protection').children.some((option) => option.attrs.value === 'main'));
+   assert.ok(app.field('protection').children.some((option) => option.attrs.value === 'legacy-module-1-1'));
+   app.set('protection', 'main');
+   app.save();
+   const meter = JSON.parse(app.storage()).modules.find((module) => module.type === 'KWH-2P');
+   assert.equal(meter.protectedByModuleId, 'main');
+
+   app.editModule('r1');
+   assert.equal(app.field('protection').attrs['aria-label'], 'Aangesloten op');
+   assert.ok(app.field('protection').children.some((option) => option.attrs.value === meter.id));
+   app.set('protection', meter.id);
+   app.save();
+   assert.equal(JSON.parse(app.storage()).modules.find((module) => module.id === 'r1').protectedByModuleId, meter.id);
+
+   app.editModule('legacy-module-2-2');
+   assert.ok(app.field('protection').children.some((option) => option.attrs.value === meter.id));
+   app.set('protection', meter.id);
+   app.save();
+   assert.equal(JSON.parse(app.storage()).modules.find((module) => module.id === 'legacy-module-2-2').protectedByModuleId, meter.id);
 });
 
 test('a dinrail outlet inherits phases and rated current from the circuit breaker it hangs on', () => {

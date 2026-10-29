@@ -17,6 +17,8 @@
    const protectiveTypes = ['RCD-2P', 'RCD-4P', 'RCBO-2P', 'RCBO-4P'];
    const circuitTypes = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const mcbLinkTargets = circuitTypes;
+   const mainsTypes = ['MAINS-2P', 'MAINS-4P'];
+   const kwhTypes = ['KWH-2P', 'KWH-4P'];
    const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P']);
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
@@ -182,25 +184,50 @@
       return box.moduleIds.map(findModule).filter(Boolean);
    }
 
-   // The RCD or RCBO that protects a module, directly or through the MCB it is connected to.
+   // The RCD or RCBO that protects a module, directly or through upstream modules.
    function rcdOf(module) {
-      let protection = module.protectedByModuleId && findModule(module.protectedByModuleId);
-      if (protection && !isProtective(protection)) {
-         protection = protection.protectedByModuleId && findModule(protection.protectedByModuleId);
+      let protection = module;
+      const seen = new Set();
+      while (protection && protection.protectedByModuleId && !seen.has(protection.id)) {
+         seen.add(protection.id);
+         protection = findModule(protection.protectedByModuleId);
+         if (protection && isProtective(protection)) return protection;
       }
-      return protection && isProtective(protection) ? protection : null;
+      return null;
    }
 
-   // Types that can connect to an MCB link to a circuit breaker only (plus an RCD for rcdLinkable types); every other type links to an RCD or RCBO.
+   function kwhMeterTargetsMains(module) {
+      const source = module && module.protectedByModuleId && findModule(module.protectedByModuleId);
+      return !!source && mainsTypes.includes(source.type);
+   }
+
+   // A kWh meter may sit after a main switch or circuit module; downstream modules may connect to it.
    function canLink(type, target) {
+      if (!moduleTypes.protectable(type)) return false;
+      if (kwhTypes.includes(type)) return mainsTypes.includes(target.type) || mcbLinkTargets.includes(target.type);
+      if (kwhTypes.includes(target.type)) return !protectiveTypes.includes(type) || kwhMeterTargetsMains(target);
       if (!moduleTypes.mcbLinkable(type)) return isProtective(target);
       return mcbLinkTargets.includes(target.type) || (moduleTypes.rcdLinkable(type) && isProtective(target));
    }
 
-   // The circuit breaker a module is connected to, for types that can be linked to one.
+   function createsProtectionCycle(sourceId, target) {
+      const seen = new Set();
+      while (target && !seen.has(target.id)) {
+         if (target.id === sourceId) return true;
+         seen.add(target.id);
+         target = target.protectedByModuleId && findModule(target.protectedByModuleId);
+      }
+      return false;
+   }
+
+   // The circuit breaker a module is connected to directly or through a kWh meter.
    function mcbOf(module) {
-      const target = module.protectedByModuleId && findModule(module.protectedByModuleId);
-      return target && moduleTypes.mcbLinkable(module.type) && mcbLinkTargets.includes(target.type) ? target : null;
+      if (!moduleTypes.mcbLinkable(module.type)) return null;
+      let target = module.protectedByModuleId && findModule(module.protectedByModuleId);
+      while (target && kwhTypes.includes(target.type)) {
+         target = target.protectedByModuleId && findModule(target.protectedByModuleId);
+      }
+      return target && mcbLinkTargets.includes(target.type) ? target : null;
    }
 
    // The phases a module effectively has: those of the circuit breaker it is connected to, all three for three-phase
@@ -586,17 +613,17 @@
 
    function protectionField(draft) {
       const mcbLinkable = moduleTypes.mcbLinkable(draft.type);
-      const rcdLinkable = mcbLinkable && state.rcdEnabled && moduleTypes.rcdLinkable(draft.type);
-      const options = mcbLinkable ? state.boxes.flatMap(boxModules).concat(unplacedModules()).filter(function (module) {
-         return module.id !== draft.id && (mcbLinkTargets.includes(module.type) || (rcdLinkable && ['RCD-2P', 'RCD-4P'].includes(module.type)));
-      }) : rcdViews().filter(function (rcd) { return rcd.id !== draft.id; });
-      const select = el('select', { 'data-field': 'protection', 'aria-label': mcbLinkable ? 'Aangesloten op' : 'Aardlekschakelaar' }, [
+      const options = state.boxes.flatMap(boxModules).concat(unplacedModules()).filter(function (module) {
+         return module.id !== draft.id && canLink(draft.type, module) && !createsProtectionCycle(draft.id, module);
+      });
+      const hasKwhMeter = state.modules.some(function (module) { return kwhTypes.includes(module.type); });
+      const linkedLabel = mcbLinkable || hasKwhMeter ? 'Aangesloten op' : 'Aardlekschakelaar';
+      const select = el('select', { 'data-field': 'protection', 'aria-label': linkedLabel }, [
          el('option', { value: '', text: 'Geen koppeling' })
       ].concat(options.map(function (item, index) {
          return el('option', {
             value: item.id,
-            text: !mcbLinkable ? rcdOptionText(item, index)
-               : ['RCD-2P', 'RCD-4P'].includes(item.type) ? rcdOptionText(rcdView(item), protectiveModules().indexOf(item))
+            text: isProtective(item) ? rcdOptionText(rcdView(item), protectiveModules().indexOf(item))
                : [item.number, item.description].filter(Boolean).join(' – ') || item.type
          });
       })));
@@ -606,7 +633,7 @@
          rerenderModuleDialog('protection');
       });
       const linked = rcdOf(draft);
-      return labelField(mcbLinkable ? 'Aangesloten op' : 'Aardlekschakelaar',
+      return labelField(linkedLabel,
          el('div', { className: 'rcd-select' }, [swatch(linked && linked.color), select]), 'field-wide');
    }
 
@@ -734,6 +761,12 @@
       const draft = dialogState.draft;
       const editing = !!dialogState.original;
       const box = draft.boxId && findBox(draft.boxId);
+      const hasKwhMeter = state.modules.some(function (module) { return kwhTypes.includes(module.type); });
+      const hasMainsConnectedKwh = state.modules.some(function (module) {
+         return kwhTypes.includes(module.type) && kwhMeterTargetsMains(module);
+      });
+      const canLinkToKwh = hasKwhMeter && moduleTypes.protectable(draft.type) &&
+         (!isProtective(draft) || hasMainsConnectedKwh);
       const fields = [
          typeField(draft),
          widthField(draft),
@@ -746,7 +779,7 @@
          specialInstallationField(draft),
          dialogText(draft, 'characteristic', 'Vrij kenmerk', 'Bijv. B16'),
          state.rcdEnabled && moduleTypes.protectable(draft.type) && (!isProtective(draft) || draft.protectedByModuleId) ||
-            moduleTypes.mcbLinkable(draft.type) ? protectionField(draft) : null,
+            moduleTypes.mcbLinkable(draft.type) || canLinkToKwh ? protectionField(draft) : null,
          state.phaseEnabled ? phaseField(draft) : null,
          expertMode ? technicalFields(draft) : null,
          itemsField(draft)
