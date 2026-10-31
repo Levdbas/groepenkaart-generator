@@ -78,3 +78,21 @@ test('migrates older versions and rejects invalid or newer files', () => {
    assert.throws(() => anonymize({ schemaVersion: 8 }), /nieuwere schemaversie/);
    assert.throws(() => anonymize([]), /verwacht een object/);
 });
+
+test('anonymizes v5 bell transformers with a legacy direct RCD link', () => {
+   const { anonymize } = setup();
+   const input = card();
+   input.schemaVersion = 5;
+   input.modules[1].type = 'Bell-TRANSFORMER';
+   delete input.modules[1].specialInstallations;
+   input.boxes[1].supply = null;
+   const before = JSON.stringify(input);
+   const { data } = anonymize(input);
+   assert.equal(data.schemaVersion, 7);
+   assert.equal(data.modules[1].type, 'Bell-TRANSFORMER');
+   assert.equal(data.modules[1].protectedByModuleId, null);
+   assert.equal(data.modules[1].rail, 1);
+   assert.equal(data.modules[1].slot, 3);
+   assert.equal(data.modules[1].description, 'xxxxxxxxxx xxxx');
+   assert.equal(JSON.stringify(input), before);
+});

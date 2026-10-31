@@ -295,7 +295,19 @@
          };
       },
       5: function (data) {
-         return Object.assign({}, data, { schemaVersion: 6 });
+         if (!Array.isArray(data.modules)) throw new Error('Ongeldig bestand: "modules" moet een lijst zijn.');
+         const modules = data.modules.map(function (module) {
+            if (!isObject(module) || module.type !== 'Bell-TRANSFORMER' || typeof module.protectedByModuleId !== 'string') return module;
+            const protection = data.modules.find(function (candidate) {
+               return isObject(candidate) && candidate.id === module.protectedByModuleId;
+            });
+            // Older bell transformers could reference an RCD without recording the supplying circuit breaker.
+            if (!protection || !['RCD-2P', 'RCD-4P'].includes(protection.type)) return module;
+            console.warn('Migratie v5: rechtstreekse aardlekkoppeling van beltrafo ' + JSON.stringify(module.id) +
+               ' verwijderd. Koppel de beltrafo aan de juiste installatieautomaat of aardlekautomaat.');
+            return Object.assign({}, module, { protectedByModuleId: null });
+         });
+         return Object.assign({}, data, { schemaVersion: 6, modules: modules });
       },
       // Adds general information to cards with special installation labels.
       6: function (data) {

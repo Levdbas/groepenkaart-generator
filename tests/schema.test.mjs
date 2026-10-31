@@ -202,9 +202,9 @@ function semanticV5(data) {
    };
 }
 
-function setupSchema() {
+function setupSchema(messages = []) {
    const window = {};
-   const context = vm.createContext({ window });
+   const context = vm.createContext({ window, console: { warn(...args) { messages.push(args); } } });
    sources.slice(0, 4).forEach((source) => vm.runInContext(source, context));
    return { schema: window.GroepenkaartSchema, moduleTypes: window.GroepenkaartSchema.moduleTypes, context };
 }
@@ -858,6 +858,46 @@ test('module types allow kWh meters, circuit breakers and protective modules onl
    assert.equal(schema.normalize(variant((d) => { bell(d); d.modules[0].type = 'RCBO-2P'; d.modules[0].color = '#e53935'; d.modules[0].protectedByModuleId = null; })).modules[1].protectedByModuleId, data.modules[0].id);
    assert.throws(() => schema.normalize(variant((d) => { bell(d); d.modules[1].protectedByModuleId = d.modules[4].id; })),
       /installatieautomaat of aardlekautomaat/);
+});
+
+test('v5 migration clears only direct RCD links on bell transformers without changing their layout or input', () => {
+   const messages = [];
+   const { schema } = setupSchema(messages);
+   const base = plain(schema.normalize(withRcds));
+   base.schemaVersion = 5;
+   base.modules[1].type = 'Bell-TRANSFORMER';
+   base.boxes[0].railWidth = 12;
+   for (const type of ['RCD-2P', 'RCD-4P']) {
+      const input = structuredClone(base);
+      input.modules[4].type = type;
+      input.modules[4].phases = type === 'RCD-4P' ? ['L1', 'L2', 'L3'] : [];
+      input.modules[1].protectedByModuleId = input.modules[4].id;
+      const before = structuredClone(input);
+      const migrated = plain(schema.normalize(input));
+      assert.deepEqual(input, before);
+      assert.deepEqual(migrated.modules[1], { ...input.modules[1], protectedByModuleId: null });
+      assert.deepEqual(migrated.boxes, input.boxes);
+      assert.equal(migrated.schemaVersion, 7);
+      for (const version of [6, 7]) {
+         assert.throws(() => schema.normalize({ ...input, schemaVersion: version }), /installatieautomaat of aardlekautomaat/);
+      }
+   }
+   assert.equal(messages.length, 2);
+   assert.match(messages[0][0], /Migratie v5.*beltrafo.*verwijderd/);
+   for (const type of ['MCB', 'RCBO-2P']) {
+      const input = structuredClone(base);
+      input.modules[0].type = type;
+      input.modules[1].protectedByModuleId = input.modules[0].id;
+      if (type === 'RCBO-2P') input.modules[0].color = '#e53935';
+      assert.equal(schema.normalize(input).modules[1].protectedByModuleId, input.modules[0].id);
+   }
+   const broken = structuredClone(base);
+   broken.modules[1].protectedByModuleId = 'missing';
+   assert.throws(() => schema.normalize(broken), /installatieautomaat of aardlekautomaat/);
+   broken.modules[1].type = 'DIN-OUTLET';
+   broken.modules[1].protectedByModuleId = broken.modules[4].id;
+   assert.throws(() => schema.normalize(broken), /installatieautomaat of aardlekautomaat/);
+   assert.equal(messages.length, 2);
 });
 
 test('kWh meter links preserve main-switch order and reject invalid or cyclic protection chains', () => {
