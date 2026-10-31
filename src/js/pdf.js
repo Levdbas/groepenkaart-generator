@@ -152,7 +152,8 @@
    function moduleMetadata(module, boxes) {
       const definition = window.GroepenkaartSchema.moduleTypes.get(module.type || 'MCB');
       const width = window.GroepenkaartSchema.moduleTypes.widthOf(module);
-      const details = definition ? [definition.slug, width + (width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
+      const label = definition ? (module.type && module.type.startsWith('MAINS-') ? definition.label : definition.slug) : '';
+      const details = definition ? [label, width + (width === 1 ? ' DIN-module' : ' DIN-modules')] : [];
       if (module.characteristic) details.push(module.characteristic);
       if (module.rcdType) details.push('type ' + module.rcdType);
       if (module.ratedCurrent) details.push(module.ratedCurrent + ' A');
@@ -176,7 +177,8 @@
          details.push('hoofdaansluiting');
          if (supply.connectionRating === 'Anders') details.push(supply.customConnectionRating || 'Anders');
          else if (supply.connectionRating) details.push(supply.connectionRating);
-         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+         const hasMainsModule = box.groups.some(function (module) { return module.type && module.type.startsWith('MAINS-'); });
+         if (!hasMainsModule && (supply.mainSwitchPoles || supply.mainSwitchCurrent)) {
             details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
                (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
          }
@@ -189,7 +191,8 @@
          if (sourceBox && source) details.push('vanuit kast ' + sourceBox.number + ', module ' + source.number);
          if (supply.preFuse) details.push(supply.preFuse);
          if (supply.cableCores && supply.cableCrossSection) details.push(supply.cableCores + 'x ' + supply.cableCrossSection + ' mm2');
-         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+         const hasMainsModule = box.groups.some(function (module) { return module.type && module.type.startsWith('MAINS-'); });
+         if (!hasMainsModule && (supply.mainSwitchPoles || supply.mainSwitchCurrent)) {
             details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
                (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
          }
