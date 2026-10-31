@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.1](https://github.com/Levdbas/groepenkaart-generator/compare/2.1.0...2.1.1) (2026-10-31)
+
+
+### 🐛 Bug Fixes
+
+* (smoke) alarm badges are now also red ([c4da1f3](https://github.com/Levdbas/groepenkaart-generator/commit/c4da1f33d8c4dc004dffe65d5a7deb45dff45415))
+* improve tooltip formatting and update placeholder text in index.html ([6e7095c](https://github.com/Levdbas/groepenkaart-generator/commit/6e7095cca9cdb97046869bf66c9ba071a9a50ae2))
+* migrate v5 bell transformers by removing direct RCD links and update related tests ([96d2a95](https://github.com/Levdbas/groepenkaart-generator/commit/96d2a95b9be46d0d47c68e3cb4fe510534147e8f)), closes [#56](https://github.com/Levdbas/groepenkaart-generator/issues/56)
+* reorder netbeheerder options into a more logical order (reported by @True) ([339d0f1](https://github.com/Levdbas/groepenkaart-generator/commit/339d0f1c2a24fac3594468b20758746dada3e3ac))
+
 ## [2.1.0](https://github.com/Levdbas/groepenkaart-generator/compare/2.0.0...2.1.0) (2026-10-29)
 
 
