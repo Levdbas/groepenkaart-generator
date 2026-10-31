@@ -1556,7 +1556,7 @@ test('netbeheerder is chosen from a list with Anders for free text, and existing
    byLabel('Soort voeding kast 1').listeners.change();
    const operator = byLabel('Netbeheerder');
    assert.deepEqual(Array.from(operator.children, (option) => option.value),
-      ['', 'Coteq', 'Enexis', 'Liander', 'RENDO', 'Stedin', 'Westland Infra', 'other']);
+      ['', 'Liander', 'Enexis', 'Stedin', 'Coteq', 'RENDO', 'Westland Infra', 'other']);
    assert.equal(byLabel('Andere netbeheerder'), undefined);
 
    operator.value = 'Enexis';

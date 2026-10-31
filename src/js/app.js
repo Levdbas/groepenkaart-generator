@@ -23,7 +23,7 @@
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
    // Regional grid operators (netbeheerders) of Netbeheer Nederland; anything else is entered via "Anders".
-   const gridOperators = ['Coteq', 'Enexis', 'Liander', 'RENDO', 'Stedin', 'Westland Infra'];
+   const gridOperators = ['Liander', 'Enexis', 'Stedin', 'Coteq', 'RENDO', 'Westland Infra'];
    const otherOperator = 'other';
    // Boxes where "Anders" is chosen but no name is typed yet; the stored value is plain text either way.
    const customOperatorBoxes = new Set();
@@ -1387,8 +1387,8 @@
       const type = moduleTypes.get(module.type);
       const label = type && module.type.startsWith('MAINS-') ? type.label : module.type;
       return [label, type ? widthText(moduleWidth(module)) : '',
-      module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '',
-      module.connectedTo ? rcdHelpers.connectionText(module) : '']
+         module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '',
+         module.connectedTo ? rcdHelpers.connectionText(module) : '']
          .filter(Boolean).join(' · ');
    }
 
