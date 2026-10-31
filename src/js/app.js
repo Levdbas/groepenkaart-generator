@@ -1304,22 +1304,6 @@
       return el('label', { className: 'field' }, [el('span', { text: label }), node]);
    }
 
-   function supplyPolesField(supply) {
-      const select = el('select', { 'aria-label': 'Polen hoofdschakelaar' }, [
-         el('option', { value: '', text: '-- selecteer --' }),
-         el('option', { value: '2', text: '2P' }),
-         el('option', { value: '4', text: '4P' })
-      ]);
-      select.value = supply.mainSwitchPoles ? String(supply.mainSwitchPoles) : '';
-      select.addEventListener('change', function () {
-         if (select.value) supply.mainSwitchPoles = Number(select.value);
-         else delete supply.mainSwitchPoles;
-         save();
-         renderPrint();
-      });
-      return el('label', { className: 'field' }, [el('span', { text: 'Polen hoofdschakelaar' }), select]);
-   }
-
    function renderSupplyEditor(box) {
       const supply = box.supply;
       const type = el('select', { 'aria-label': 'Soort voeding kast ' + box.number }, [
@@ -1360,8 +1344,6 @@
       } else if (supply && supply.type === 'mains') {
          fields.push(...supplyRatingField(supply));
          fields.push(...supplierField(box, supply));
-         fields.push(supplyNumberField(supply, 'mainSwitchCurrent', 'Nominale stroom hoofdschakelaar'));
-         fields.push(supplyPolesField(supply));
       } else if (supply && supply.type === 'subdistribution') {
          const source = el('select', { 'aria-label': 'Voeding vanuit module kast ' + box.number }, [
             el('option', { value: '', text: 'Kies bronmodule' })
@@ -1389,8 +1371,6 @@
          fields.push(supplyTextField(supply, 'preFuse', 'Voorbeveiliging', 'Bijv. C32'));
          fields.push(supplyNumberField(supply, 'cableCores', 'Aantal aders'));
          fields.push(supplyNumberField(supply, 'cableCrossSection', 'Kabeldoorsnede (mm²)', 'any'));
-         fields.push(supplyNumberField(supply, 'mainSwitchCurrent', 'Nominale stroom hoofdschakelaar'));
-         fields.push(supplyPolesField(supply));
       }
       return el('section', { className: 'box-supply-editor' }, [
          el('label', { className: 'field' }, [el('span', { text: 'Voeding' }), type])
@@ -1405,7 +1385,8 @@
 
    function moduleMeta(module) {
       const type = moduleTypes.get(module.type);
-      return [module.type, type ? widthText(moduleWidth(module)) : '',
+      const label = type && module.type.startsWith('MAINS-') ? type.label : module.type;
+      return [label, type ? widthText(moduleWidth(module)) : '',
       module.characteristic, module.rcdType ? 'type ' + module.rcdType : '', module.ratedCurrent ? module.ratedCurrent + ' A' : '',
       module.connectedTo ? rcdHelpers.connectionText(module) : '']
          .filter(Boolean).join(' · ');
@@ -1422,7 +1403,8 @@
          details.push('hoofdaansluiting');
          if (supply.connectionRating === 'Anders') details.push(supply.customConnectionRating || 'Anders');
          else if (supply.connectionRating) details.push(supply.connectionRating);
-         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+         const hasMainsModule = box.groups.some(function (module) { return module.type && module.type.startsWith('MAINS-'); });
+         if (!hasMainsModule && (supply.mainSwitchPoles || supply.mainSwitchCurrent)) {
             details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
                (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
          }
@@ -1433,7 +1415,8 @@
          if (sourceBox) details.push('vanuit kast ' + sourceBox.number + ', module ' + source.number);
          if (supply.preFuse) details.push(supply.preFuse);
          if (supply.cableCores && supply.cableCrossSection) details.push(supply.cableCores + 'x ' + supply.cableCrossSection + ' mm²');
-         if (supply.mainSwitchPoles || supply.mainSwitchCurrent) {
+         const hasMainsModule = box.groups.some(function (module) { return module.type && module.type.startsWith('MAINS-'); });
+         if (!hasMainsModule && (supply.mainSwitchPoles || supply.mainSwitchCurrent)) {
             details.push('hoofdschakelaar ' + (supply.mainSwitchPoles ? supply.mainSwitchPoles + 'P' : '') +
                (supply.mainSwitchCurrent ? ' ' + supply.mainSwitchCurrent + ' A' : ''));
          }

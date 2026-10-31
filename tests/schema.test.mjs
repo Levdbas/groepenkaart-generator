@@ -1607,16 +1607,12 @@ test('sub-distribution supply references stable modules and renders inverse feed
       field.value = value;
       field.listeners.input();
    }
-   const currents = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Nominale stroom hoofdschakelaar');
-   currents[1].value = '40';
-   currents[1].listeners.input();
-   const poles = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Polen hoofdschakelaar')[1];
-   poles.value = '4';
-   poles.listeners.change();
+   assert.equal(app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Nominale stroom hoofdschakelaar').length, 0);
+   assert.equal(app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Polen hoofdschakelaar').length, 0);
    const stored = JSON.parse(app.storage());
    assert.deepEqual(stored.boxes[1].supply, {
       type: 'subdistribution', sourceModuleId: 'legacy-module-1-1', preFuse: 'C32',
-      cableCores: 5, cableCrossSection: 6, mainSwitchCurrent: 40, mainSwitchPoles: 4
+      cableCores: 5, cableCrossSection: 6
    });
    const print = app.nodes.get('print-area');
    const supplySummaries = app.findAll(print, (node) => node.className === 'print-supply');
@@ -1626,6 +1622,31 @@ test('sub-distribution supply references stable modules and renders inverse feed
    app.selectModule('legacy-module-1-1');
    app.action('Module verwijderen').listeners.click();
    assert.equal(JSON.parse(app.storage()).boxes[1].supply.sourceModuleId, null);
+});
+
+test('main switch poles and current are supplied by the MAINS module', () => {
+   const app = setupApp(JSON.stringify(noWarnings));
+   app.setExpertMode(true);
+   const byLabel = (label) => app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === label)[0];
+   byLabel('Soort voeding kast 1').value = 'mains';
+   byLabel('Soort voeding kast 1').listeners.change();
+   assert.equal(byLabel('Nominale stroom hoofdschakelaar'), undefined);
+   assert.equal(byLabel('Polen hoofdschakelaar'), undefined);
+
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'MAINS-2P');
+   app.set('ratedCurrent', '40');
+   app.save();
+
+   const stored = JSON.parse(app.storage());
+   const mainSwitch = stored.modules.find((module) => module.id === 'legacy-module-1-2');
+   assert.equal(mainSwitch.type, 'MAINS-2P');
+   assert.equal(mainSwitch.ratedCurrent, 40);
+   const print = app.nodes.get('print-area');
+   const summary = app.findAll(print, (node) => node.className === 'print-supply')[0];
+   assert.ok(!summary.textContent.includes('hoofdschakelaar'));
+   const metadata = app.findAll(print, (node) => node.className === 'print-module-meta');
+   assert.ok(metadata.some((node) => node.textContent.includes('Hoofdschakelaar 2P') && node.textContent.includes('40 A')));
 });
 
 test('a sub-distribution box can be fed from an RCD, not from any module', () => {

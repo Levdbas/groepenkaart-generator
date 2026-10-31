@@ -138,12 +138,35 @@ test('PDF only draws empty rows for the free slots the app supplies', () => {
    assert.equal(harness.document().lastAutoTable.body.length, 20);
 });
 
+test('a MAINS module prints its poles and current without duplicating legacy supply fields', () => {
+   const harness = setup();
+   const data = box();
+   data.supply = { type: 'mains', mainSwitchCurrent: 40, mainSwitchPoles: 4 };
+   data.groups[0] = {
+      id: 'main-switch', type: 'MAINS-4P', number: '0', description: '',
+      ratedCurrent: 40
+   };
+   harness.pdf.download([data]);
+   const text = pageText(harness.document(), 1);
+   assert.ok(text.includes('Hoofdschakelaar 4P'));
+   assert.ok(text.includes('40 A'));
+   assert.equal((text.toLowerCase().match(/hoofdschakelaar/g) || []).length, 1);
+
+   const legacyHarness = setup();
+   const legacy = box();
+   legacy.supply = { type: 'mains', mainSwitchCurrent: 40, mainSwitchPoles: 4 };
+   legacyHarness.pdf.download([legacy]);
+   const legacyText = pageText(legacyHarness.document(), 1).toLowerCase();
+   assert.ok(legacyText.includes('hoofdschakelaar 4p'));
+   assert.ok(legacyText.includes('40 a'), 'older cards without a MAINS module keep showing their saved values');
+});
+
 test('PDF without warnings starts the table high on the page and fits 15 rows', () => {
    const harness = setup();
    assert.equal(harness.pdf.download([padded(box())]), true);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 1);
-   assert.equal(document.lastAutoTable.settings.startY, 30);
+   assert.equal(document.lastAutoTable.settings.startY, 26.5);
    assert.equal(document.lastAutoTable.settings.margin.top, 10);
    assert.equal(document.lastAutoTable.settings.margin.bottom, 10);
    assert.equal(document.lastAutoTable.body.length, 15);
@@ -313,7 +336,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       assert.equal(harness.warningCards.length, displayedCount);
       assert.equal(harness.warningImages.length, displayedCount);
       assert.ok(!text.includes('LET OP!'));
-      assert.equal(document.lastAutoTable.settings.startY, 55);
+      assert.equal(document.lastAutoTable.settings.startY, 51.5);
       assert.ok(document.lastAutoTable.finalY < 287, '15 rows must fit within the bottom margin');
       assert.ok(text.includes('Group-1-1'));
       assert.ok(document.output().startsWith('%PDF-'));
@@ -328,7 +351,7 @@ test('warnings appear only on the first page with multiple kasten', () => {
    assert.equal(harness.warningCards.length, 3);
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
-   assert.equal(document.lastAutoTable.settings.startY, 30);
+   assert.equal(document.lastAutoTable.settings.startY, 26.5);
 });
 
 test('a sub-distribution page shows its own warnings, a linked page none, and the first page all of them', () => {
@@ -488,14 +511,14 @@ test('the RCD key is per page and the table still fits with warnings and a wrapp
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
    assert.ok(!pageText(document, 2).includes('Aardlekschakelaars:'));
-   assert.equal(document.lastAutoTable.settings.startY, 30);
+   assert.equal(document.lastAutoTable.settings.startY, 26.5);
 });
 
 test('without RCDs the PDF output is unchanged', () => {
    const harness = setup();
    harness.pdf.download([box()], [], []);
    const document = harness.document();
-   assert.equal(document.lastAutoTable.settings.startY, 30);
+   assert.equal(document.lastAutoTable.settings.startY, 26.5);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
 });
 
