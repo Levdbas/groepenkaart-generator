@@ -1513,12 +1513,27 @@
 
    function renderWarnings(ids) {
       const selected = warnings.selected(ids);
-      if (!selected.length) return null;
-      return el('div', { className: 'print-warnings' }, selected.map(function (warning) {
-         return el('div', { className: 'print-warning' }, [
-            el('img', { src: warning.image, alt: warning.label, 'data-warning': warning.id })
-         ]);
+      const entries = warnings.definitions.map(function (warning) {
+         return { badge: warning.badge, label: warning.label, special: false };
+      }).concat(warnings.specialInstallationDefinitions.map(function (installation) {
+         return { badge: installation.badge, label: installation.label, special: true };
       }));
+      return el('div', { className: 'print-warnings' + (selected.length ? ' has-warnings' : '') }, [
+         selected.length ? el('div', { className: 'print-warning-cards' }, selected.map(function (warning) {
+            return el('div', { className: 'print-warning' }, [
+               el('img', { src: warning.image, alt: warning.label, 'data-warning': warning.id })
+            ]);
+         })) : null,
+         el('section', { className: 'print-legend' }, [
+            el('h3', { text: 'Legenda' }),
+            el('ul', null, entries.map(function (entry) {
+               return el('li', null, [
+                  el('span', { className: 'print-badge' + (entry.special ? ' special-installation-badge' : ''), text: entry.badge }),
+                  el('span', { text: entry.label })
+               ]);
+            }))
+         ])
+      ]);
    }
 
    function renderUnusedRcds(rcds, boxes) {

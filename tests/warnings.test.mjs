@@ -14,10 +14,16 @@ function setup() {
    const lines = [];
    const warningCards = [];
    const warningImages = [];
+   const fillColors = [];
    const window = {
       jspdf: {
          jsPDF: function (options) {
             document = new jsPDF(options);
+            const setFillColor = document.setFillColor;
+            document.setFillColor = function () {
+               fillColors.push(Array.from(arguments));
+               return setFillColor.apply(document, arguments);
+            };
             const line = document.line;
             const roundedRect = document.roundedRect;
             document.line = function (x1, y1, x2, y2) {
@@ -39,7 +45,7 @@ function setup() {
    };
    const context = vm.createContext({ window });
    sources.forEach((source) => vm.runInContext(source, context));
-   return { window, warnings: window.GroepenkaartWarnings, pdf: window.GroepenkaartPdf, lines, warningCards, warningImages, document: () => document };
+   return { window, warnings: window.GroepenkaartWarnings, pdf: window.GroepenkaartPdf, lines, warningCards, warningImages, fillColors, document: () => document };
 }
 
 const ids = ['pv', 'ev', 'battery', 'heat-pump'];
@@ -161,17 +167,36 @@ test('a MAINS module prints its poles and current without duplicating legacy sup
    assert.ok(legacyText.includes('40 a'), 'older cards without a MAINS module keep showing their saved values');
 });
 
-test('PDF without warnings starts the table high on the page and fits 15 rows', () => {
+test('PDF without warning stickers shows the legend and fits 15 rows', () => {
    const harness = setup();
    assert.equal(harness.pdf.download([padded(box())]), true);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 1);
-   assert.equal(document.lastAutoTable.settings.startY, 26.5);
+   assert.equal(document.lastAutoTable.settings.startY, 51.5);
    assert.equal(document.lastAutoTable.settings.margin.top, 10);
    assert.equal(document.lastAutoTable.settings.margin.bottom, 10);
    assert.equal(document.lastAutoTable.body.length, 15);
+   assert.ok(document.lastAutoTable.finalY < 287, '15 rows still fit within the bottom margin');
    assert.equal(document.savedFilename, 'groepenkaart.pdf');
-   assert.ok(!pageText(document, 1).includes('LET OP!'));
+   const text = pageText(document, 1);
+   for (const label of ['Legenda', 'PV-installatie', 'zonnepanelen', 'EV-lader', 'Thuisbatterij', 'Rookmelders', 'Alarminstallatie']) {
+      assert.ok(text.includes(label), `${label} appears in the legend`);
+   }
+   assert.equal(harness.warningCards.filter((card) => card[2] === 7).length, 5);
+   assert.deepEqual(harness.fillColors.slice(0, 5), [
+      [180, 35, 24], [180, 35, 24], [180, 35, 24], [0, 63, 125], [0, 63, 125]
+   ]);
+   assert.ok(!text.includes('LET OP!'));
+});
+
+test('the warning legend sits beside warning cards and moves left when there are none', () => {
+   for (const [selected, expectedX] of [[[], 15], [['pv'], 108]]) {
+      const harness = setup();
+      harness.pdf.download([box()], selected);
+      const legendBadges = harness.warningCards.filter((card) => card[2] === 7);
+      assert.equal(legendBadges.length, 5);
+      assert.ok(legendBadges.every((badge) => Math.round(badge[0]) === expectedX));
+   }
 });
 
 test('PDF shows effective phases, pole counts and unassigned selections only when enabled', () => {
@@ -333,7 +358,7 @@ test('warning cards retain red-bordered boxes without warning copy', () => {
       const text = pageText(document, 1);
       assert.equal(document.getNumberOfPages(), 1);
       const displayedCount = selected.filter((id) => displayedIds.includes(id)).length;
-      assert.equal(harness.warningCards.length, displayedCount);
+      assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, displayedCount);
       assert.equal(harness.warningImages.length, displayedCount);
       assert.ok(!text.includes('LET OP!'));
       assert.equal(document.lastAutoTable.settings.startY, 51.5);
@@ -348,10 +373,10 @@ test('warnings appear only on the first page with multiple kasten', () => {
    harness.pdf.download([box('1'), box('2')], ids);
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
-   assert.equal(harness.warningCards.length, 3);
+   assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, 3);
    assert.ok(!pageText(document, 2).includes('LET OP!'));
    assert.ok(pageText(document, 2).includes('Group-2-1'));
-   assert.equal(document.lastAutoTable.settings.startY, 26.5);
+   assert.equal(document.lastAutoTable.settings.startY, 51.5);
 });
 
 test('a sub-distribution page shows its own warnings, a linked page none, and the first page all of them', () => {
@@ -395,8 +420,8 @@ test('flagged modules get a small red badge text in their row', () => {
    data.groups[0].warnings = ['pv', 'battery'];
    harness.pdf.download([data], ['pv', 'battery']);
    const text = pageText(harness.document(), 1);
-   assert.equal((text.match(/\(EOS\) Tj/g) || []).length, 1);
-   assert.equal((text.match(/\(PV\) Tj/g) || []).length, 1);
+   assert.equal((text.match(/\(EOS\) Tj/g) || []).length, 2);
+   assert.equal((text.match(/\(PV\) Tj/g) || []).length, 2);
 });
 
 test('special installations produce only RM and AL group labels, not warning cards', () => {
@@ -422,7 +447,7 @@ test('overflow pages preserve all groups without repeating warning cards', () =>
       allText += text;
       if (page > 1) assert.ok(!text.includes('LET OP!'));
    }
-   assert.equal(harness.warningCards.length, 3);
+   assert.equal(harness.warningCards.filter((card) => card[2] === 21).length, 3);
    for (let group = 1; group <= 65; group++) {
       assert.ok(allText.includes(`(Group-1-${group})`), `Group ${group} should be preserved`);
    }
@@ -511,15 +536,16 @@ test('the RCD key is per page and the table still fits with warnings and a wrapp
    const document = harness.document();
    assert.equal(document.getNumberOfPages(), 2);
    assert.ok(!pageText(document, 2).includes('Aardlekschakelaars:'));
-   assert.equal(document.lastAutoTable.settings.startY, 26.5);
+   assert.equal(document.lastAutoTable.settings.startY, 51.5);
 });
 
-test('without RCDs the PDF output is unchanged', () => {
+test('without RCDs the PDF still includes the warning legend', () => {
    const harness = setup();
    harness.pdf.download([box()], [], []);
    const document = harness.document();
-   assert.equal(document.lastAutoTable.settings.startY, 26.5);
+   assert.equal(document.lastAutoTable.settings.startY, 51.5);
    assert.ok(!pageText(document, 1).includes('Aardlekschakelaars'));
+   assert.ok(pageText(document, 1).includes('Legenda'));
 });
 
 test('general information is printed above the first box and leaves room before the table', () => {

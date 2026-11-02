@@ -26,12 +26,37 @@
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
    }
 
-   // Draws one square card per warning, matching the browser print, and returns the vertical space they take.
-   // images are indexed like the warning definitions.
+   function drawWarningLegend(doc, x, top, width) {
+      const warnings = window.GroepenkaartWarnings;
+      const entries = warnings.definitions.map(function (warning) {
+         return { badge: warning.badge, label: warning.label, color: [180, 35, 24] };
+      }).concat(warnings.specialInstallationDefinitions.map(function (installation) {
+         return { badge: installation.badge, label: installation.label, color: BLUE };
+      }));
+      const badgeHeight = 2.8;
+      const rowHeight = 3.1;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(30, 30, 30);
+      doc.text('Legenda', x, top + 2.5);
+      entries.forEach(function (entry, index) {
+         const y = top + 3.5 + index * rowHeight;
+         doc.setFillColor.apply(doc, entry.color);
+         doc.roundedRect(x, y, 7, badgeHeight, 0.5, 0.5, 'F');
+         doc.setTextColor(255, 255, 255);
+         doc.text(entry.badge, x + 3.5, y + 2, { align: 'center' });
+         doc.setTextColor(30, 30, 30);
+         doc.setFont('helvetica', 'normal');
+         doc.text(doc.splitTextToSize(entry.label, width - 9), x + 9, y + 2);
+         doc.setFont('helvetica', 'bold');
+      });
+   }
+
+   // Draws warning cards and the legend, returning their shared vertical space. images are indexed like the warning definitions.
    function drawWarnings(doc, ids, margin, top, images) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
-      if (!selected.length) return 0;
 
       const gap = 2;
       const width = 21;
@@ -53,6 +78,8 @@
             doc.addImage(image, 'PNG', x + (width - imageWidth) / 2, top + (height - imageHeight) / 2, imageWidth, imageHeight);
          }
       });
+      const columnWidth = (doc.internal.pageSize.getWidth() - margin * 2) / 2;
+      drawWarningLegend(doc, margin + (selected.length ? columnWidth + 3 : 0), top, columnWidth - 3);
       return height + 4;
    }
 
@@ -226,9 +253,9 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(BADGE_SIZE);
       const badges = window.GroepenkaartWarnings.selected(group.warnings || []).map(function (warning) {
-         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2 };
+         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2, color: [180, 35, 24] };
       }).concat(window.GroepenkaartWarnings.selectedSpecialInstallations(group.specialInstallations || []).map(function (installation) {
-         return { text: installation.badge, width: doc.getTextWidth(installation.badge) + BADGE_PADDING * 2 };
+         return { text: installation.badge, width: doc.getTextWidth(installation.badge) + BADGE_PADDING * 2, color: BLUE };
       }));
       // The first lines leave room for the badges at the right edge of the cell.
       const badgeWidth = badges.reduce(function (sum, badge) { return sum + badge.width + BADGE_GAP; }, 0);
@@ -263,7 +290,7 @@
       for (let i = layout.badges.length - 1; i >= 0; i--) {
          const badge = layout.badges[i];
          badgeX -= badge.width;
-         doc.setFillColor(180, 35, 24);
+         doc.setFillColor.apply(doc, badge.color);
          doc.roundedRect(badgeX, y, badge.width, BADGE_HEIGHT, 0.7, 0.7, 'F');
          doc.setFont('helvetica', 'bold');
          doc.setFontSize(BADGE_SIZE);
