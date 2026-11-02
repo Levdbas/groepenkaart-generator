@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/Levdbas/groepenkaart-generator/compare/2.1.1...2.2.0) (2026-11-02)
+
+
+### ⛰️ Features
+
+* show a compact legend on printed group cards ([#60](https://github.com/Levdbas/groepenkaart-generator/issues/60)) ([f8c78d3](https://github.com/Levdbas/groepenkaart-generator/commit/f8c78d3d69dc9c2bf0f16488494eabde4c16fd49))
+
 ## [2.1.1](https://github.com/Levdbas/groepenkaart-generator/compare/2.1.0...2.1.1) (2026-10-31)
 
 
