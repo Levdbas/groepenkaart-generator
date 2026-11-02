@@ -56,11 +56,8 @@
       return specialInstallationDefinitions.filter(function (installation) { return ids.includes(installation.id); });
    }
 
-   // The first page lists every installation; a sub-distribution page lists its own and those of the boxes it feeds,
-   // directly or through other sub-distributions. Linked boxes show none.
-   function forPage(box, index, allIds, boxes) {
-      if (index === 0) return allIds;
-      if (!box.supply || box.supply.type !== 'subdistribution') return [];
+   // The warnings of a box's modules plus those of the boxes it feeds, directly or through other sub-distributions.
+   function collectWarnings(box, boxes) {
       const own = [];
       const seen = new Set();
       (function collect(current) {
@@ -78,8 +75,26 @@
       return codes.filter(function (code) { return own.includes(code); });
    }
 
+   // The first page lists every installation; a sub-distribution page lists its own and those of the boxes it feeds,
+   // directly or through other sub-distributions. Linked boxes show none.
+   function forPage(box, index, allIds, boxes) {
+      if (index === 0) return allIds;
+      if (!box.supply || box.supply.type !== 'subdistribution') return [];
+      return collectWarnings(box, boxes);
+   }
+
+   // The legend entries of a box: installations flagged on its modules, including those inherited from boxes it feeds.
+   function legendFor(box, boxes) {
+      const flagged = collectWarnings(box, boxes);
+      const special = box.groups.flatMap(function (module) { return module.specialInstallations || []; });
+      return {
+         warnings: definitions.filter(function (warning) { return flagged.includes(warning.id); }),
+         specialInstallations: specialInstallationDefinitions.filter(function (installation) { return special.includes(installation.id); })
+      };
+   }
+
    window.GroepenkaartWarnings = {
-      codes: codes, definitions: definitions, normalize: normalize, selected: selected, forPage: forPage,
+      codes: codes, definitions: definitions, normalize: normalize, selected: selected, forPage: forPage, legendFor: legendFor,
       specialInstallationCodes: specialInstallationCodes, specialInstallationDefinitions: specialInstallationDefinitions,
       normalizeSpecialInstallations: normalizeSpecialInstallations, selectedSpecialInstallations: selectedSpecialInstallations
    };

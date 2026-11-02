@@ -1481,7 +1481,7 @@
                   el('h2', { text: 'Algemene informatie' }),
                   el('p', { text: state.generalInfo })
                ]) : null,
-            renderWarnings(warnings.forPage(box, index, allWarnings, boxes)),
+            renderWarnings(warnings.forPage(box, index, allWarnings, boxes), warnings.legendFor(box, boxes)),
             index === 0 ? renderUnusedRcds(rcds, boxes) : null,
             el('h2', { text: boxTitle(box) }),
             supplySummary(box),
@@ -1511,20 +1511,21 @@
       })));
    }
 
-   function renderWarnings(ids) {
+   function renderWarnings(ids, legend) {
       const selected = warnings.selected(ids);
-      const entries = warnings.definitions.map(function (warning) {
+      const entries = legend.warnings.map(function (warning) {
          return { badge: warning.badge, label: warning.label, special: false };
-      }).concat(warnings.specialInstallationDefinitions.map(function (installation) {
+      }).concat(legend.specialInstallations.map(function (installation) {
          return { badge: installation.badge, label: installation.label, special: true };
       }));
+      if (!selected.length && !entries.length) return null;
       return el('div', { className: 'print-warnings' + (selected.length ? ' has-warnings' : '') }, [
          selected.length ? el('div', { className: 'print-warning-cards' }, selected.map(function (warning) {
             return el('div', { className: 'print-warning' }, [
                el('img', { src: warning.image, alt: warning.label, 'data-warning': warning.id })
             ]);
          })) : null,
-         el('section', { className: 'print-legend' }, [
+         entries.length ? el('section', { className: 'print-legend' }, [
             el('h3', { text: 'Legenda' }),
             el('ul', null, entries.map(function (entry) {
                return el('li', null, [
@@ -1532,7 +1533,7 @@
                   el('span', { text: entry.label })
                ]);
             }))
-         ])
+         ]) : null
       ]);
    }
 

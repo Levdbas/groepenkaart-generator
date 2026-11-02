@@ -2,6 +2,8 @@
    'use strict';
 
    const BLUE = [0, 63, 125];
+   const RED = [180, 35, 24];
+   const RED_DARK = [134, 28, 20];
    const MARGIN_X = 15;
    const MARGIN_Y = 10;
    const CELL_PADDING = 2;
@@ -26,18 +28,28 @@
       return ['Kast', box.number, box.name ? '- ' + box.name : ''].filter(Boolean).join(' ');
    }
 
-   function drawWarningLegend(doc, x, top, width) {
-      const warnings = window.GroepenkaartWarnings;
-      const entries = warnings.definitions.map(function (warning) {
-         return { badge: warning.badge, label: warning.label, color: [180, 35, 24] };
-      }).concat(warnings.specialInstallationDefinitions.map(function (installation) {
-         return { badge: installation.badge, label: installation.label, color: BLUE };
+   const LEGEND_ROW_HEIGHT = 3.1;
+
+   function legendEntries(legend) {
+      return legend.warnings.map(function (warning) {
+         return { badge: warning.badge, label: warning.label, color: RED };
+      }).concat(legend.specialInstallations.map(function (installation) {
+         return { badge: installation.badge, label: installation.label, color: RED_DARK };
       }));
+   }
+
+   function drawWarningLegend(doc, entries, x, top, width) {
       const badgeHeight = 2.8;
-      const rowHeight = 3.1;
+      const rowHeight = LEGEND_ROW_HEIGHT;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      const naturalWidth = 9 + Math.max.apply(null, entries.map(function (entry) { return doc.getTextWidth(entry.label); }));
+      const legendWidth = Math.min(width, naturalWidth);
+      x = x + width - legendWidth;
+      width = legendWidth;
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6);
       doc.setTextColor(30, 30, 30);
       doc.text('Legenda', x, top + 2.5);
       entries.forEach(function (entry, index) {
@@ -54,9 +66,10 @@
    }
 
    // Draws warning cards and the legend, returning their shared vertical space. images are indexed like the warning definitions.
-   function drawWarnings(doc, ids, margin, top, images) {
+   function drawWarnings(doc, ids, legend, margin, top, images) {
       const warnings = window.GroepenkaartWarnings;
       const selected = warnings.selected(ids);
+      const entries = legendEntries(legend);
 
       const gap = 2;
       const width = 21;
@@ -79,8 +92,9 @@
          }
       });
       const columnWidth = (doc.internal.pageSize.getWidth() - margin * 2) / 2;
-      drawWarningLegend(doc, margin + (selected.length ? columnWidth + 3 : 0), top, columnWidth - 3);
-      return height + 4;
+      if (entries.length) drawWarningLegend(doc, entries, margin + columnWidth + 3, top, columnWidth - 3);
+      const used = Math.max(selected.length ? height : 0, entries.length ? 3.5 + entries.length * LEGEND_ROW_HEIGHT : 0);
+      return used ? used + 4 : 0;
    }
 
    function drawUnusedRcds(doc, entries, margin, top, phaseEnabled) {
@@ -253,9 +267,9 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(BADGE_SIZE);
       const badges = window.GroepenkaartWarnings.selected(group.warnings || []).map(function (warning) {
-         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2, color: [180, 35, 24] };
+         return { text: warning.badge, width: doc.getTextWidth(warning.badge) + BADGE_PADDING * 2, color: RED };
       }).concat(window.GroepenkaartWarnings.selectedSpecialInstallations(group.specialInstallations || []).map(function (installation) {
-         return { text: installation.badge, width: doc.getTextWidth(installation.badge) + BADGE_PADDING * 2, color: BLUE };
+         return { text: installation.badge, width: doc.getTextWidth(installation.badge) + BADGE_PADDING * 2, color: RED_DARK };
       }));
       // The first lines leave room for the badges at the right edge of the cell.
       const badgeWidth = badges.reduce(function (sum, badge) { return sum + badge.width + BADGE_GAP; }, 0);
@@ -355,7 +369,8 @@
          doc.setFontSize(8);
          doc.setTextColor(91, 101, 115);
          doc.text(date, pageWidth - margin, 15, { align: 'right' });
-         let offset = drawWarnings(doc, warningModule.forPage(box, index, warningIds || [], boxes), margin, 19, warningImages);
+         let offset = drawWarnings(doc, warningModule.forPage(box, index, warningIds || [], boxes),
+            warningModule.legendFor(box, boxes), margin, 19, warningImages);
          if (index === 0) offset += drawUnusedRcds(doc, unusedRcds, margin, 19 + offset, phaseEnabled);
          if (index === 0) offset += drawGeneralInfo(doc, generalInfo, margin, 21 + offset, pageWidth - margin * 2);
          doc.setTextColor.apply(doc, BLUE);
@@ -367,8 +382,9 @@
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
             doc.setTextColor(30, 30, 30);
-            doc.text(doc.splitTextToSize(supply, pageWidth - margin * 2), margin, 50 + offset);
-            supplyHeight = 4.5;
+            const supplyLines = doc.splitTextToSize(supply, pageWidth - margin * 2);
+            doc.text(supplyLines, margin, 26 + offset);
+            supplyHeight = supplyLines.length * 3 + 3;
          }
          const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 21.5 + offset + supplyHeight, phaseEnabled);
 

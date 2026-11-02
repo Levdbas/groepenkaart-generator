@@ -1,7 +1,8 @@
 :root {
   --blue: #003f7d;
   --blue-light: #e8eff7;
-  --red: #b42318;
+  --red: rgb(180, 35, 24);
+  --red-dark: rgb(134, 28, 20);
   --border: #c9d3df;
   --text: #1e1e1e;
   --muted: #5b6573;
@@ -625,7 +626,7 @@ textarea {
 }
 
 .din-module-badge.special-installation-badge {
-  background: var(--blue);
+  background: var(--red-dark);
 }
 
 .din-rail-labels {
@@ -1251,7 +1252,7 @@ select:focus-visible,
   }
 
   .print-legend .special-installation-badge {
-    background: var(--blue);
+    background: var(--red-dark);
   }
 
   .print-unused-rcds {
@@ -1368,7 +1369,7 @@ select:focus-visible,
   }
 
   .print-badge.special-installation-badge {
-    background: var(--blue);
+    background: var(--red-dark);
   }
 
   .print-page table {

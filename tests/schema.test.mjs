@@ -1486,7 +1486,7 @@ test('smoke alarms and burglar alarms are selected per group and included in the
    const warningBlock = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warnings')[0];
    assert.equal(warningBlock.className, 'print-warnings', 'without sticker cards the legend stays in the left column');
    assert.deepEqual(app.findAll(legend, (n) => typeof n.className === 'string' && n.className.includes('print-badge')).map((n) => n.textContent),
-      ['PV', 'EV', 'EOS', 'RM', 'AL']);
+      ['RM', 'AL']);
    assert.deepEqual(app.findAll(legend, (n) => n.className === 'print-badge special-installation-badge')
       .map((n) => n.textContent), ['RM', 'AL']);
    assert.equal(warningCards().length, 0);
