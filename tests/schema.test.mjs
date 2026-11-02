@@ -1466,7 +1466,7 @@ test('installation warnings are chosen per module, can be combined and drive the
    assert.equal(cards().length, 0);
 });
 
-test('smoke alarms and burglar alarms are selected per group and print only RM and AL labels', () => {
+test('smoke alarms and burglar alarms are selected per group and included in the legend', () => {
    const app = setupApp(JSON.stringify(noWarnings));
    const warningCards = () => app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warning');
    app.editModule('legacy-module-1-1');
@@ -1478,7 +1478,16 @@ test('smoke alarms and burglar alarms are selected per group and print only RM a
    assert.deepEqual(JSON.parse(app.storage()).modules[0].specialInstallations, ['smoke-alarm', 'burglar-alarm']);
    assert.deepEqual(app.findAll(app.moduleButton('legacy-module-1-1'), (n) => n.className.includes('special-installation-badge'))
       .map((n) => n.textContent), ['RM', 'AL']);
-   assert.deepEqual(app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-badge special-installation-badge')
+   const groupBadges = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-badges')
+      .flatMap((container) => app.findAll(container, (n) => n.className === 'print-badge special-installation-badge'));
+   assert.deepEqual(groupBadges
+      .map((n) => n.textContent), ['RM', 'AL']);
+   const legend = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-legend')[0];
+   const warningBlock = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-warnings')[0];
+   assert.equal(warningBlock.className, 'print-warnings', 'without sticker cards the legend stays in the left column');
+   assert.deepEqual(app.findAll(legend, (n) => typeof n.className === 'string' && n.className.includes('print-badge')).map((n) => n.textContent),
+      ['RM', 'AL']);
+   assert.deepEqual(app.findAll(legend, (n) => n.className === 'print-badge special-installation-badge')
       .map((n) => n.textContent), ['RM', 'AL']);
    assert.equal(warningCards().length, 0);
    app.nodes.get('download-pdf').listeners.click();
@@ -2567,7 +2576,9 @@ test('a module that feeds a sub-distribution box also shows the warnings of the 
    assert.deepEqual(badges('feed2'), ['EV'], 'inherited through a chain of sub-distributions');
    assert.deepEqual(badges('plain'), []);
    assert.deepEqual(JSON.parse(app.storage()).modules.find((m) => m.id === 'feed1').warnings, ['battery'], 'inherited warnings are not stored');
-   const printed = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-badge').map((n) => n.textContent);
+   const printed = app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-badges')
+      .flatMap((container) => app.findAll(container, (n) => n.className === 'print-badge'))
+      .map((n) => n.textContent);
    assert.deepEqual(printed, ['EV', 'EOS', 'EV', 'EV']);
    app.nodes.get('download-pdf').listeners.click();
    assert.deepEqual(app.pdfCalls[0][0].map((b) => b.groups.map((g) => Array.from(g.warnings || []))),

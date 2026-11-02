@@ -1,7 +1,8 @@
 :root {
   --blue: #003f7d;
   --blue-light: #e8eff7;
-  --red: #b42318;
+  --red: rgb(180, 35, 24);
+  --red-dark: rgb(134, 28, 20);
   --border: #c9d3df;
   --text: #1e1e1e;
   --muted: #5b6573;
@@ -624,6 +625,10 @@ textarea {
   border-radius: 2px;
 }
 
+.din-module-badge.special-installation-badge {
+  background: var(--red-dark);
+}
+
 .din-rail-labels {
   min-height: 1.5rem;
   padding: 0.15rem 4px;
@@ -1195,13 +1200,59 @@ select:focus-visible,
   }
 
   .print-warnings {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 2mm;
+    min-height: 21mm;
     margin-bottom: 5mm;
     break-inside: avoid;
     break-after: avoid;
     color: #000;
     font-family: Helvetica, Arial, sans-serif;
+  }
+
+  .print-warning-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2mm;
+  }
+
+  .print-warnings:not(.has-warnings) .print-legend {
+    grid-column: 1;
+  }
+
+  .print-legend {
+    font-size: 7pt;
+    line-height: 1.15;
+  }
+
+  .print-legend h3 {
+    margin: 0 0 0.5mm;
+    font-size: 7pt;
+  }
+
+  .print-legend ul {
+    display: grid;
+    gap: 0.25mm;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .print-legend li {
+    display: flex;
+    align-items: center;
+    gap: 1.5mm;
+  }
+
+  .print-legend .print-badge {
+    min-width: 7mm;
+    padding: 0 1mm;
+    text-align: center;
+  }
+
+  .print-legend .special-installation-badge {
+    background: var(--red-dark);
   }
 
   .print-unused-rcds {
@@ -1315,6 +1366,10 @@ select:focus-visible,
     line-height: 1.4;
     background: var(--red);
     border-radius: 0.8mm;
+  }
+
+  .print-badge.special-installation-badge {
+    background: var(--red-dark);
   }
 
   .print-page table {
