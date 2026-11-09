@@ -5,12 +5,14 @@
    const RCD_FIRST_KEY = 'groepenkaart:rcd-first';
    const TRIM_EMPTY_ROWS_KEY = 'groepenkaart:trim-empty-rows';
    const SKIP_EMPTY_ROWS_KEY = 'groepenkaart:skip-empty-rows';
+   const SHOW_VISUAL_KEY = 'groepenkaart:show-visual';
    const EXPERT_MODE_KEY = 'groepenkaart:expert-mode';
    const warnings = window.GroepenkaartWarnings;
    const schema = window.GroepenkaartSchema;
    const moduleTypes = schema.moduleTypes;
    const limits = schema.boxLimits;
    const layout = window.GroepenkaartLayout;
+   const panel = window.GroepenkaartPanel;
    const rcdHelpers = window.GroepenkaartRcd;
    const specialInstallationTypes = schema.specialInstallationTypes;
    const share = window.GroepenkaartShare;
@@ -35,6 +37,7 @@
    let rcdFirst = loadRcdFirst();
    let trimEmptyRows = loadPrintOption(TRIM_EMPTY_ROWS_KEY);
    let skipEmptyRows = loadPrintOption(SKIP_EMPTY_ROWS_KEY);
+   let showVisual = loadPrintOption(SHOW_VISUAL_KEY);
    let expertMode = loadExpertMode();
    let selectedId = null;
    let dialogState = null;
@@ -49,6 +52,8 @@
    trimEmptyRowsEl.checked = trimEmptyRows;
    const skipEmptyRowsEl = document.getElementById('skip-empty-rows');
    skipEmptyRowsEl.checked = skipEmptyRows;
+   const showVisualEl = document.getElementById('show-visual');
+   showVisualEl.checked = showVisual;
    const expertModeEl = document.getElementById('expert-mode');
    const qrStatusEl = document.getElementById('qr-status');
    const rcdEnabledEl = document.getElementById('rcd-enabled');
@@ -104,7 +109,7 @@
       }
    }
 
-   // Print preferences of this device: they only hide free slots in the PDF and print, not in the card data.
+   // Print preferences of this device: they only change the PDF and print, not the card data.
    function loadPrintOption(key) {
       try {
          return localStorage.getItem(key) === 'true';
@@ -338,7 +343,10 @@
          const rows = layout.compactRows(
             layout.rows(box, layoutItems(box)).map(function (id) { return id && byId[id]; }),
             trimEmptyRows, skipEmptyRows);
-         return { id: box.id, number: box.number, name: box.name, supply: box.supply, groups: groups, rows: rows };
+         return {
+            id: box.id, number: box.number, name: box.name, supply: box.supply, groups: groups, rows: rows,
+            visual: showVisual ? boxPanel(box) : null
+         };
       });
    }
 
@@ -377,10 +385,6 @@
       }
       (children || []).forEach(function (child) { if (child) node.appendChild(child); });
       return node;
-   }
-
-   function gridColumn(slot, width) {
-      return 'grid-column: ' + slot + ' / span ' + width;
    }
 
    // Inputs only save (no re-render) so focus and caret position are kept while typing.
@@ -1025,76 +1029,55 @@
       }
    }
 
-   function renderModule(box, module) {
-      const width = moduleWidth(module);
-      const color = moduleColor(module);
-      const selected = module.id === selectedId;
+   // What the visual box shows of a module, shared by the editor, the print output and the PDF.
+   function panelItem(module) {
       const flagged = warnings.selected(effectiveWarnings(module));
       const specialInstallations = warnings.selectedSpecialInstallations(module.specialInstallations || []);
       const description = [moduleLabel(module), module.type]
          .concat(flagged.map(function (warning) { return warning.label; }))
          .concat(specialInstallations.map(function (installation) { return installation.label; })).filter(Boolean).join(', ');
-      return el('button', {
-         type: 'button',
-         className: 'din-module' + (selected ? ' is-selected' : '') + (width > 1 ? ' is-wide' : '') + (isProtective(module) ? ' is-protective' : ''),
-         style: gridColumn(module.slot, width),
-         'data-module-id': module.id,
-         'aria-pressed': String(selected),
-         'aria-label': description.charAt(0).toUpperCase() + description.slice(1),
-         title: selected ? 'Klik om te bewerken' : 'Klik om te selecteren',
-         onclick: function () {
-            if (selectedId === module.id) openModuleDialog(module);
-            else select(module.id);
-         },
-         onkeydown: function (event) { moduleKeydown(box, module, event); }
-      }, [
-         el('span', { className: 'din-module-stripe' + (color ? '' : ' is-empty'), style: color ? 'background-color: ' + color : '', 'aria-hidden': 'true' }),
-         el('span', { className: 'din-module-number', text: module.number || '–', 'aria-hidden': 'true' }),
-         el('span', { className: 'din-module-lever', 'aria-hidden': 'true' }),
-         width > 1 ? el('span', { className: 'din-module-type', text: module.type, 'aria-hidden': 'true' }) : null,
-         ...flagged.map(function (warning) {
-            return el('span', { className: 'din-module-badge', text: warning.badge, 'aria-hidden': 'true' });
-         }),
-         ...specialInstallations.map(function (installation) {
-            return el('span', { className: 'din-module-badge special-installation-badge', text: installation.badge, 'aria-hidden': 'true' });
-         })
-      ]);
+      return {
+         id: module.id,
+         rail: module.rail,
+         slot: module.slot,
+         width: moduleWidth(module),
+         number: module.number,
+         type: module.type,
+         description: module.description,
+         color: moduleColor(module),
+         protective: isProtective(module),
+         label: description.charAt(0).toUpperCase() + description.slice(1),
+         badges: flagged.map(function (warning) { return { text: warning.badge }; })
+            .concat(specialInstallations.map(function (installation) { return { text: installation.badge, special: true }; }))
+      };
    }
 
-   function renderRail(box, rail, modules) {
-      const cells = [];
-      const labels = [];
-      let slot = 1;
-      while (slot <= box.railWidth) {
-         const module = modules.find(function (candidate) { return candidate.rail === rail && candidate.slot === slot; });
-         if (module) {
-            const width = moduleWidth(module);
-            cells.push(renderModule(box, module));
-            labels.push(el('span', { className: 'din-label', style: gridColumn(slot, width), title: module.description, text: module.description }));
-            slot += width;
-         } else {
-            const target = { box: box, rail: rail, slot: slot };
-            const label = 'Module toevoegen op rail ' + rail + ', plek ' + slot;
-            cells.push(el('button', {
-               type: 'button', className: 'din-slot', style: gridColumn(slot, 1), title: label, 'aria-label': label, text: '+',
-               onclick: function () { openModuleDialog(null, target); }
-            }));
-            slot += 1;
-         }
-      }
-      return el('div', { className: 'din-rail', role: 'group', 'aria-label': 'Rail ' + rail }, [
-         el('div', { className: 'din-rail-slots' }, cells),
-         el('div', { className: 'din-rail-labels', 'aria-hidden': 'true' }, labels)
-      ]);
+   function boxPanel(box) {
+      return panel.model(box, boxModules(box).map(panelItem));
    }
 
    function renderPanel(box) {
-      const modules = boxModules(box);
-      const rails = [];
-      for (let rail = 1; rail <= box.rails; rail++) rails.push(renderRail(box, rail, modules));
-      return el('div', { className: 'panel-scroll' }, [
-         el('div', { className: 'panel', style: '--rail-width: ' + box.railWidth }, rails)
-      ]);
+      return panel.render(el, boxPanel(box), {
+         selectedId: selectedId,
+         moduleAttrs: function (item, selected) {
+            const module = findModule(item.id);
+            return {
+               'aria-pressed': String(selected),
+               'aria-label': item.label,
+               title: selected ? 'Klik om te bewerken' : 'Klik om te selecteren',
+               onclick: function () {
+                  if (selectedId === module.id) openModuleDialog(module);
+                  else select(module.id);
+               },
+               onkeydown: function (event) { moduleKeydown(box, module, event); }
+            };
+         },
+         slotAttrs: function (rail, slot) {
+            const target = { box: box, rail: rail, slot: slot };
+            const label = 'Module toevoegen op rail ' + rail + ', plek ' + slot;
+            return { title: label, 'aria-label': label, onclick: function () { openModuleDialog(null, target); } };
+         }
+      });
    }
 
    function actionButton(text, title, onClick, disabled, className) {
@@ -1486,6 +1469,7 @@
             el('h2', { text: boxTitle(box) }),
             supplySummary(box),
             renderRcdKey(rcds, box),
+            box.visual ? el('div', { className: 'print-visual' }, [panel.render(el, box.visual)]) : null,
             el('table', null, [
                el('thead', null, [el('tr', null, [
                   el('th', { className: 'col-number', text: 'Module' }),
@@ -1853,6 +1837,12 @@
    skipEmptyRowsEl.addEventListener('change', function () {
       skipEmptyRows = skipEmptyRowsEl.checked;
       savePrintOption(SKIP_EMPTY_ROWS_KEY, skipEmptyRows);
+      renderPrint();
+   });
+
+   showVisualEl.addEventListener('change', function () {
+      showVisual = showVisualEl.checked;
+      savePrintOption(SHOW_VISUAL_KEY, showVisual);
       renderPrint();
    });
 

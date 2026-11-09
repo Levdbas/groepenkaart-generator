@@ -15,7 +15,7 @@ const vendorFiles = [
    // Must come after jsPDF: it attaches autoTable to window.jspdf on load.
    'node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js',
 ];
-const appFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/layout.js', 'src/js/share.js', 'src/js/pdf.js', 'src/js/app.js'];
+const appFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/layout.js', 'src/js/panel.js', 'src/js/share.js', 'src/js/pdf.js', 'src/js/app.js'];
 const anonymizeFiles = ['src/js/warnings.js', 'src/js/rcd.js', 'src/js/schema.js', 'src/js/anonymize.js', 'src/js/anonymize-page.js'];
 
 const read = (file) => readFile(join(root, file), 'utf8');

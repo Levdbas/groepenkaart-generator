@@ -21,6 +21,7 @@ Een kleine webapp om een groepenkaart (groepenindeling) voor je meterkast of ver
 - **QR-code**: zet **QR-code toevoegen aan de PDF** aan (de bovenste optie) en de laatste pagina van de PDF krijgt een QR-code. Scannen opent de app met alle gegevens, zodat je de groepenkaart op een andere telefoon of computer kunt aanpassen. Zie [QR-code en deellink](#qr-code-en-deellink).
   Elke vrije plek op een rail krijgt een lege regel, op de plek in de fysieke volgorde waar de module zou zitten; een brede module blijft één regel. Zo is de tabel makkelijk te vergelijken met de kast en blijft er ruimte om met de hand een module toe te voegen.
 - **Compacter afdrukken**: met de PDF-opties **Lege plekken aan begin en einde weglaten** en **Lege plekken tussen modules weglaten** verdwijnen die lege regels uit de PDF en afdruk, zodat de tabellen minder ruimte innemen. De indeling van de kast verandert niet. Deze instellingen worden per browser bewaard en zitten niet in de kaartgegevens.
+- **Visuele weergave in de PDF**: met de PDF-optie **Visuele weergave van de kast toevoegen** staat boven de tabel van elke kast een tekening van de kast met rails, modules, kleuren, nummers, waarschuwingsbadges en omschrijvingen, zoals in de app. Lege plekken zijn leeg getekend. De tekening past zich aan de paginabreedte aan en gaat samen met de kasttitel naar een nieuwe pagina als hij anders te klein wordt. Deze instelling wordt per browser bewaard en zit niet in de kaartgegevens.
 - Automatisch **opslaan in de browser** (localStorage)
 - **Exporteren en importeren** als JSON-bestand, voor een back-up of om op een andere computer verder te werken
 
@@ -198,6 +199,7 @@ Bij elke push naar `main` draait de GitHub Action in [.github/workflows/pages.ym
 │   ├── js/rcd.js                 # Gedeelde hulpfuncties voor Aardlekschakelaars (kleuren, labels)
 │   ├── js/schema.js              # Moduletypecatalogus, gegevenstypen, schemaversies, validatie en migraties
 │   ├── js/layout.js              # Plekken in een kast: passen, vrije ruimte en verplaatsen tussen rails
+│   ├── js/panel.js               # Gedeelde visuele kast: interactief in de app, statisch in afdruk en PDF
 │   ├── js/share.js               # Deellink en QR-code: comprimeren, coderen en lezen van de gegevens
 │   ├── anonimiseren.html         # Hulppagina om een JSON-bestand te anonimiseren voor bugmeldingen
 │   ├── js/anonymize.js           # Herkenbare tekstvelden onherkenbaar maken

@@ -17,6 +17,8 @@
    const BADGE_HEIGHT = 3.4;
    const BADGE_PADDING = 1;
    const BADGE_GAP = 1;
+   // Millimetres per pixel of the visual box; below this its text is too small to read.
+   const MIN_VISUAL_SCALE = 0.12;
 
    function today() {
       const d = new Date();
@@ -339,6 +341,31 @@
       });
    }
 
+   // Draws the visual box above the table and returns where the table starts. A box that would shrink too far to read
+   // moves to a new page together with the box title.
+   function drawVisual(doc, box, margin, top) {
+      if (!box.visual) return top;
+      const panel = window.GroepenkaartPanel;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const width = doc.internal.pageSize.getWidth() - margin * 2;
+      // Keep room for the table head and a first row below the box.
+      const reserved = 22;
+      let fit = panel.fit(box.visual, width, pageHeight - MARGIN_Y - reserved - top);
+      // A box that stays unreadable even on a fresh page remains where it is.
+      const freshPage = panel.fit(box.visual, width, pageHeight - MARGIN_Y * 2 - 8 - reserved);
+      if (fit.scale < MIN_VISUAL_SCALE && freshPage.scale >= MIN_VISUAL_SCALE) {
+         doc.addPage();
+         doc.setTextColor.apply(doc, BLUE);
+         doc.setFont('helvetica', 'normal');
+         doc.setFontSize(11);
+         doc.text(title(box), margin, MARGIN_Y + 4);
+         top = MARGIN_Y + 8;
+         fit = freshPage;
+      }
+      panel.draw(doc, box.visual, margin + (width - fit.width) / 2, top, fit.scale);
+      return top + fit.height + 4;
+   }
+
    // Returns null when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn on the last page.
    function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages, generalInfo) {
@@ -387,6 +414,7 @@
             supplyHeight = supplyLines.length * 3 + 3;
          }
          const keyHeight = drawRcdKey(doc, rcd.used(rcds, box.groups), margin, 21.5 + offset + supplyHeight, phaseEnabled);
+         const tableTop = drawVisual(doc, box, margin, 26.5 + offset + supplyHeight + keyHeight);
 
          // A null row is a free slot, drawn as an empty row.
          const rows = box.rows || box.groups;
@@ -416,7 +444,7 @@
          });
 
          doc.autoTable({
-            startY: 26.5 + offset + supplyHeight + keyHeight,
+            startY: tableTop,
             margin: { top: MARGIN_Y, bottom: MARGIN_Y, left: margin, right: margin },
             rowPageBreak: 'avoid',
             head: [phaseEnabled ? ['Module', 'Omschrijving', 'Fasen'] : ['Module', 'Omschrijving']],

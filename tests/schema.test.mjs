@@ -6,7 +6,7 @@ import vm from 'node:vm';
 
 const require = createRequire(import.meta.url);
 
-const sources = await Promise.all(['warnings', 'rcd', 'schema', 'layout', 'share', 'app'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'schema', 'layout', 'share', 'panel', 'app'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 const readSchema = async (version) => JSON.parse(await readFile(
    new URL(`../schemas/groepenkaart-v${version}.schema.json`, import.meta.url), 'utf8'));
@@ -399,7 +399,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = nul
    let storage = stored;
    let rcdFirstStorage = rcdFirst;
    let expertModeStorage = expertMode;
-   let exported;
+   let showVisualStorage = null; let exported;
    let confirmation = confirmAnswer;
    const pdfCalls = [];
    const replaced = [];
@@ -421,12 +421,14 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = nul
          getItem(key) {
             if (key === 'groepenkaart:rcd-first') return rcdFirstStorage;
             if (key === 'groepenkaart:expert-mode') return expertModeStorage;
+            if (key === 'groepenkaart:show-visual') return showVisualStorage;
             assert.equal(key, 'groepenkaart:v1');
             return storage;
          },
          setItem(key, value) {
             if (key === 'groepenkaart:rcd-first') { rcdFirstStorage = value; return; }
             if (key === 'groepenkaart:expert-mode') { expertModeStorage = value; return; }
+            if (key === 'groepenkaart:show-visual') { showVisualStorage = value; return; }
             assert.equal(key, 'groepenkaart:v1');
             storage = value;
          }
@@ -458,6 +460,7 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = nul
    });
    vm.runInContext(sources[4], context);
    vm.runInContext(sources[5], context);
+   vm.runInContext(sources[6], context);
    const findAll = (root, predicate, found = []) => {
       if (predicate(root)) found.push(root);
       root.children.forEach((child) => findAll(child, predicate, found));
@@ -494,7 +497,12 @@ function setupApp(stored = null, hash = '', confirmAnswer = true, rcdFirst = nul
          checkbox.listeners.change();
       },
       expertModeStorage: () => expertModeStorage,
-      setPhaseEnabled(value) {
+      setShowVisual(value) {
+         const checkbox = nodes.get('show-visual');
+         checkbox.checked = value;
+         checkbox.listeners.change();
+      },
+      showVisualStorage: () => showVisualStorage, setPhaseEnabled(value) {
          const checkbox = nodes.get('phase-enabled');
          checkbox.checked = value;
          checkbox.listeners.change();
@@ -2583,4 +2591,36 @@ test('a module that feeds a sub-distribution box also shows the warnings of the 
    app.nodes.get('download-pdf').listeners.click();
    assert.deepEqual(app.pdfCalls[0][0].map((b) => b.groups.map((g) => Array.from(g.warnings || []))),
       [[['ev', 'battery'], []], [['ev']], [['ev']]]);
+});
+
+test('the visual box is only part of the print output and PDF data when the option is on', () => {
+   const app = setupApp(JSON.stringify(withRcds));
+   const visuals = () => app.findAll(app.nodes.get('print-area'), (n) => n.className === 'print-visual');
+   assert.equal(visuals().length, 0);
+   app.nodes.get('download-pdf').listeners.click();
+   assert.equal(app.pdfCalls[0][0][0].visual, null);
+
+   app.setShowVisual(true);
+   assert.equal(app.showVisualStorage(), 'true');
+   assert.equal(visuals().length, 2, 'one drawing per box');
+   const printed = visuals()[0];
+   assert.equal(app.findAll(printed, (n) => n.tag === 'button').length, 0, 'the printed drawing has no controls');
+   const modules = app.findAll(printed, (n) => n.attrs['data-module-id']);
+   assert.deepEqual(modules.map((n) => n.attrs['data-module-id']), ['legacy-module-1-1', 'legacy-module-1-2']);
+   assert.equal(app.findAll(modules[0], (n) => n.className === 'din-module-stripe')[0].attrs.style, 'background-color: #e53935');
+   assert.deepEqual(app.findAll(printed, (n) => n.className === 'din-label').map((n) => n.textContent), ['Keuken', 'Hal – Verlichting']);
+   const slots = app.findAll(printed, (n) => n.className === 'din-slot');
+   assert.equal(slots.length, 10);
+   assert.ok(slots.every((n) => n.tag === 'div' && !n.textContent), 'free slots are drawn without a plus');
+   assert.ok(app.findAll(app.nodes.get('boxes'), (n) => n.className === 'din-slot').every((n) => n.tag === 'button' && n.textContent === '+'),
+      'the editor keeps its interactive slots');
+
+   app.nodes.get('download-pdf').listeners.click();
+   const [visual] = app.pdfCalls[1][0].map((box) => box.visual);
+   assert.equal(visual.railWidth, 12);
+   assert.deepEqual(visual.rails[0].cells.filter((cell) => cell.item).map((cell) => [cell.slot, cell.width, cell.item.number, cell.item.color, cell.item.description]),
+      [[1, 1, '1', '#e53935', 'Keuken'], [2, 1, '2', null, 'Hal – Verlichting']]);
+
+   app.setShowVisual(false);
+   assert.equal(visuals().length, 0);
 });
