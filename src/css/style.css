@@ -1461,4 +1461,22 @@ select:focus-visible,
     height: 4mm;
     border: 0.2mm solid #1e1e1e;
   }
+
+  .print-visual {
+    margin: 0 0 4mm;
+    break-inside: avoid;
+  }
+
+  .print-visual .panel-scroll {
+    margin-top: 0;
+    overflow: visible;
+  }
+
+  /* The modules shrink so a rail fills the 180 mm between the page margins. */
+  .print-visual .panel {
+    --slot-width: min(
+      3.5rem,
+      calc((180mm - 2.5rem - 8px - var(--rail-width) * 2px) / var(--rail-width))
+    );
+  }
 }
