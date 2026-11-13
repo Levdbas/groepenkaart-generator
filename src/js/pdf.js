@@ -367,7 +367,7 @@
    }
 
    // Returns null when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
-   // is drawn on the last page.
+   // is drawn at the end of each box.
    function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages, generalInfo) {
       if (!window.jspdf || !window.jspdf.jsPDF) return null;
 
@@ -507,9 +507,10 @@
                doc.restoreGraphicsState();
             }
          });
+
+         if (qr) drawQr(doc, qr, margin);
       });
 
-      if (qr) drawQr(doc, qr, margin);
       return doc;
    }
 

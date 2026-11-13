@@ -330,6 +330,18 @@ test('phase PDF columns and long RCD labels fit inside the page and survive over
    assert.ok(table.columns.reduce((sum, column) => sum + column.width, 0) <= 180.01);
 });
 
+test('the full-card QR code is drawn at the end of each box, including overflow pages', () => {
+   const harness = setup();
+   const qr = { getModuleCount: () => 1, isDark: () => true };
+   harness.pdf.download([box('1', 50), box('2')], [], [], false, qr);
+
+   const pages = Array.from({ length: harness.document().getNumberOfPages() }, (_, i) => pageText(harness.document(), i + 1));
+   const qrPages = pages.map((text, index) => text.includes('Scan deze QR-code') ? index : -1).filter((index) => index >= 0);
+   assert.equal(qrPages.length, 2);
+   assert.ok(pages[qrPages[0]].includes('Group-1-50'));
+   assert.ok(pages[qrPages[1]].includes('Group-2-1'));
+});
+
 test('PDF group descriptions are bold and items are small bullets that wrap within the cell', () => {
    const harness = setup();
    const data = box();
