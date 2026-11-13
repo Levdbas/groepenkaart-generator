@@ -79,7 +79,7 @@
           "minimum": 1
         },
         "width": {
-          "description": "Width in DIN modules. Only for types with a variable width (RCBO-2P: 1 or 2; OTHER: 1 to 4); other types use the fixed width of their type. When absent the type default applies.",
+          "description": "Width in DIN modules. Only for types with a variable width (RCBO-2P: 1 or 2; MCB-3P: 3 or 4; MAINS-4P: 2 to 4; OTHER: 1 to 4); other types use the fixed width of their type. When absent the type default applies.",
           "type": "integer",
           "minimum": 1
         },
@@ -178,10 +178,24 @@
           "if": { "required": ["width"] },
           "then": {
             "properties": {
-              "type": { "enum": ["RCBO-2P", "OTHER"] },
+              "type": { "enum": ["RCBO-2P", "MCB-3P", "MAINS-4P", "OTHER"] },
               "width": { "maximum": 4 }
             }
           }
+        },
+        {
+          "if": {
+            "required": ["width"],
+            "properties": { "type": { "const": "MAINS-4P" } }
+          },
+          "then": { "properties": { "width": { "minimum": 2 } } }
+        },
+        {
+          "if": {
+            "required": ["width"],
+            "properties": { "type": { "const": "MCB-3P" } }
+          },
+          "then": { "properties": { "width": { "minimum": 3 } } }
         },
         {
           "if": {

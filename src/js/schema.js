@@ -18,11 +18,11 @@
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-2P', label: 'Fornuisgroep', description: 'Range circuit', phases: 2, width: 2 },
-      { slug: 'MCB-3P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
+      { slug: 'MCB-3P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 3, widthRange: [3, 4], phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'RCD-2P', label: 'Aardlekschakelaar 2P', description: 'Residual Current Device', phases: null, width: 2 },
       { slug: 'RCD-4P', label: 'Aardlekschakelaar 4P', description: 'Residual Current Device', phases: null, width: 4, phaseMode: 'three' },
       { slug: 'MAINS-2P', label: 'Hoofdschakelaar 2P', description: 'Switch-disconnector or main isolator', phases: 1, width: 2, phaseMode: 'single', protectable: false },
-      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three', protectable: false },
+      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, widthRange: [2, 4], phaseMode: 'three', protectable: false },
       { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1, widthRange: [1, 2], warnings: ['ev', 'pv', 'battery'] },
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3, mcbLinkable: true },
@@ -318,9 +318,15 @@
             generalInfo: data.generalInfo === undefined ? '' : data.generalInfo
          });
       },
-      // Main switches may have a color: nothing to convert.
+      // Main switches may have a color and some types a chosen width. A 3-pole circuit breaker was always 4 wide, so it keeps that width.
       7: function (data) {
-         return Object.assign({}, data, { schemaVersion: 8 });
+         if (!Array.isArray(data.modules)) throw new Error('Ongeldig bestand: "modules" moet een lijst zijn.');
+         return Object.assign({}, data, {
+            schemaVersion: 8,
+            modules: data.modules.map(function (module) {
+               return isObject(module) && module.type === 'MCB-3P' && module.width === undefined ? Object.assign({}, module, { width: 4 }) : module;
+            })
+         });
       }
    };
 
@@ -493,8 +499,8 @@
          if (supply.sourceModuleId && !source) {
             throw new Error('Ongeldig bestand: "sourceModuleId" verwijst naar een onbekende module.');
          }
-         if (source && (!source.boxId || !['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P', 'RCD-2P', 'RCD-4P'].includes(source.type))) {
-            throw new Error('Ongeldig bestand: een voeding moet verwijzen naar een geplaatste circuitmodule of aardlekschakelaar.');
+         if (source && (!source.boxId || !['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P', 'RCD-2P', 'RCD-4P', 'OTHER'].includes(source.type))) {
+            throw new Error('Ongeldig bestand: een voeding moet verwijzen naar een geplaatste circuitmodule, aardlekschakelaar of overige module.');
          }
          if (supply.sourceModuleId !== undefined) result.sourceModuleId = supply.sourceModuleId;
          if (supply.preFuse !== undefined) {

@@ -216,7 +216,7 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
       'RCBO-2P', 'RCBO-4P', 'DIN-OUTLET', 'Bell-TRANSFORMER', 'KWH-2P', 'KWH-4P', 'SPD', 'SPD-4P', 'OTHER'
    ]);
    assert.deepEqual(Array.from(moduleTypes.definitions, (type) => [type.slug, type.phases, type.width]), [
-      ['MCB', 1, 1], ['MCB-2P', 2, 2], ['MCB-3P', 3, 4], ['RCD-2P', null, 2],
+      ['MCB', 1, 1], ['MCB-2P', 2, 2], ['MCB-3P', 3, 3], ['RCD-2P', null, 2],
       ['RCD-4P', null, 4], ['MAINS-2P', 1, 2], ['MAINS-4P', 3, 4], ['RCBO-2P', 2, 1],
       ['RCBO-4P', 3, 4], ['DIN-OUTLET', 1, 3], ['Bell-TRANSFORMER', 1, 2],
       ['KWH-2P', 1, 1], ['KWH-4P', 3, 4], ['SPD', 1, 2], ['SPD-4P', 3, 4], ['OTHER', 1, 1]
@@ -227,7 +227,7 @@ test('module type catalog preserves the declared slugs, widths, phases and condi
    assert.equal(moduleTypes.available('SPD-4P', true), true);
    assert.equal(moduleTypes.allPhases('SPD-4P'), true);
    assert.deepEqual(Array.from(moduleTypes.definitions.filter((type) => type.widthRange), (type) => [type.slug, type.width, ...type.widthRange]),
-      [['RCBO-2P', 1, 1, 2], ['KWH-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
+      [['MCB-3P', 3, 3, 4], ['MAINS-4P', 4, 2, 4], ['RCBO-2P', 1, 1, 2], ['KWH-2P', 1, 1, 2], ['OTHER', 1, 1, 4]]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('RCBO-2P')), [1, 2]);
    assert.deepEqual(Array.from(moduleTypes.widthRange('KWH-2P')), [1, 2]);
    assert.equal(moduleTypes.widthRange('MCB'), null);
@@ -285,7 +285,7 @@ test('v5 box layout migrates to v6 and is validated in physical order', () => {
       [(d) => { delete d.boxes[0].railWidth; }, /"railWidth"/],
       [(d) => { d.modules[0].slot = 13; }, /valt buiten de rails/],
       [(d) => { d.modules[0].rail = 2; }, /valt buiten de rails/],
-      [(d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].slot = 10; }, /valt buiten de rails/],
+      [(d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].slot = 11; }, /valt buiten de rails/],
       [(d) => { d.modules[1].slot = 1; }, /overlappen/],
       [(d) => { d.modules[0].type = 'RCD-2P'; d.modules[0].color = '#ff0000'; }, /overlappen/],
       [(d) => { delete d.modules[0].rail; }, /geen rail en plek/],
@@ -319,7 +319,7 @@ test('v5 box layout migrates to v6 and is validated in physical order', () => {
    const migrated = schema.normalize(full);
    assert.equal(migrated.boxes[0].rails, 2, 'a 13th module starts a second rail');
    assert.deepEqual([migrated.modules[12].rail, migrated.modules[12].slot], [2, 1]);
-   assert.equal(schema.autoLayout(['MCB', 'MCB-3P', 'MCB-3P', 'MCB-3P'], 12).rails, 2,
+   assert.equal(schema.autoLayout(['MCB', 'MCB-3P', 'MCB-3P', 'MCB-3P', 'MCB-3P'], 12).rails, 2,
       'a module that does not fit on the rest of a rail moves to the next one');
    assert.deepEqual(plain(schema.autoLayout([], 12)), { rails: 1, positions: [] });
 });
@@ -1311,9 +1311,9 @@ test('module type controls derive width, only offer types that fit, keep charact
    app.save();
    let module = JSON.parse(app.storage()).modules[1];
    assert.equal(module.type, 'MCB-3P');
-   assert.ok(!('width' in module));
-   assert.equal(app.shareContext.GroepenkaartSchema.moduleTypes.get(module.type).width, 4);
-   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 4');
+   assert.equal(module.width, 3, 'a variable-width type stores its width, 3 by default');
+   assert.equal(app.shareContext.GroepenkaartSchema.moduleTypes.get(module.type).width, 3);
+   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 3');
    assert.equal(module.characteristic, 'C32');
    assert.ok(!('rcdType' in module));
    assert.equal(module.ratedCurrent, 16);
@@ -1366,6 +1366,47 @@ test('a module of a variable-width type stores its own width, validated against 
    const decoded = schema.normalize(share.decode(share.url('https://example.test/', schema.normalize(wide)).replace(/^.*(?=#)/, '')));
    assert.deepEqual(Array.from(decoded.modules, (module) => module.width), [2, undefined]);
    assert.equal(publishedSchema.$defs.module.properties.width.type, 'integer');
+});
+
+test('a 4-pole main switch and a 3-pole circuit breaker are 2 to 4 and 3 to 4 modules wide and default to 4 and 3', () => {
+   const { schema } = setupSchema();
+   const base = { ...structuredClone(plain(schema.normalize(noWarnings))), phaseEnabled: true };
+   const variant = (change) => {
+      const copy = structuredClone(base);
+      Object.assign(copy.modules[1], { type: 'MAINS-4P', phases: ['L1', 'L2', 'L3'] });
+      change(copy);
+      return copy;
+   };
+   assert.equal(schema.moduleTypes.widthOf({ type: 'MAINS-4P' }), 4);
+   assert.equal(schema.moduleTypes.widthOf({ type: 'MCB-3P' }), 3);
+   const v7 = variant((d) => { d.schemaVersion = 7; d.modules[1].type = 'MCB-3P'; });
+   assert.equal(schema.normalize(v7).modules[1].width, 4, 'v7 circuit breakers keep their former width');
+   assert.equal(v7.modules[1].width, undefined, 'the migration does not modify its input');
+   for (const width of [3, 4]) {
+      assert.equal(schema.normalize(variant((d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].width = width; })).modules[1].width, width);
+   }
+   for (const width of [2, 5]) {
+      assert.throws(() => schema.normalize(variant((d) => { d.modules[1].type = 'MCB-3P'; d.modules[1].width = width; })), /van 3 tot 4/);
+   }
+   for (const width of [2, 3, 4]) {
+      assert.equal(schema.normalize(variant((d) => { d.modules[1].width = width; })).modules[1].width, width);
+   }
+   for (const width of [1, 5]) {
+      assert.throws(() => schema.normalize(variant((d) => { d.modules[1].width = width; })), /van 2 tot 4/);
+   }
+   assert.throws(() => schema.normalize(variant((d) => { d.modules[1].type = 'MAINS-2P'; d.modules[1].width = 2; })), /vaste breedte/);
+
+   const app = setupApp(JSON.stringify({ ...noWarnings, phaseEnabled: true }));
+   const option = (name, value) => app.field(name).children.find((item) => item.value === value);
+   app.editModule('legacy-module-1-2');
+   app.set('type', 'MAINS-4P');
+   assert.deepEqual(app.field('width').children.map((item) => item.value), ['2', '3', '4']);
+   assert.equal(app.field('width').value, '4');
+   assert.equal(option('width', '4').attrs.disabled, undefined);
+   app.set('width', '2');
+   app.save();
+   assert.equal(JSON.parse(app.storage()).modules[1].width, 2);
+   assert.equal(app.moduleButton('legacy-module-1-2').attrs.style, 'grid-column: 2 / span 2');
 });
 
 test('a variable-width type offers its widths in the dialog, only those that fit, and the width moves the neighbours', () => {
@@ -1755,7 +1796,7 @@ test('a main switch can have an optional color that is kept and printed', () => 
    assert.ok(!('color' in stored()));
 });
 
-test('a sub-distribution box can be fed from an RCD, not from any module', () => {
+test('a sub-distribution box can be fed from an RCD or a free module, not from any module', () => {
    const module = (id, boxId, type, extra = {}) => ({
       id, boxId, rail: 1, slot: 1, type, number: '1', description: '', characteristic: '', phases: [], protectedByModuleId: null, ...extra
    });
@@ -1768,14 +1809,16 @@ test('a sub-distribution box can be fed from an RCD, not from any module', () =>
       ]
    });
    const { schema } = setupSchema();
-   for (const type of ['RCD-2P', 'RCD-4P', 'MCB']) {
+   for (const type of ['RCD-2P', 'RCD-4P', 'MCB', 'OTHER']) {
       assert.equal(schema.normalize(data(type)).boxes[1].supply.sourceModuleId, 'src');
    }
-   assert.throws(() => schema.normalize(data('KWH-2P')), /circuitmodule of aardlekschakelaar/);
+   assert.throws(() => schema.normalize(data('KWH-2P')), /circuitmodule, aardlekschakelaar of overige module/);
 
-   const app = setupApp(JSON.stringify(data('RCD-2P')));
-   const source = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Voeding vanuit module kast 2')[0];
-   assert.deepEqual(Array.from(source.children, (option) => option.value), ['', 'src']);
+   for (const type of ['RCD-2P', 'OTHER']) {
+      const app = setupApp(JSON.stringify(data(type)));
+      const source = app.findAll(app.nodes.get('boxes'), (node) => node.attrs['aria-label'] === 'Voeding vanuit module kast 2')[0];
+      assert.deepEqual(Array.from(source.children, (option) => option.value), ['', 'src']);
+   }
 });
 
 test('phase editing applies inheritance immediately across boxes and preserves independent group selections', async () => {

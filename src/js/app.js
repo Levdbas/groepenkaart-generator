@@ -21,7 +21,7 @@
    const mcbLinkTargets = circuitTypes;
    const mainsTypes = ['MAINS-2P', 'MAINS-4P'];
    const kwhTypes = ['KWH-2P', 'KWH-4P'];
-   const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P']);
+   const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P', 'OTHER']);
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
    // Regional grid operators (netbeheerders) of Netbeheer Nederland; anything else is entered via "Anders".
