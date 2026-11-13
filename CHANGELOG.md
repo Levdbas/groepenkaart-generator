@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.0](https://github.com/Levdbas/groepenkaart-generator/compare/2.2.0...2.3.0) (2026-11-13)
+
+
+### ⛰️ Features
+
+* Add a full-card QR code to each kast in PDF exports ([#66](https://github.com/Levdbas/groepenkaart-generator/issues/66)) ([83c0ff1](https://github.com/Levdbas/groepenkaart-generator/commit/83c0ff1998a67745eaafd6bfd2f9f37e9ba9e796))
+* add schema v8 with optional colors for main switches ([#67](https://github.com/Levdbas/groepenkaart-generator/issues/67)) ([c356b8b](https://github.com/Levdbas/groepenkaart-generator/commit/c356b8b63581cb05beb54a3786c8c371ff6dcf83))
+* add visual representation of boxes in PDF and print output ([#63](https://github.com/Levdbas/groepenkaart-generator/issues/63)) ([aab2f50](https://github.com/Levdbas/groepenkaart-generator/commit/aab2f5051c5e0d48fd5a4e4566d05a5e479a2372))
+* support variable widths for MCB-3P and MAINS-4P modules ([#67](https://github.com/Levdbas/groepenkaart-generator/issues/67)) ([c356b8b](https://github.com/Levdbas/groepenkaart-generator/commit/c356b8b63581cb05beb54a3786c8c371ff6dcf83))
+
 ## [2.2.0](https://github.com/Levdbas/groepenkaart-generator/compare/2.1.1...2.2.0) (2026-11-02)
 
 
