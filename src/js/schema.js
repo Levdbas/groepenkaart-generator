@@ -6,10 +6,10 @@
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
    * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, width?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[], specialInstallations?: ('smoke-alarm' | 'burglar-alarm')[]}} ModuleData
    * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
-   * @typedef {{schemaVersion: 7, generalInfo: string, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
+   * @typedef {{schemaVersion: 8, generalInfo: string, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
 
-   const currentVersion = 7;
+   const currentVersion = 8;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
@@ -77,6 +77,8 @@
    // mcbLinkable types connect to a circuit breaker (an RCBO counts as one); only rcdLinkable types may also connect to an RCD.
    const mcbLinkTargets = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const mainsTypes = ['MAINS-2P', 'MAINS-4P'];
+   // RCDs and RCBOs must have a color; main switches may have one.
+   const colorTypes = protectiveTypes.concat(mainsTypes);
    const kwhTypes = ['KWH-2P', 'KWH-4P'];
    const boxLimits = { minRails: 1, maxRails: 99, minRailWidth: 4, maxRailWidth: 48, defaultRailWidth: 12 };
 
@@ -315,6 +317,10 @@
             schemaVersion: 7,
             generalInfo: data.generalInfo === undefined ? '' : data.generalInfo
          });
+      },
+      // Main switches may have a color: nothing to convert.
+      7: function (data) {
+         return Object.assign({}, data, { schemaVersion: 8 });
       }
    };
 
@@ -386,8 +392,8 @@
             throw new Error('Ongeldig bestand: "protectedByModuleId" moet tekst of null zijn.');
          }
          if (module.name !== undefined && typeof module.name !== 'string') throw new Error('Ongeldig bestand: "name" van een module moet tekst zijn.');
-         if (module.color !== undefined && (!protectiveTypes.includes(module.type) || !rcdHelpers.isColor(module.color))) {
-            throw new Error('Ongeldig bestand: de kleur van een beveiligingsmodule moet een hexkleur zijn.');
+         if (module.color !== undefined && (!colorTypes.includes(module.type) || !rcdHelpers.isColor(module.color))) {
+            throw new Error('Ongeldig bestand: de kleur van een beveiligingsmodule of hoofdschakelaar moet een hexkleur zijn.');
          }
          if (module.sensitivity !== undefined && ![10, 30, 100, 300].includes(module.sensitivity)) {
             throw new Error('Ongeldig bestand: "sensitivity" moet 10, 30, 100 of 300 mA zijn.');
@@ -621,11 +627,11 @@
                if (protection && kwhTypes.includes(protection.type) && protectiveTypes.includes(module.type)) {
                   throw new Error('Ongeldig bestand: een aardlekschakelaar of aardlekautomaat kan alleen aan een kWh-meter gekoppeld zijn als die meter aan de hoofdschakelaar is gekoppeld.');
                }
-              throw new Error(linkable
-                 ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
-                    ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
-                    : 'installatieautomaat of aardlekautomaat.')
-                 : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
+               throw new Error(linkable
+                  ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
+                     ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
+                     : 'installatieautomaat of aardlekautomaat.')
+                  : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
             }
          }
       });

@@ -14,7 +14,7 @@ function setup() {
 }
 
 const card = () => ({
-   schemaVersion: 7,
+   schemaVersion: 8,
    generalInfo: 'Installateur Jan Jansen: 06-12345678',
    qrEnabled: true,
    rcdEnabled: true,
@@ -72,10 +72,10 @@ test('migrates older versions and rejects invalid or newer files', () => {
       warnings: [],
       boxes: [{ number: '1', name: 'Thuis', groups: [{ number: '1', name: 'Keuken', description: 'Oven' }] }]
    });
-   assert.equal(data.schemaVersion, 7);
+   assert.equal(data.schemaVersion, 8);
    assert.equal(data.boxes[0].name, 'xxxxx');
    assert.equal(data.modules[0].description, 'xxxxxx – xxxx');
-   assert.throws(() => anonymize({ schemaVersion: 8 }), /nieuwere schemaversie/);
+   assert.throws(() => anonymize({ schemaVersion: 9 }), /nieuwere schemaversie/);
    assert.throws(() => anonymize([]), /verwacht een object/);
 });
 
@@ -88,7 +88,7 @@ test('anonymizes v5 bell transformers with a legacy direct RCD link', () => {
    input.boxes[1].supply = null;
    const before = JSON.stringify(input);
    const { data } = anonymize(input);
-   assert.equal(data.schemaVersion, 7);
+   assert.equal(data.schemaVersion, 8);
    assert.equal(data.modules[1].type, 'Bell-TRANSFORMER');
    assert.equal(data.modules[1].protectedByModuleId, null);
    assert.equal(data.modules[1].rail, 1);
