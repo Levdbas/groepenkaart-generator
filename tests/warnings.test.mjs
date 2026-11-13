@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 
 applyPlugin(jsPDF);
-const sources = await Promise.all(['warnings', 'rcd', 'schema', 'pdf'].map((name) =>
+const sources = await Promise.all(['warnings', 'rcd', 'schema', 'panel', 'pdf'].map((name) =>
    readFile(new URL(`../src/js/${name}.js`, import.meta.url), 'utf8')));
 
 function setup() {
@@ -142,6 +142,29 @@ test('PDF only draws empty rows for the free slots the app supplies', () => {
    assert.deepEqual(body[4].cells[1].text, ['']);
    assert.equal(harness.pdf.download([padded(box('1', 20), 15)]), true);
    assert.equal(harness.document().lastAutoTable.body.length, 20);
+});
+
+test('a visual box is drawn above the table when the app supplies one', () => {
+   const harness = setup();
+   const visual = harness.window.GroepenkaartPanel.model({ rails: 2, railWidth: 12 }, [{
+      id: 'a', rail: 1, slot: 1, width: 1, number: '7', type: 'MCB', description: 'Lamp', color: '#ff0000', protective: false, badges: []
+   }]);
+   assert.equal(harness.pdf.download([box('1', 3)]), true);
+   const plainStart = harness.document().lastAutoTable.settings.startY;
+   assert.ok(!pageText(harness.document(), 1).includes('Lamp'));
+   assert.equal(harness.pdf.download([{ ...box('1', 3), visual }]), true);
+   assert.ok(pageText(harness.document(), 1).includes('Lamp'));
+   assert.ok(harness.document().lastAutoTable.settings.startY > plainStart + 50, 'the table starts below the drawing');
+   assert.equal(harness.document().getNumberOfPages(), 1);
+});
+
+test('a visual box that cannot fit below the page header moves to a new page with the box title', () => {
+   const harness = setup();
+   const visual = harness.window.GroepenkaartPanel.model({ rails: 4, railWidth: 12 }, []);
+   const crowded = { ...box('1', 3), visual };
+   assert.equal(harness.pdf.download([crowded], displayedIds, [], false, null, true, [], 'Algemeen\n'.repeat(40)), true);
+   assert.equal(harness.document().getNumberOfPages(), 2);
+   assert.ok(pageText(harness.document(), 2).includes('Kast 1 - Meterkast 1'));
 });
 
 test('a MAINS module prints its poles and current without duplicating legacy supply fields', () => {
