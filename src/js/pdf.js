@@ -366,6 +366,23 @@
       return top + fit.height + 4;
    }
 
+   function qrBoxIndexes(boxes) {
+      const indexes = new Set();
+      boxes.forEach(function (box, index) {
+         if (!box.supply || !['mains', 'subdistribution'].includes(box.supply.type)) return;
+         const linked = [];
+         if (box.id) {
+            boxes.forEach(function (candidate, candidateIndex) {
+               if (candidate.supply && candidate.supply.type === 'linked' && candidate.supply.sourceBoxId === box.id) {
+                  linked.push(candidateIndex);
+               }
+            });
+         }
+         indexes.add(linked.length ? linked[linked.length - 1] : index);
+      });
+      return indexes;
+   }
+
    // Returns null when jsPDF is unavailable so the caller can fall back to printing. A qr (from qrcode-generator)
    // is drawn at the end of each box.
    function build(boxes, warningIds, rcds, phaseEnabled, qr, rcdFirst, warningImages, generalInfo) {
@@ -384,6 +401,7 @@
       const pageWidth = doc.internal.pageSize.getWidth();
       const maxRowHeight = doc.internal.pageSize.getHeight() - MARGIN_Y * 2 - 12;
       const date = 'Afgedrukt op ' + today();
+      const qrIndexes = qr ? qrBoxIndexes(boxes) : new Set();
 
       boxes.forEach(function (box, index) {
          if (index > 0) doc.addPage();
@@ -508,7 +526,7 @@
             }
          });
 
-         if (qr) drawQr(doc, qr, margin);
+         if (qrIndexes.has(index)) drawQr(doc, qr, margin);
       });
 
       return doc;
