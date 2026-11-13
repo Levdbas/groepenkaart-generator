@@ -330,6 +330,26 @@ test('phase PDF columns and long RCD labels fit inside the page and survive over
    assert.ok(table.columns.reduce((sum, column) => sum + column.width, 0) <= 180.01);
 });
 
+test('the full-card QR code is drawn on the last page of a box or its last linked box', () => {
+   const harness = setup();
+   const qr = { getModuleCount: () => 1, isDark: () => true };
+   const mains = { ...box('1', 50), id: 'mains-1', supply: { type: 'mains' } };
+   const linkedMains = { ...box('2'), id: 'mains-2', supply: { type: 'mains' } };
+   const firstLinked = { ...box('3'), id: 'linked-1', supply: { type: 'linked', sourceBoxId: 'mains-2' } };
+   const lastLinked = { ...box('4'), id: 'linked-2', supply: { type: 'linked', sourceBoxId: 'mains-2' } };
+   const subdistribution = { ...box('5'), id: 'sub-1', supply: { type: 'subdistribution' } };
+   harness.pdf.download([mains, linkedMains, firstLinked, lastLinked, subdistribution], [], [], false, qr);
+
+   const pages = Array.from({ length: harness.document().getNumberOfPages() }, (_, i) => pageText(harness.document(), i + 1));
+   const qrPages = pages.map((text, index) => text.includes('Scan deze QR-code') ? index : -1).filter((index) => index >= 0);
+   assert.equal(qrPages.length, 3);
+   assert.ok(pages[qrPages[0]].includes('Group-1-50'), 'an unlinked mains box gets the QR after its overflow pages');
+   assert.ok(pages[qrPages[1]].includes('Group-4-1'), 'only the last box linked to a mains box gets its QR');
+   assert.ok(pages[qrPages[2]].includes('Group-5-1'), 'an unlinked subdistribution box gets its QR');
+   assert.ok(!pages.some((text) => text.includes('Group-2-1') && text.includes('Scan deze QR-code')));
+   assert.ok(!pages.some((text) => text.includes('Group-3-1') && text.includes('Scan deze QR-code')));
+});
+
 test('PDF group descriptions are bold and items are small bullets that wrap within the cell', () => {
    const harness = setup();
    const data = box();
