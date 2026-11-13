@@ -21,7 +21,7 @@
    const mcbLinkTargets = circuitTypes;
    const mainsTypes = ['MAINS-2P', 'MAINS-4P'];
    const kwhTypes = ['KWH-2P', 'KWH-4P'];
-   const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P']);
+   const supplySourceTypes = circuitTypes.concat(['RCD-2P', 'RCD-4P', 'OTHER']);
    const protectiveKeys = ['color', 'name', 'sensitivity', 'rcdType', 'ratedCurrent'];
    const boxPresets = [[1, 12], [2, 12], [3, 12], [4, 12]];
    // Regional grid operators (netbeheerders) of Netbeheer Nederland; anything else is entered via "Anders".
@@ -175,6 +175,10 @@
 
    function isProtective(module) {
       return protectiveTypes.includes(module.type);
+   }
+
+   function isMains(module) {
+      return mainsTypes.includes(module.type);
    }
 
    function findBox(id) {
@@ -351,7 +355,7 @@
    }
 
    function moduleColor(module) {
-      if (isProtective(module)) return module.color;
+      if (isProtective(module) || isMains(module)) return module.color || null;
       const protection = rcdOf(module);
       return protection ? protection.color : null;
    }
@@ -511,6 +515,7 @@
          else delete draft.warnings;
       }
       if (!specialInstallationTypes.includes(type)) delete draft.specialInstallations;
+      if (!mainsTypes.includes(type) && !protectiveTypes.includes(type)) delete draft.color;
       if (!moduleTypes.protectable(type)) draft.protectedByModuleId = null;
       const linkedTarget = draft.protectedByModuleId && findModule(draft.protectedByModuleId);
       if (linkedTarget && !canLink(type, linkedTarget)) draft.protectedByModuleId = null;
@@ -607,12 +612,35 @@
    }
 
    function colorField(draft) {
-      const color = el('input', { type: 'color', className: 'rcd-color', 'data-field': 'color', 'aria-label': 'Kleur aardlekschakelaar', title: 'Kleur kiezen' });
-      color.value = draft.color;
-      color.addEventListener('input', function () {
-         if (rcdHelpers.isColor(color.value)) draft.color = color.value.toLowerCase();
+      const optional = !isProtective(draft);
+      const color = el('input', {
+         type: 'color', className: 'rcd-color', 'data-field': 'color',
+         'aria-label': optional ? 'Kleur hoofdschakelaar' : 'Kleur aardlekschakelaar', title: 'Kleur kiezen'
       });
-      return labelField('Kleur op de groepenkaart', color);
+      color.value = draft.color || rcdHelpers.defaultColor('');
+      if (!optional) {
+         color.addEventListener('input', function () {
+            if (rcdHelpers.isColor(color.value)) draft.color = color.value.toLowerCase();
+         });
+         return labelField('Kleur op de groepenkaart', color);
+      }
+      const clear = el('button', {
+         type: 'button', className: 'btn', text: 'Geen kleur',
+         onclick: function () {
+            delete draft.color;
+            rerenderModuleDialog('color');
+         }
+      });
+      clear.disabled = !draft.color;
+      color.addEventListener('input', function () {
+         if (!rcdHelpers.isColor(color.value)) return;
+         draft.color = color.value.toLowerCase();
+         clear.disabled = false;
+      });
+      return el('div', { className: 'field' }, [
+         el('span', { text: 'Kleur op de groepenkaart' }),
+         el('div', { className: 'rcd-select' }, [color, clear])
+      ]);
    }
 
    function protectionField(draft) {
@@ -778,7 +806,7 @@
             dialogState.autoNumber = false;
          }),
          dialogText(draft, 'description', 'Omschrijving', isProtective(draft) ? 'Bijv. Keuken en badkamer' : 'Bijv. Keuken'),
-         isProtective(draft) ? colorField(draft) : null,
+         isProtective(draft) || isMains(draft) ? colorField(draft) : null,
          warningField(draft),
          specialInstallationField(draft),
          dialogText(draft, 'characteristic', 'Vrij kenmerk', 'Bijv. B16'),
@@ -1426,12 +1454,13 @@
             if (!g) return el('tr', null, [el('td'), el('td'), state.phaseEnabled ? el('td') : null]);
             const entry = lookup[g.rcdId];
             const protection = entry || (protectiveTypes.includes(g.type) ? lookup[g.id] : null);
+            const cellColor = protection ? protection.rcd.color : isMains(g) ? g.color : null;
             const phases = rcdHelpers.groupPhases(g, moduleTypes.allPhases(g.type) ? null : protection && protection.rcd);
             return el('tr', null, [
-               el('td', protection ? {
+               el('td', cellColor ? {
                   className: 'rcd-cell',
-                  style: 'background-color: ' + protection.rcd.color + '; color: ' + rcdHelpers.textColor(protection.rcd.color),
-                  text: rcdHelpers.cellText(g.number, protection, rcdFirst)
+                  style: 'background-color: ' + cellColor + '; color: ' + rcdHelpers.textColor(cellColor),
+                  text: protection ? rcdHelpers.cellText(g.number, protection, rcdFirst) : g.number
                } : { text: g.number }),
                el('td', null, [
                   g.description ? el('div', { text: g.description }) : null,

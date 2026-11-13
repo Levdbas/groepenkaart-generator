@@ -6,10 +6,10 @@
     * @typedef {'L1' | 'L2' | 'L3'} PhaseCode
    * @typedef {{id: string, boxId: string | null, rail?: number, slot?: number, width?: number, type: string, number: string, description: string, name?: string, color?: string, characteristic: string, phases: PhaseCode[], protectedByModuleId: string | null, items?: string[], sensitivity?: 10 | 30 | 100 | 300, rcdType?: 'AC' | 'A' | 'F' | 'B' | 'B+', ratedCurrent?: number, warnings?: ('pv' | 'ev' | 'battery')[], specialInstallations?: ('smoke-alarm' | 'burglar-alarm')[]}} ModuleData
    * @typedef {{id: string, number: string, name: string, rails: number, railWidth: number, moduleIds: string[], supply: object | null}} BoxData
-   * @typedef {{schemaVersion: 7, generalInfo: string, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
+   * @typedef {{schemaVersion: 8, generalInfo: string, qrEnabled: boolean, rcdEnabled: boolean, phaseEnabled: boolean, modules: ModuleData[], boxes: BoxData[]}} CardData
     */
 
-   const currentVersion = 7;
+   const currentVersion = 8;
    const schemaUrl = 'https://raw.githubusercontent.com/Levdbas/groepenkaart-generator/main/schemas/groepenkaart-v' + currentVersion + '.schema.json';
    const warnings = window.GroepenkaartWarnings;
    const rcdHelpers = window.GroepenkaartRcd;
@@ -18,11 +18,11 @@
    const typeDefinitions = [
       { slug: 'MCB', label: 'Installatieautomaat', description: 'Circuit breaker', phases: 1, width: 1, warnings: ['ev', 'pv', 'battery'] },
       { slug: 'MCB-2P', label: 'Fornuisgroep', description: 'Range circuit', phases: 2, width: 2 },
-      { slug: 'MCB-3P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
+      { slug: 'MCB-3P', label: 'Krachtgroep', description: '3-phase power circuit', phases: 3, width: 3, widthRange: [3, 4], phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'RCD-2P', label: 'Aardlekschakelaar 2P', description: 'Residual Current Device', phases: null, width: 2 },
       { slug: 'RCD-4P', label: 'Aardlekschakelaar 4P', description: 'Residual Current Device', phases: null, width: 4, phaseMode: 'three' },
       { slug: 'MAINS-2P', label: 'Hoofdschakelaar 2P', description: 'Switch-disconnector or main isolator', phases: 1, width: 2, phaseMode: 'single', protectable: false },
-      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, phaseMode: 'three', protectable: false },
+      { slug: 'MAINS-4P', label: 'Hoofdschakelaar 4P', description: 'Switch-disconnector or main isolator', phases: 3, width: 4, widthRange: [2, 4], phaseMode: 'three', protectable: false },
       { slug: 'RCBO-2P', label: 'Aardlekautomaat 2P', description: 'RCBO (MCB + RCD in one)', phases: 2, width: 1, widthRange: [1, 2], warnings: ['ev', 'pv', 'battery'] },
       { slug: 'RCBO-4P', label: 'Aardlekautomaat 4P', description: 'RCBO (MCB + RCD in one)', phases: 3, width: 4, phaseMode: 'three', warnings: ['ev', 'pv', 'battery'] },
       { slug: 'DIN-OUTLET', label: 'Dinrail stopcontact', description: '', phases: 1, width: 3, mcbLinkable: true },
@@ -77,6 +77,8 @@
    // mcbLinkable types connect to a circuit breaker (an RCBO counts as one); only rcdLinkable types may also connect to an RCD.
    const mcbLinkTargets = ['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P'];
    const mainsTypes = ['MAINS-2P', 'MAINS-4P'];
+   // RCDs and RCBOs must have a color; main switches may have one.
+   const colorTypes = protectiveTypes.concat(mainsTypes);
    const kwhTypes = ['KWH-2P', 'KWH-4P'];
    const boxLimits = { minRails: 1, maxRails: 99, minRailWidth: 4, maxRailWidth: 48, defaultRailWidth: 12 };
 
@@ -315,6 +317,16 @@
             schemaVersion: 7,
             generalInfo: data.generalInfo === undefined ? '' : data.generalInfo
          });
+      },
+      // Main switches may have a color and some types a chosen width. A 3-pole circuit breaker was always 4 wide, so it keeps that width.
+      7: function (data) {
+         if (!Array.isArray(data.modules)) throw new Error('Ongeldig bestand: "modules" moet een lijst zijn.');
+         return Object.assign({}, data, {
+            schemaVersion: 8,
+            modules: data.modules.map(function (module) {
+               return isObject(module) && module.type === 'MCB-3P' && module.width === undefined ? Object.assign({}, module, { width: 4 }) : module;
+            })
+         });
       }
    };
 
@@ -386,8 +398,8 @@
             throw new Error('Ongeldig bestand: "protectedByModuleId" moet tekst of null zijn.');
          }
          if (module.name !== undefined && typeof module.name !== 'string') throw new Error('Ongeldig bestand: "name" van een module moet tekst zijn.');
-         if (module.color !== undefined && (!protectiveTypes.includes(module.type) || !rcdHelpers.isColor(module.color))) {
-            throw new Error('Ongeldig bestand: de kleur van een beveiligingsmodule moet een hexkleur zijn.');
+         if (module.color !== undefined && (!colorTypes.includes(module.type) || !rcdHelpers.isColor(module.color))) {
+            throw new Error('Ongeldig bestand: de kleur van een beveiligingsmodule of hoofdschakelaar moet een hexkleur zijn.');
          }
          if (module.sensitivity !== undefined && ![10, 30, 100, 300].includes(module.sensitivity)) {
             throw new Error('Ongeldig bestand: "sensitivity" moet 10, 30, 100 of 300 mA zijn.');
@@ -487,8 +499,8 @@
          if (supply.sourceModuleId && !source) {
             throw new Error('Ongeldig bestand: "sourceModuleId" verwijst naar een onbekende module.');
          }
-         if (source && (!source.boxId || !['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P', 'RCD-2P', 'RCD-4P'].includes(source.type))) {
-            throw new Error('Ongeldig bestand: een voeding moet verwijzen naar een geplaatste circuitmodule of aardlekschakelaar.');
+         if (source && (!source.boxId || !['MCB', 'MCB-2P', 'MCB-3P', 'RCBO-2P', 'RCBO-4P', 'RCD-2P', 'RCD-4P', 'OTHER'].includes(source.type))) {
+            throw new Error('Ongeldig bestand: een voeding moet verwijzen naar een geplaatste circuitmodule, aardlekschakelaar of overige module.');
          }
          if (supply.sourceModuleId !== undefined) result.sourceModuleId = supply.sourceModuleId;
          if (supply.preFuse !== undefined) {
@@ -621,11 +633,11 @@
                if (protection && kwhTypes.includes(protection.type) && protectiveTypes.includes(module.type)) {
                   throw new Error('Ongeldig bestand: een aardlekschakelaar of aardlekautomaat kan alleen aan een kWh-meter gekoppeld zijn als die meter aan de hoofdschakelaar is gekoppeld.');
                }
-              throw new Error(linkable
-                 ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
-                    ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
-                    : 'installatieautomaat of aardlekautomaat.')
-                 : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
+               throw new Error(linkable
+                  ? 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een ' + (moduleTypes.rcdLinkable(module.type)
+                     ? 'installatieautomaat, aardlekautomaat of aardlekschakelaar.'
+                     : 'installatieautomaat of aardlekautomaat.')
+                  : 'Ongeldig bestand: "protectedByModuleId" verwijst niet naar een RCD- of RCBO-module.');
             }
          }
       });

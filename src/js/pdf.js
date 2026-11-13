@@ -475,10 +475,13 @@
                ...(phaseEnabled ? { 2: { cellWidth: PHASE_WIDTH, cellPadding: { top: 2, right: 2, bottom: 3, left: 2 } } } : {})
             },
             didParseCell: function (data) {
-               const entry = data.section === 'body' && data.column.index === 0 && entries[data.row.index];
-               if (!entry) return;
-               data.cell.styles.fillColor = rcd.rgb(entry.rcd.color);
-               data.cell.styles.textColor = rcd.rgb(rcd.textColor(entry.rcd.color));
+               if (data.section !== 'body' || data.column.index !== 0) return;
+               const module = rows[data.row.index];
+               const entry = entries[data.row.index];
+               const color = entry ? entry.rcd.color : module && /^MAINS-/.test(module.type || '') ? module.color : null;
+               if (!color) return;
+               data.cell.styles.fillColor = rcd.rgb(color);
+               data.cell.styles.textColor = rcd.rgb(rcd.textColor(color));
                data.cell.styles.fontStyle = 'bold';
             },
             didDrawCell: function (data) {

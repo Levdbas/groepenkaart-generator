@@ -1,12 +1,13 @@
 (function () {
    'use strict';
 
-   // c1 describes schema v4. c2 describes v5. c3 adds special installations for v6; c4 adds general information for v7.
+   // c1 describes schema v4. c2 describes v5. c3 adds special installations for v6; c4 adds general information for v7; c5 describes v8.
    // The original #data format is deflated JSON as base64url and remains read-only.
    const COMPACT_V4 = '#c1=';
    const COMPACT_V5 = '#c2=';
    const COMPACT_V6 = '#c3=';
    const COMPACT_V7 = '#c4=';
+   const COMPACT_V8 = '#c5=';
    const LEGACY = '#data=';
    // The compact token uses only characters from the QR alphanumeric set that are safe in links, so it fits in
    // about 5.5 bits per character instead of 8.
@@ -258,10 +259,22 @@
       return data;
    }
 
-   /** Compresses v4 through v7 card data into a token of QR alphanumeric characters. */
+   // Same layout as v7: the module color is already part of every row.
+   function packV8(data) {
+      return packV7(data);
+   }
+
+   function unpackV8(packed) {
+      const data = unpackV7(packed);
+      data.schemaVersion = 8;
+      return data;
+   }
+
+   /** Compresses v4 through v8 card data into a token of QR alphanumeric characters. */
    function encode(data) {
       let packed;
-      if (data.schemaVersion === 7) packed = packV7(data);
+      if (data.schemaVersion === 8) packed = packV8(data);
+      else if (data.schemaVersion === 7) packed = packV7(data);
       else if (data.schemaVersion === 6) packed = packV6(data);
       else if (data.schemaVersion === 5) packed = packV5(data);
       else if (data.schemaVersion === 4) packed = packV4(data);
@@ -271,7 +284,7 @@
 
    /** The link that reopens the card in the app at the given page address. */
    function url(base, data) {
-      const prefix = data.schemaVersion === 7 ? COMPACT_V7 : data.schemaVersion === 6 ? COMPACT_V6 :
+      const prefix = data.schemaVersion === 8 ? COMPACT_V8 : data.schemaVersion === 7 ? COMPACT_V7 : data.schemaVersion === 6 ? COMPACT_V6 :
          data.schemaVersion === 5 ? COMPACT_V5 : COMPACT_V4;
       return base.split('#')[0] + prefix + encode(data);
    }
@@ -279,7 +292,8 @@
    /** Whether a location hash carries card data, valid or not. */
    function isLink(hash) {
       return typeof hash === 'string' && (hash.indexOf(COMPACT_V4) === 0 || hash.indexOf(COMPACT_V5) === 0 ||
-         hash.indexOf(COMPACT_V6) === 0 || hash.indexOf(COMPACT_V7) === 0 || hash.indexOf(LEGACY) === 0);
+         hash.indexOf(COMPACT_V6) === 0 || hash.indexOf(COMPACT_V7) === 0 || hash.indexOf(COMPACT_V8) === 0 ||
+         hash.indexOf(LEGACY) === 0);
    }
 
    /** Returns the card data in a location hash, not yet validated by the schema. */
@@ -289,12 +303,13 @@
          const compactV5 = hash.indexOf(COMPACT_V5) === 0;
          const compactV6 = hash.indexOf(COMPACT_V6) === 0;
          const compactV7 = hash.indexOf(COMPACT_V7) === 0;
-         const compact = compactV4 || compactV5 || compactV6 || compactV7;
-         const prefix = compactV7 ? COMPACT_V7 : compactV6 ? COMPACT_V6 : compactV5 ? COMPACT_V5 : compactV4 ? COMPACT_V4 : LEGACY;
+         const compactV8 = hash.indexOf(COMPACT_V8) === 0;
+         const compact = compactV4 || compactV5 || compactV6 || compactV7 || compactV8;
+         const prefix = compactV8 ? COMPACT_V8 : compactV7 ? COMPACT_V7 : compactV6 ? COMPACT_V6 : compactV5 ? COMPACT_V5 : compactV4 ? COMPACT_V4 : LEGACY;
          const token = hash.slice(prefix.length);
          if (!token || token.length > MAX_TOKEN_LENGTH) throw new Error('Ongeldige lengte.');
          const json = JSON.parse(fflate.strFromU8(fflate.inflateSync(compact ? fromBase40(token) : fromBase64Url(token))));
-         return compactV7 ? unpackV7(json) : compactV6 ? unpackV6(json) : compactV5 ? unpackV5(json) : compactV4 ? unpackV4(json) : json;
+         return compactV8 ? unpackV8(json) : compactV7 ? unpackV7(json) : compactV6 ? unpackV6(json) : compactV5 ? unpackV5(json) : compactV4 ? unpackV4(json) : json;
       } catch (e) {
          throw new Error('de link bevat geen geldige groepenkaart.');
       }
@@ -305,7 +320,7 @@
     * mode. Returns null when the link is too long.
     */
    function qr(link) {
-      const prefixes = [COMPACT_V7, COMPACT_V6, COMPACT_V5, COMPACT_V4];
+      const prefixes = [COMPACT_V8, COMPACT_V7, COMPACT_V6, COMPACT_V5, COMPACT_V4];
       const prefix = prefixes.find(function (value) { return link.indexOf(value) !== -1; });
       const split = prefix ? link.indexOf(prefix) : -1;
       const head = split === -1 ? link : link.slice(0, split + prefix.length);
